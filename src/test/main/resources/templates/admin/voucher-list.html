@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Quản Lý Khuyến Mãi (Voucher)</title>
+</head>
+<body>
+<div layout:fragment="admin-header-title">
+    <span>Quản Trị Hệ Thống / Khuyến Mãi & Voucher</span>
+</div>
+
+<div layout:fragment="admin-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">Danh Sách Mã Giảm Giá</h4>
+            <p class="text-muted small mb-0">Quản lý các chương trình ưu đãi, khuyến mãi và voucher giảm giá toàn sàn.</p>
+        </div>
+        <a th:href="@{/admin/vouchers/create}" class="btn btn-primary d-flex align-items-center gap-2">
+            <i class="bi bi-plus-circle-fill"></i>
+            <span>Tạo Voucher Mới</span>
+        </a>
+    </div>
+
+    <!-- Voucher Table -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Mã Voucher</th>
+                        <th>Tên Chương Trình</th>
+                        <th>Loại Giảm Giá</th>
+                        <th>Giá Trị</th>
+                        <th>Đơn Tối Thiểu</th>
+                        <th>Giảm Tối Đa</th>
+                        <th>Thời Hạn Áp Dụng</th>
+                        <th>Đã Dùng / Giới Hạn</th>
+                        <th>Trạng Thái</th>
+                        <th class="text-end pe-4">Hành Động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${vouchers.empty}">
+                        <td colspan="10" class="text-center py-5 text-muted">
+                            <i class="bi bi-ticket-perforated display-6 d-block mb-2 text-secondary"></i>
+                            Chưa có mã khuyến mãi nào trong hệ thống.
+                        </td>
+                    </tr>
+                    <tr th:each="v : ${vouchers.content}">
+                        <td class="ps-4">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 font-monospace" th:text="${v.code}">SUMMER2026</span>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark" th:text="${v.title}">Ưu đãi hè rực rỡ</div>
+                            <small class="text-muted text-truncate d-inline-block" style="max-width: 200px;" th:text="${v.description}"></small>
+                        </td>
+                        <td>
+                            <span th:if="${v.discountType.name() == 'PERCENT'}" class="badge bg-warning text-dark">Phần Trăm (%)</span>
+                            <span th:if="${v.discountType.name() == 'FIXED'}" class="badge bg-info text-dark">Số Tiền (VNĐ)</span>
+                        </td>
+                        <td class="fw-bold text-danger">
+                            <span th:if="${v.discountType.name() == 'PERCENT'}" th:text="${v.discountValue + '%'}">10%</span>
+                            <span th:if="${v.discountType.name() == 'FIXED'}" th:text="${#numbers.formatDecimal(v.discountValue, 0, 'POINT', 0, 'COMMA') + ' đ'}">50,000 đ</span>
+                        </td>
+                        <td class="text-muted" th:text="${#numbers.formatDecimal(v.minOrderAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}">100,000 đ</td>
+                        <td class="text-muted">
+                            <span th:if="${v.maxDiscountAmount != null}" th:text="${#numbers.formatDecimal(v.maxDiscountAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}">100,000 đ</span>
+                            <span th:if="${v.maxDiscountAmount == null}" class="fst-italic small">Không giới hạn</span>
+                        </td>
+                        <td class="small">
+                            <div class="text-muted">Từ: <span th:text="${#temporals.format(v.startDate, 'dd/MM/yyyy HH:mm')}">01/01/2026</span></div>
+                            <div class="text-muted">Đến: <span th:text="${#temporals.format(v.endDate, 'dd/MM/yyyy HH:mm')}">31/12/2026</span></div>
+                        </td>
+                        <td>
+                            <div class="small fw-semibold">
+                                <span th:text="${v.usedCount}">0</span> / <span th:text="${v.totalUsageLimit}">100</span>
+                            </div>
+                            <div class="progress mt-1" style="height: 5px;">
+                                <div class="progress-bar bg-success" role="progressbar"
+                                     th:style="'width: ' + ${(v.usedCount * 100.0) / v.totalUsageLimit} + '%;'"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <span th:if="${v.status.name() == 'ACTIVE'}" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                Hoạt động
+                            </span>
+                            <span th:if="${v.status.name() == 'INACTIVE'}" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                Tạm khóa
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="d-inline-flex gap-1">
+                                <a th:href="@{/admin/vouchers/{id}/edit(id=${v.id})}" class="btn btn-sm btn-outline-secondary" title="Chỉnh sửa">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form th:action="@{/admin/vouchers/{id}/toggle-status(id=${v.id})}" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm"
+                                            th:classappend="${v.status.name() == 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}"
+                                            th:title="${v.status.name() == 'ACTIVE' ? 'Tạm dừng voucher' : 'Kích hoạt voucher'}">
+                                        <i th:class="${v.status.name() == 'ACTIVE' ? 'bi bi-pause-fill' : 'bi bi-play-fill'}"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div th:if="${vouchers.totalPages > 1}" class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center">
+            <span class="small text-muted">
+                Hiển thị trang <b th:text="${vouchers.number + 1}">1</b> / <span th:text="${vouchers.totalPages}">1</span>
+            </span>
+            <nav aria-label="Pagination">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item" th:classappend="${vouchers.first} ? 'disabled'">
+                        <a class="page-link" th:href="@{/admin/vouchers(page=${vouchers.number - 1})}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    <li th:each="i : ${#numbers.sequence(0, vouchers.totalPages - 1)}" class="page-item" th:classappend="${i == vouchers.number} ? 'active'">
+                        <a class="page-link" th:href="@{/admin/vouchers(page=${i})}" th:text="${i + 1}">1</a>
+                    </li>
+                    <li class="page-item" th:classappend="${vouchers.last} ? 'disabled'">
+                        <a class="page-link" th:href="@{/admin/vouchers(page=${vouchers.number + 1})}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+</body>
+</html>

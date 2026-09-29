@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Admin Dashboard</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <h3 class="fw-bold mb-4">Tổng Quan Quản Trị Hệ Thống (Admin)</h3>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-primary text-white">
+                <h6 class="text-uppercase fw-semibold mb-2">Tổng Người Dùng</h6>
+                <h2 class="fw-bold mb-0" th:text="${totalUsers}">0</h2>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-success text-white">
+                <h6 class="text-uppercase fw-semibold mb-2">Tổng Đơn Hàng</h6>
+                <h2 class="fw-bold mb-0" th:text="${totalOrders}">0</h2>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-warning text-dark">
+                <h6 class="text-uppercase fw-semibold mb-2">Tổng Sản Phẩm</h6>
+                <h2 class="fw-bold mb-0" th:text="${totalProducts}">0</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 p-4">
+        <h5 class="fw-bold mb-3">Lối Tắt Quản Trị Nhanh</h5>
+        <div class="d-flex flex-wrap gap-2">
+            <a th:href="@{/admin/users}" class="btn btn-outline-primary"><i class="bi bi-people me-1"></i>Quản lý tài khoản</a>
+            <a th:href="@{/admin/categories}" class="btn btn-outline-secondary"><i class="bi bi-diagram-3 me-1"></i>Quản lý danh mục</a>
+            <a th:href="@{/admin/vouchers}" class="btn btn-outline-success"><i class="bi bi-ticket-perforated me-1"></i>Mã giảm giá</a>
+            <a th:href="@{/admin/reports/revenue}" class="btn btn-outline-danger"><i class="bi bi-graph-up me-1"></i>Báo cáo doanh thu</a>
+            <a th:href="@{/admin/reports/stock}" class="btn btn-outline-info"><i class="bi bi-check2-circle me-1"></i>Đối chiếu tồn kho</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

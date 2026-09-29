@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Quản Lý Nhập Kho</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold mb-0">Quản Lý Nhập Kho</h4>
+        <a th:href="@{/staff/stock-imports/create}" class="btn btn-pet-primary"><i class="bi bi-plus-lg me-1"></i>Tạo Phiếu Nhập</a>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 p-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Mã phiếu</th>
+                        <th>Nhà cung cấp</th>
+                        <th>Ngày nhập</th>
+                        <th>Người tạo</th>
+                        <th>Ghi chú</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="imp : ${imports.content}">
+                        <td class="fw-semibold" th:text="${imp.importCode}">IMP-001</td>
+                        <td th:text="${imp.supplierName != null ? imp.supplierName : '-'}">NCC</td>
+                        <td th:text="${#temporals.format(imp.importedAt, 'dd/MM/yyyy HH:mm')}">Thời gian</td>
+                        <td th:text="${imp.createdBy != null ? imp.createdBy.fullName : '-'}">Nhân viên</td>
+                        <td th:text="${imp.note}">Ghi chú</td>
+                        <td>
+                            <a th:href="@{/staff/stock-imports/{id}(id=${imp.id})}" class="btn btn-sm btn-outline-primary">Chi Tiết</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

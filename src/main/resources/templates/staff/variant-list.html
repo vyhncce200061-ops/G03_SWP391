@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Quản Lý Biến Thể SKU</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">Quản Lý Biến Thể SKU</h4>
+            <p class="text-muted mb-0" th:text="${'Sản phẩm: ' + product.name}"></p>
+        </div>
+        <a th:href="@{/staff/products}" class="btn btn-outline-secondary">Quay lại sản phẩm</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 p-3">
+                <h5 class="fw-bold mb-3">Danh Sách SKU</h5>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Mã SKU</th>
+                                <th>Tên biến thể</th>
+                                <th>Giá bán</th>
+                                <th>Tồn kho</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="v : ${product.variants}">
+                                <td class="fw-semibold" th:text="${v.skuCode}">SKU-001</td>
+                                <td th:text="${v.variantName}">Túi 500g</td>
+                                <td th:text="${#numbers.formatDecimal(v.price, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
+                                <td>
+                                    <span th:class="${v.stockQuantity <= v.lowStockThreshold ? 'badge bg-danger' : 'badge bg-success'}"
+                                          th:text="${v.stockQuantity}">10</span>
+                                </td>
+                                <td><span class="badge bg-secondary" th:text="${v.status}">ACTIVE</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3">Thêm Biến Thể Mới</h5>
+                <form th:action="@{/staff/products/{id}/variants(id=${product.id})}" th:object="${newVariant}" method="post">
+                    <div class="mb-2">
+                        <label class="form-label small">Mã SKU</label>
+                        <input type="text" class="form-control" th:field="*{skuCode}" required placeholder="RC-POODLE-500G">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Tên biến thể</label>
+                        <input type="text" class="form-control" th:field="*{variantName}" required placeholder="Túi 500g">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Giá bán (VNĐ)</label>
+                        <input type="number" class="form-control" th:field="*{price}" required min="0">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Giá gốc (nếu giảm)</label>
+                        <input type="number" class="form-control" th:field="*{originalPrice}" min="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Ngưỡng cảnh báo kho</label>
+                        <input type="number" class="form-control" th:field="*{lowStockThreshold}" value="5" min="0">
+                    </div>
+                    <button type="submit" class="btn btn-pet-primary w-100">Thêm Biến Thể</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,116 @@
+# =====================================================================
+# PETSHOP SWP391 — MAIN APPLICATION CONFIGURATION
+# =====================================================================
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+    encoding:
+      charset: UTF-8
+      force: true
+      enabled: true
+    session:
+      timeout: 60m
+      cookie:
+        name: JSESSIONID
+        http-only: true
+        same-site: lax
+
+spring:
+  application:
+    name: petshop-app
+  
+  profiles:
+    active: dev
+    group:
+      dev: dev
+
+  # ===================================================================
+  # 1. Datasource Configuration (Microsoft SQL Server 2019+)
+  # ===================================================================
+  datasource:
+    # Crucial flags:
+    # - encrypt=true;trustServerCertificate=true (Prevents SSL PKIX handshake errors on local dev)
+    # - sendStringParametersAsUnicode=true (Preserves Vietnamese NVARCHAR diacritics without distortion)
+    url: jdbc:sqlserver://localhost:1433;databaseName=PetShopDB;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true;
+    username: sa
+    password: ${DB_PASSWORD:123456}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      pool-name: PetShopHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+      connection-test-query: SELECT 1
+
+  # ===================================================================
+  # 2. JPA & Hibernate ORM Configuration
+  # ===================================================================
+  jpa:
+    database-platform: org.hibernate.dialect.SQLServerDialect
+    open-in-view: false
+    show-sql: true
+    hibernate:
+      # Strictly validate or none: Database schema is authoritatively created and maintained
+      # by PetShop_Database_Final.sql (preserves computed columns, filtered indexes, CHECK rules)
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+        jdbc:
+          batch_size: 25
+          order_inserts: true
+          order_updates: true
+
+  # ===================================================================
+  # 3. Thymeleaf Template Engine Configuration
+  # ===================================================================
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false # Disabled for instant UI hot-reloading during development
+    servlet:
+      content-type: text/html;charset=UTF-8
+
+  # ===================================================================
+  # 4. Web & Static Resources Configuration
+  # ===================================================================
+  web:
+    resources:
+      static-locations:
+        - classpath:/static/
+        - classpath:/static/css/
+        - classpath:/static/js/
+        - classpath:/static/images/
+        - classpath:/META-INF/resources/webjars/
+      chain:
+        cache: false
+
+  # ===================================================================
+  # 5. File Upload Configuration (Product Images, User Avatars)
+  # ===================================================================
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 15MB
+
+# =====================================================================
+# 6. Logging Subsystem Configuration
+# =====================================================================
+logging:
+  level:
+    root: INFO
+    com.petshop: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Đặt Hàng Thành Công</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5 text-center">
+    <div class="container">
+        <div class="py-5">
+            <i class="bi bi-check-circle-fill text-success display-1"></i>
+            <h2 class="fw-bold mt-3">Đặt Hàng Thành Công!</h2>
+            <p class="lead text-muted">Cảm ơn bạn đã mua hàng tại PetShop. Mã đơn hàng của bạn là:</p>
+            <h4 class="text-primary fw-bold" th:text="${orderCode}">ORD-XXXXX</h4>
+            <div class="mt-4">
+                <a th:href="@{/customer/orders}" class="btn btn-pet-primary px-4">Xem Lịch Sử Đơn Hàng</a>
+                <a th:href="@{/products}" class="btn btn-outline-secondary px-4 ms-2">Tiếp Tục Mua Sắm</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

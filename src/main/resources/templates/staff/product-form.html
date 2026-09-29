@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Thông Tin Sản Phẩm</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <h4 class="fw-bold mb-4" th:text="${product.id != null ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'}">Sản Phẩm</h4>
+
+    <div class="card border-0 shadow-sm rounded-4 p-4">
+        <form th:action="${product.id != null ? '/staff/products/' + product.id + '/edit' : '/staff/products/create'}"
+              th:object="${product}" method="post">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">Tên sản phẩm</label>
+                    <input type="text" class="form-control" th:field="*{name}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">URL Slug</label>
+                    <input type="text" class="form-control" th:field="*{slug}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Danh mục</label>
+                    <select class="form-select" th:field="*{category.id}" required>
+                        <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Thương hiệu</label>
+                    <select class="form-select" th:field="*{brand.id}">
+                        <option value="">-- Không chọn --</option>
+                        <option th:each="b : ${brands}" th:value="${b.id}" th:text="${b.name}"></option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Loài thú cưng</label>
+                    <select class="form-select" th:field="*{petType}">
+                        <option value="DOG">Chó (DOG)</option>
+                        <option value="CAT">Mèo (CAT)</option>
+                        <option value="BOTH">Cả hai (BOTH)</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Mô tả ngắn</label>
+                    <textarea class="form-control" th:field="*{shortDescription}" rows="2"></textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Mô tả chi tiết</label>
+                    <textarea class="form-control" th:field="*{description}" rows="5"></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Trạng thái</label>
+                    <select class="form-select" th:field="*{status}">
+                        <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+                        <option value="HIDDEN">Ẩn (HIDDEN)</option>
+                        <option value="DISCONTINUED">Ngừng kinh doanh (DISCONTINUED)</option>
+                    </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-center pt-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" th:field="*{isFeatured}">
+                        <label class="form-check-label fw-semibold">Sản phẩm nổi bật (Featured)</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-pet-primary">Lưu Sản Phẩm</button>
+                <a th:href="@{/staff/products}" class="btn btn-outline-secondary ms-2">Quay lại</a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

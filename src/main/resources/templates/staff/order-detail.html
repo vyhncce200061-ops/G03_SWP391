@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Chi Tiết Đơn Hàng Staff</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">Xử Lý Đơn Hàng <span th:text="${order.orderCode}">ORD-001</span></h4>
+            <span class="badge bg-primary fs-6" th:text="${order.orderStatus}">CONFIRMED</span>
+        </div>
+        <a th:href="@{/staff/orders}" class="btn btn-outline-secondary">Quay lại danh sách</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                <h5 class="fw-bold mb-3">Sản Phẩm Đơn Hàng</h5>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Tên sản phẩm</th>
+                                <th>Mã SKU</th>
+                                <th>Đơn giá</th>
+                                <th>Số lượng</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="item : ${order.items}">
+                                <td class="fw-semibold" th:text="${item.productNameSnapshot}">Tên SP</td>
+                                <td th:text="${item.skuCodeSnapshot}">SKU</td>
+                                <td th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
+                                <td th:text="${item.quantity}">1</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Lifecycle Actions -->
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3">Chuyển Trạng Thái Đơn Hàng</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    <form th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION'}"
+                          th:action="@{/staff/orders/{id}/confirm(id=${order.id})}" method="post">
+                        <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i>Xác Nhận Đơn Hàng</button>
+                    </form>
+
+                    <form th:if="${order.orderStatus.name() == 'CONFIRMED'}"
+                          th:action="@{/staff/orders/{id}/prepare(id=${order.id})}" method="post">
+                        <button type="submit" class="btn btn-info text-white"><i class="bi bi-box me-1"></i>Đang Đóng Gói (Preparing)</button>
+                    </form>
+
+                    <form th:if="${order.orderStatus.name() == 'PREPARING'}"
+                          th:action="@{/staff/orders/{id}/ship(id=${order.id})}" method="post">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-truck me-1"></i>Bàn Giao Vận Chuyển (Shipping)</button>
+                    </form>
+
+                    <form th:if="${order.orderStatus.name() == 'SHIPPING'}"
+                          th:action="@{/staff/orders/{id}/complete(id=${order.id})}" method="post">
+                        <button type="submit" class="btn btn-success"><i class="bi bi-check2-all me-1"></i>Giao Hàng Thành Công (Completed)</button>
+                    </form>
+
+                    <div th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION'}" class="w-100 mt-3 border-top pt-3">
+                        <form th:action="@{/staff/orders/{id}/reject(id=${order.id})}" method="post" class="d-flex gap-2">
+                            <input type="text" name="reason" class="form-control" placeholder="Nhập lý do từ chối đơn hàng..." required>
+                            <button type="submit" class="btn btn-outline-danger text-nowrap">Từ Chối Đơn</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3">Thông Tin Người Nhận</h5>
+                <p class="mb-1"><strong th:text="${order.recipientName}"></strong> | <span th:text="${order.recipientPhone}"></span></p>
+                <p class="small text-muted mb-3" th:text="${order.shippingAddressLine + ', ' + order.shippingWard + ', ' + order.shippingDistrict + ', ' + order.shippingProvince}"></p>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Tổng tiền:</span>
+                    <strong class="text-danger" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Phương thức:</span>
+                    <span class="badge bg-secondary" th:text="${order.paymentMethod}">COD</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

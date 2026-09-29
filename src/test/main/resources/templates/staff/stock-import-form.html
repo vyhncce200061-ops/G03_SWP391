@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Tạo Phiếu Nhập Kho</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <h4 class="fw-bold mb-4">Tạo Phiếu Nhập Kho</h4>
+
+    <div class="card border-0 shadow-sm rounded-4 p-4">
+        <form th:action="@{/staff/stock-imports/create}" method="post">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Nhà cung cấp</label>
+                    <input type="text" name="supplierName" class="form-control" placeholder="Royal Canin Vietnam" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Ghi chú</label>
+                    <input type="text" name="note" class="form-control" placeholder="Lô hàng tháng 10">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Chọn sản phẩm (SKU) nhập</label>
+                    <select name="variantId" class="form-select" required>
+                        <option th:each="v : ${variants}" th:value="${v.id}"
+                                th:text="${v.product.name + ' - ' + v.variantName + ' (SKU: ' + v.skuCode + ')'}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Số lượng</label>
+                    <input type="number" name="quantity" class="form-control" value="10" min="1" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Đơn giá nhập (VNĐ)</label>
+                    <input type="number" name="unitCost" class="form-control" value="50000" min="0" required>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-pet-primary">Tạo Phiếu & Cập Nhật Tồn Kho</button>
+                <a th:href="@{/staff/stock-imports}" class="btn btn-outline-secondary ms-2">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

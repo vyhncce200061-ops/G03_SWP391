@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Đối Chiếu Tồn Kho & Cảnh Báo Thiếu Hàng</title>
+</head>
+<body>
+<div layout:fragment="admin-header-title">
+    <span>Báo Cáo & Thống Kê / Tồn Kho Sản Phẩm</span>
+</div>
+
+<div layout:fragment="admin-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">Đối Chiếu Tồn Kho & Hàng Sắp Hết</h4>
+            <p class="text-muted small mb-0">Danh sách các SKU có số lượng tồn kho chạm hoặc thấp hơn ngưỡng cảnh báo tối thiểu.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a th:href="@{/staff/stock-imports/create}" class="btn btn-primary d-flex align-items-center gap-2">
+                <i class="bi bi-box-arrow-in-down"></i>
+                <span>Tạo Đơn Nhập Kho Mới</span>
+            </a>
+            <button onclick="window.print()" class="btn btn-outline-secondary">
+                <i class="bi bi-printer"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert Banner -->
+    <div th:if="${!#lists.isEmpty(lowStockVariants)}" class="alert alert-warning border-0 shadow-sm rounded-4 d-flex align-items-center gap-3 p-3 mb-4">
+        <i class="bi bi-exclamation-triangle-fill fs-3 text-warning"></i>
+        <div>
+            <h6 class="fw-bold mb-0">Cảnh Báo Thiếu Hàng</h6>
+            <span class="small">Hiện đang có <strong th:text="${lowStockVariants.size()}">0</strong> biến thể sản phẩm có số lượng tồn kho dưới ngưỡng an toàn. Cần lên kế hoạch nhập hàng!</span>
+        </div>
+    </div>
+
+    <!-- Stock Table -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Mã SKU</th>
+                        <th>Sản Phẩm & Biến Thể</th>
+                        <th>Đơn Giá Bán</th>
+                        <th class="text-center">Số Lượng Tồn</th>
+                        <th class="text-center">Ngưỡng Tối Thiểu</th>
+                        <th>Mức Độ Cảnh Báo</th>
+                        <th class="text-end pe-4">Hành Động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${#lists.isEmpty(lowStockVariants)}">
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-check-circle display-6 d-block mb-2 text-success"></i>
+                            Tất cả mặt hàng đều đảm bảo lượng tồn kho an toàn trên ngưỡng quy định!
+                        </td>
+                    </tr>
+                    <tr th:each="v : ${lowStockVariants}">
+                        <td class="ps-4">
+                            <code class="fw-bold fs-6" th:text="${v.skuCode}">SKU-1001</code>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark" th:text="${v.product.name}">Hạt Royal Canin Medium Adult</div>
+                            <small class="text-muted" th:text="${v.variantName}">Gói 3kg</small>
+                        </td>
+                        <td class="fw-semibold" th:text="${#numbers.formatDecimal(v.price, 0, 'POINT', 0, 'COMMA') + ' đ'}">350,000 đ</td>
+                        <td class="text-center">
+                            <span class="badge rounded-pill fs-6 px-3 py-2"
+                                  th:classappend="${v.stockQuantity == 0 ? 'bg-danger' : 'bg-warning text-dark'}"
+                                  th:text="${v.stockQuantity}">2</span>
+                        </td>
+                        <td class="text-center text-muted fw-semibold" th:text="${v.lowStockThreshold}">5</td>
+                        <td>
+                            <span th:if="${v.stockQuantity == 0}" class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                                <i class="bi bi-x-circle me-1"></i>Hết hàng hoàn toàn
+                            </span>
+                            <span th:if="${v.stockQuantity > 0 and v.stockQuantity <= v.lowStockThreshold}" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Cận ngưỡng tồn
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            <a th:href="@{/staff/stock-imports/create}" class="btn btn-sm btn-outline-primary" title="Lập phiếu nhập kho">
+                                <i class="bi bi-box-arrow-in-down me-1"></i>Nhập hàng
+                            </a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

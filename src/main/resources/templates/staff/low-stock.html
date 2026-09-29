@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Cảnh Báo Hết Hàng</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold mb-0 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Cảnh Báo Sắp Hết Hàng</h4>
+        <a th:href="@{/staff/stock-imports/create}" class="btn btn-pet-primary"><i class="bi bi-plus-lg me-1"></i>Tạo Phiếu Nhập Kho</a>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 p-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Sản phẩm</th>
+                        <th>Biến thể (SKU)</th>
+                        <th>Tồn kho hiện tại</th>
+                        <th>Ngưỡng cảnh báo</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="v : ${lowStockVariants}">
+                        <td class="fw-semibold" th:text="${v.product.name}">Tên SP</td>
+                        <td th:text="${v.variantName + ' (' + v.skuCode + ')'}">SKU</td>
+                        <td><span class="badge bg-danger fs-6" th:text="${v.stockQuantity}">2</span></td>
+                        <td th:text="${v.lowStockThreshold}">5</td>
+                        <td><span class="badge bg-warning text-dark" th:text="${v.status}">ACTIVE</span></td>
+                        <td>
+                            <a th:href="@{/staff/stock-imports/create}" class="btn btn-sm btn-outline-primary">Nhập thêm</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

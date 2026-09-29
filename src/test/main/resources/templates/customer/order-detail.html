@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Chi Tiết Đơn Hàng</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-bold mb-0">Đơn Hàng <span th:text="${order.orderCode}">ORD-XXXX</span></h3>
+            <span class="badge bg-primary fs-6" th:text="${order.orderStatus}">CONFIRMED</span>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                    <h5 class="fw-bold mb-3">Sản Phẩm Đã Mua</h5>
+                    <ul class="list-group list-group-flush">
+                        <li th:each="item : ${order.items}" class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <h6 class="mb-0 fw-bold" th:text="${item.productNameSnapshot}">Tên SP</h6>
+                                <small class="text-muted" th:text="${item.variantNameSnapshot + ' | SKU: ' + item.skuCodeSnapshot}"></small>
+                            </div>
+                            <div class="text-end">
+                                <span th:text="${item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                    <h5 class="fw-bold mb-3">Thông Tin Giao Hàng</h5>
+                    <p class="mb-1"><strong th:text="${order.recipientName}"></strong> | <span th:text="${order.recipientPhone}"></span></p>
+                    <p class="small text-muted" th:text="${order.shippingAddressLine + ', ' + order.shippingWard + ', ' + order.shippingDistrict + ', ' + order.shippingProvince}"></p>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Tạm tính:</span>
+                        <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Giảm giá:</span>
+                        <span th:text="${'-' + #numbers.formatDecimal(order.discountAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Phí ship:</span>
+                        <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Tổng cộng:</strong>
+                        <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
+                    </div>
+
+                    <form th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION' or order.orderStatus.name() == 'PENDING_PAYMENT'}"
+                          th:action="@{/customer/orders/{id}/cancel(id=${order.id})}" method="post">
+                        <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Bạn có chắc chắn muốn hủy đơn hàng này?');">Hủy Đơn Hàng</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

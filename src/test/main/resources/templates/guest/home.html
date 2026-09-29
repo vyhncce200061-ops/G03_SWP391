@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Trang Chủ</title>
+</head>
+<body>
+<div layout:fragment="content">
+    
+    <!-- Hero Banner -->
+    <section class="py-5 bg-white border-bottom">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <span class="badge bg-warning text-dark mb-2 px-3 py-2 fw-semibold">Ưu đãi thành viên mới - Giảm 10%</span>
+                    <h1 class="display-5 fw-bold text-dark mb-3">Dành Trọn Yêu Thương Cho Thú Cưng Của Bạn</h1>
+                    <p class="lead text-muted mb-4">Cung cấp thức ăn chính hãng (Royal Canin, Whiskas), phụ kiện cao cấp, đồ chơi an toàn và cát vệ sinh chất lượng cao.</p>
+                    <div class="d-flex gap-3">
+                        <a th:href="@{/products}" class="btn btn-pet-primary btn-lg px-4">Mua Ngay</a>
+                        <a th:href="@{/register}" class="btn btn-outline-secondary btn-lg px-4">Đăng Ký Thành Viên</a>
+                    </div>
+                </div>
+                <div class="col-lg-6 text-center mt-4 mt-lg-0">
+                    <img th:src="@{/images/hero-pets.png}" src="https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=600&auto=format&fit=crop&q=80" alt="Pet Banner" class="img-fluid rounded-4 shadow">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Category Highlights -->
+    <section class="py-5">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold mb-0">Danh Mục Nổi Bật</h3>
+                <a th:href="@{/products}" class="text-decoration-none text-muted">Xem tất cả <i class="bi bi-arrow-right"></i></a>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <a th:href="@{/products(category='THUC-AN')}" class="text-decoration-none">
+                        <div class="card h-100 border-0 shadow-sm text-center p-3">
+                            <i class="bi bi-cup-hot fs-1 text-primary mb-2"></i>
+                            <h6 class="fw-bold text-dark mb-0">Thức Ăn Hạt & Pate</h6>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-3">
+                    <a th:href="@{/products(category='CAT-VE-SINH')}" class="text-decoration-none">
+                        <div class="card h-100 border-0 shadow-sm text-center p-3">
+                            <i class="bi bi-box2-heart fs-1 text-success mb-2"></i>
+                            <h6 class="fw-bold text-dark mb-0">Cát Vệ Sinh</h6>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-3">
+                    <a th:href="@{/products(category='DO-CHOI')}" class="text-decoration-none">
+                        <div class="card h-100 border-0 shadow-sm text-center p-3">
+                            <i class="bi bi-controller fs-1 text-warning mb-2"></i>
+                            <h6 class="fw-bold text-dark mb-0">Đồ Chơi Gặm & Cào</h6>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-3">
+                    <a th:href="@{/products(category='PHU-KIEN')}" class="text-decoration-none">
+                        <div class="card h-100 border-0 shadow-sm text-center p-3">
+                            <i class="bi bi-gem fs-1 text-danger mb-2"></i>
+                            <h6 class="fw-bold text-dark mb-0">Vòng Cổ & Dây Dắt</h6>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Products -->
+    <section class="py-5 bg-white">
+        <div class="container">
+            <h3 class="fw-bold mb-4">Sản Phẩm Bán Chạy Nhất</h3>
+            <div class="row g-4" th:if="${featuredProducts != null and !featuredProducts.empty}">
+                <div class="col-12 col-sm-6 col-lg-3" th:each="product : ${featuredProducts}">
+                    <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
+                        <img th:src="${product.primaryImageUrl != null ? product.primaryImageUrl : 'https://placehold.co/400x300?text=PetShop'}" class="card-img-top" alt="Product" style="height: 200px; object-fit: cover;">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-secondary" th:text="${product.petType}">DOG</span>
+                                <small class="text-warning"><i class="bi bi-star-fill"></i> <span th:text="${product.avgRating}">5.0</span></small>
+                            </div>
+                            <h6 class="card-title fw-bold text-truncate" th:text="${product.name}">Tên sản phẩm</h6>
+                            <p class="text-danger fw-bold fs-5 mb-3" th:text="${#numbers.formatDecimal(product.minPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">150.000 đ</p>
+                            <a th:href="@{/products/{slug}(slug=${product.slug})}" class="btn btn-outline-primary mt-auto w-100">Chi Tiết</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Value Propositions -->
+    <section class="py-5 border-top">
+        <div class="container">
+            <div class="row g-4 text-center">
+                <div class="col-md-4">
+                    <i class="bi bi-truck fs-1 text-primary"></i>
+                    <h5 class="fw-bold mt-2">Giao Hàng Toàn Quốc</h5>
+                    <p class="text-muted small">Đồng giá vận chuyển 30.000đ, miễn phí khi áp dụng voucher.</p>
+                </div>
+                <div class="col-md-4">
+                    <i class="bi bi-patch-check fs-1 text-success"></i>
+                    <h5 class="fw-bold mt-2">Cam Kết 100% Chính Hãng</h5>
+                    <p class="text-muted small">Nhập khẩu từ Royal Canin, Whiskas, Me-O có hóa đơn rõ ràng.</p>
+                </div>
+                <div class="col-md-4">
+                    <i class="bi bi-credit-card-2-front fs-1 text-warning"></i>
+                    <h5 class="fw-bold mt-2">Thanh Toán Linh Hoạt</h5>
+                    <p class="text-muted small">Hỗ trợ nhận hàng thanh toán (COD) và VNPay trực tuyến an toàn.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div>
+</body>
+</html>

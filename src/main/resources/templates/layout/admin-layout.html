@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title layout:title-pattern="$LAYOUT_TITLE - $CONTENT_TITLE">PetShop Portal Quản Trị</title>
+    
+    <!-- Bootstrap 5.3 CDN CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Bootstrap Icons CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --portal-dark: #0f172a;
+            --portal-hover: #1e293b;
+            --portal-active: #0d9488;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: #f1f5f9;
+        }
+        #sidebar-wrapper {
+            width: var(--sidebar-width);
+            min-height: 100vh;
+            background-color: var(--portal-dark);
+            color: #94a3b8;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        #page-content-wrapper {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-brand {
+            padding: 1.25rem 1.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #ffffff;
+            border-bottom: 1px solid #334155;
+        }
+        .sidebar-heading {
+            padding: 0.75rem 1.5rem 0.25rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            font-weight: 700;
+        }
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            color: #cbd5e1;
+            text-decoration: none;
+            font-size: 0.925rem;
+            transition: 0.2s;
+            gap: 0.75rem;
+        }
+        .sidebar-nav a:hover {
+            background-color: var(--portal-hover);
+            color: #ffffff;
+        }
+        .topbar {
+            height: 64px;
+            background-color: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+        }
+    </style>
+    <th:block layout:fragment="admin-css"></th:block>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <div id="sidebar-wrapper">
+        <div class="sidebar-brand d-flex align-items-center gap-2">
+            <i class="bi bi-shield-shaded text-warning"></i>
+            <span>PetShop Portal</span>
+        </div>
+        
+        <div class="p-3 border-bottom border-secondary border-opacity-25">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-person-badge fs-4 text-light"></i>
+                <div class="overflow-hidden">
+                    <div class="text-white text-truncate fw-semibold small" sec:authentication="name">Nhân Viên</div>
+                    <span sec:authorize="hasRole('ADMIN')" class="badge bg-danger">ADMIN</span>
+                    <span sec:authorize="hasRole('STAFF')" class="badge bg-info text-dark">STAFF</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar-nav py-2">
+            <!-- DASHBOARD SECTION -->
+            <div class="sidebar-heading">Tổng Quan</div>
+            <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/dashboard}">
+                <i class="bi bi-speedometer2"></i> Dashboard Admin
+            </a>
+            <a sec:authorize="hasRole('STAFF')" th:href="@{/staff/dashboard}">
+                <i class="bi bi-graph-up"></i> Dashboard Staff
+            </a>
+
+            <!-- STORE OPERATIONS (STAFF & ADMIN) -->
+            <div class="sidebar-heading mt-2">Vận Hành Cửa Hàng</div>
+            <a th:href="@{/staff/orders}">
+                <i class="bi bi-box-seam"></i> Xử Lý Đơn Hàng
+            </a>
+            <a th:href="@{/staff/products}">
+                <i class="bi bi-tags"></i> Quản Lý Sản Phẩm
+            </a>
+            <a th:href="@{/staff/stock-imports}">
+                <i class="bi bi-box-arrow-in-down"></i> Nhập Kho Hàng Hóa
+            </a>
+            <a th:href="@{/staff/stock-imports/low-stock}">
+                <i class="bi bi-exclamation-diamond text-warning"></i> Cảnh Báo Hết Hàng
+            </a>
+
+            <!-- SYSTEM GOVERNANCE (ADMIN ONLY) -->
+            <th:block sec:authorize="hasRole('ADMIN')">
+                <div class="sidebar-heading mt-2">Quản Trị Hệ Thống</div>
+                <a th:href="@{/admin/users}">
+                    <i class="bi bi-people"></i> Quản Lý Tài Khoản
+                </a>
+                <a th:href="@{/admin/categories}">
+                    <i class="bi bi-diagram-3"></i> Quản Lý Danh Mục
+                </a>
+                <a th:href="@{/admin/vouchers}">
+                    <i class="bi bi-ticket-perforated"></i> Khuyến Mãi (Voucher)
+                </a>
+                <a th:href="@{/admin/reports/revenue}">
+                    <i class="bi bi-cash-stack"></i> Báo Cáo Doanh Thu
+                </a>
+                <a th:href="@{/admin/reports/stock}">
+                    <i class="bi bi-check2-circle text-success"></i> Đối Chiếu Tồn Kho
+                </a>
+            </th:block>
+
+            <div class="sidebar-heading mt-2">Liên Kết Nhanh</div>
+            <a th:href="@{/}" target="_blank">
+                <i class="bi bi-box-arrow-up-right"></i> Xem Storefront Khách
+            </a>
+        </div>
+    </div>
+
+    <!-- Page Content Wrapper -->
+    <div id="page-content-wrapper">
+        <!-- Topbar -->
+        <header class="topbar sticky-top px-4 d-flex align-items-center justify-content-between">
+            <h6 class="m-0 text-secondary" layout:fragment="admin-header-title">Trang Quản Lý</h6>
+            
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted small">SWP391 PetShop</span>
+                <form th:action="@{/logout}" method="post" class="m-0">
+                    <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1">
+                        <i class="bi bi-box-arrow-right"></i> Đăng Xuất
+                    </button>
+                </form>
+            </div>
+        </header>
+
+        <!-- Toast / Flash Alerts for Admin -->
+        <div class="container-fluid px-4 mt-3">
+            <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <span th:text="${successMessage}">Thao tác thành công!</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span th:text="${errorMessage}">Đã xảy ra lỗi!</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        </div>
+
+        <!-- Main Fragment Area -->
+        <main layout:fragment="admin-content" class="container-fluid px-4 py-3 flex-grow-1">
+            <!-- Content embedded here -->
+        </main>
+
+        <footer class="py-3 bg-white border-top px-4 text-end text-muted small">
+            PetShop Administration Subsystem &copy; 2026. Designed for SE2003-G03.
+        </footer>
+    </div>
+
+    <!-- Bootstrap 5.3 CDN Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <th:block layout:fragment="admin-js"></th:block>
+</body>
+</html>

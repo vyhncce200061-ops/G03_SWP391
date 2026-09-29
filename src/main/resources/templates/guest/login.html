@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Đăng Nhập</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-5">
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-heart-pulse-fill text-danger fs-1"></i>
+                        <h4 class="fw-bold mt-2">Đăng Nhập Tài Khoản</h4>
+                        <p class="text-muted small">Chào mừng bạn quay trở lại với PetShop</p>
+                    </div>
+
+                    <!-- Spring Security Error Alert -->
+                    <div th:if="${param.error}" class="alert alert-danger py-2 small" role="alert">
+                        <i class="bi bi-exclamation-circle-fill me-1"></i>
+                        Email, số điện thoại hoặc mật khẩu không chính xác!
+                    </div>
+
+                    <!-- Logout Success Alert -->
+                    <div th:if="${param.logout}" class="alert alert-success py-2 small" role="alert">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        Bạn đã đăng xuất an toàn.
+                    </div>
+
+                    <!-- Form đăng nhập chuẩn Spring Security Form Login -->
+                    <form th:action="@{/login}" method="post">
+                        <div class="mb-3">
+                            <label for="username" class="form-label small fw-semibold">Email hoặc Số điện thoại</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control" id="username" name="username" required autofocus placeholder="customer@petshop.vn">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <label for="password" class="form-label small fw-semibold">Mật khẩu</label>
+                                <a th:href="@{/forgot-password}" class="small text-decoration-none">Quên mật khẩu?</a>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control" id="password" name="password" required placeholder="••••••••">
+                            </div>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember-me" name="remember-me">
+                            <label class="form-check-label small" for="remember-me">Ghi nhớ đăng nhập</label>
+                        </div>
+
+                        <button type="submit" class="btn btn-pet-primary w-100 py-2 fw-semibold">Đăng Nhập</button>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <span class="small text-muted">Chưa có tài khoản? </span>
+                        <a th:href="@{/register}" class="small fw-semibold text-decoration-none">Đăng ký ngay</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

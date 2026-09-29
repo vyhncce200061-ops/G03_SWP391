@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Hồ Sơ Cá Nhân</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <h4 class="fw-bold mb-3">Thông Tin Tài Khoản</h4>
+                    <form th:action="@{/customer/profile}" method="post">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Họ và Tên</label>
+                            <input type="text" name="fullName" class="form-control" th:value="${user.fullName}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Email</label>
+                            <input type="email" name="email" class="form-control" th:value="${user.email}" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Số Điện Thoại</label>
+                            <input type="text" name="phone" class="form-control" th:value="${user.phone}">
+                        </div>
+                        <button type="submit" class="btn btn-pet-primary">Cập Nhật Thông Tin</button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <h4 class="fw-bold mb-3">Đổi Mật Khẩu</h4>
+                    <form th:action="@{/customer/change-password}" method="post">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Mật khẩu hiện tại</label>
+                            <input type="password" name="currentPassword" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Mật khẩu mới</label>
+                            <input type="password" name="newPassword" class="form-control" required minlength="6">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Xác nhận mật khẩu mới</label>
+                            <input type="password" name="confirmNewPassword" class="form-control" required minlength="6">
+                        </div>
+                        <button type="submit" class="btn btn-outline-danger">Đổi Mật Khẩu</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Xử Lý Đơn Hàng</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <h4 class="fw-bold mb-4">Danh Sách Đơn Hàng Cần Xử Lý</h4>
+
+    <div class="card border-0 shadow-sm rounded-4 p-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Mã đơn</th>
+                        <th>Khách hàng</th>
+                        <th>Tổng tiền</th>
+                        <th>PT Thanh toán</th>
+                        <th>Trạng thái</th>
+                        <th>Thời gian</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="o : ${orders.content}">
+                        <td class="fw-semibold" th:text="${o.orderCode}">ORD-001</td>
+                        <td th:text="${o.recipientName}">Khách hàng</td>
+                        <td class="text-danger fw-bold" th:text="${#numbers.formatDecimal(o.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
+                        <td><span class="badge bg-secondary" th:text="${o.paymentMethod}">COD</span></td>
+                        <td><span class="badge bg-primary" th:text="${o.orderStatus}">CONFIRMED</span></td>
+                        <td th:text="${#temporals.format(o.createdAt, 'dd/MM/yyyy HH:mm')}">Thời gian</td>
+                        <td>
+                            <a th:href="@{/staff/orders/{id}(id=${o.id})}" class="btn btn-sm btn-outline-primary">Chi Tiết</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

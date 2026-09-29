@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title th:text="${product.name}">Chi Tiết Sản Phẩm</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5">
+    <div class="container">
+        <div class="row g-5">
+            <div class="col-md-6 text-center">
+                <img th:if="${product.images != null and !product.images.empty}"
+                     th:src="${product.images[0].imageUrl}"
+                     src="https://placehold.co/500x400?text=Product"
+                     class="img-fluid rounded-4 shadow-sm" alt="Product Image">
+                <img th:if="${product.images == null or product.images.empty}"
+                     src="https://placehold.co/500x400?text=Product"
+                     class="img-fluid rounded-4 shadow-sm" alt="Placeholder">
+            </div>
+            <div class="col-md-6">
+                <span class="badge bg-secondary mb-2" th:text="${product.petType}">DOG</span>
+                <h2 class="fw-bold" th:text="${product.name}">Tên sản phẩm</h2>
+                <p class="text-muted" th:text="${product.shortDescription}">Mô tả ngắn sản phẩm</p>
+                <hr>
+                
+                <form th:action="@{/cart/add}" method="post" th:if="${product.variants != null and !product.variants.empty}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Chọn Phân Loại:</label>
+                        <select class="form-select" name="variantId" required>
+                            <option th:each="v : ${product.variants}"
+                                    th:value="${v.id}"
+                                    th:text="${v.variantName + ' - ' + #numbers.formatDecimal(v.price, 0, 'COMMA', 0, 'POINT') + ' đ (Kho: ' + v.stockQuantity + ')'}">
+                            </option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Số lượng:</label>
+                        <input type="number" name="quantity" class="form-control" value="1" min="1" max="100" style="width: 120px;">
+                    </div>
+                    <button type="submit" class="btn btn-pet-primary btn-lg w-100">
+                        <i class="bi bi-cart-plus me-2"></i>Thêm Vào Giỏ Hàng
+                    </button>
+                </form>
+
+                <div class="mt-4">
+                    <h5 class="fw-bold">Mô tả chi tiết:</h5>
+                    <div th:utext="${product.description}">Nội dung chi tiết sản phẩm...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

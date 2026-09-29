@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>403 - Quyền Truy Cập Bị Từ Chối</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5 text-center">
+    <div class="container">
+        <div class="py-5">
+            <i class="bi bi-shield-lock-fill text-danger display-1"></i>
+            <h1 class="display-4 fw-bold mt-3">403 - Quyền Truy Cập Bị Từ Chối</h1>
+            <p class="lead text-muted">Rất tiếc! Bạn không có quyền hạn cần thiết để truy cập vào phân vùng tài nguyên này.</p>
+            <div class="mt-4 d-flex justify-content-center gap-3">
+                <a th:href="@{/}" class="btn btn-pet-primary px-4"><i class="bi bi-house me-2"></i>Về Trang Chủ</a>
+                <a th:href="@{/login}" class="btn btn-outline-secondary px-4"><i class="bi bi-person me-2"></i>Đăng Nhập Khác</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

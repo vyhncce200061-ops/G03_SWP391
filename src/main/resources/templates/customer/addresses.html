@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Sổ Địa Chỉ</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5">
+    <div class="container">
+        <h3 class="fw-bold mb-4">Sổ Địa Chỉ Giao Hàng</h3>
+        <div class="row">
+            <div class="col-md-7 mb-4">
+                <div th:each="addr : ${addresses}" class="card border-0 shadow-sm rounded-3 p-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="fw-bold mb-1" th:text="${addr.recipientName + ' | ' + addr.recipientPhone}">Tên người nhận</h6>
+                        <span th:if="${addr.isDefault}" class="badge bg-success">Mặc định</span>
+                    </div>
+                    <p class="text-muted small mb-2" th:text="${addr.addressLine + ', ' + addr.ward + ', ' + addr.district + ', ' + addr.province}">Địa chỉ</p>
+                    <div class="d-flex gap-2">
+                        <form th:if="${!addr.isDefault}" th:action="@{/customer/addresses/{id}/set-default(id=${addr.id})}" method="post">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Đặt làm mặc định</button>
+                        </form>
+                        <form th:action="@{/customer/addresses/{id}/delete(id=${addr.id})}" method="post">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <h5 class="fw-bold mb-3">Thêm Địa Chỉ Mới</h5>
+                    <form th:action="@{/customer/addresses/add}" th:object="${addressForm}" method="post">
+                        <div class="mb-2">
+                            <label class="form-label small">Tên người nhận</label>
+                            <input type="text" class="form-control" th:field="*{recipientName}" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Số điện thoại</label>
+                            <input type="text" class="form-control" th:field="*{recipientPhone}" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Tỉnh / Thành phố</label>
+                            <input type="text" class="form-control" th:field="*{province}" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Quận / Huyện</label>
+                            <input type="text" class="form-control" th:field="*{district}" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Phường / Xã</label>
+                            <input type="text" class="form-control" th:field="*{ward}" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Địa chỉ chi tiết</label>
+                            <input type="text" class="form-control" th:field="*{addressLine}" required>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" th:field="*{isDefault}">
+                            <label class="form-check-label small">Đặt làm địa chỉ mặc định</label>
+                        </div>
+                        <button type="submit" class="btn btn-pet-primary w-100">Lưu Địa Chỉ</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

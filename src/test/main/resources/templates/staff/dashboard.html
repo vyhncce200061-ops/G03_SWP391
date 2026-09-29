@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Staff Dashboard</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <h3 class="fw-bold mb-4">Bàn Làm Việc Nhân Viên (Staff)</h3>
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-2 text-warning"></i>Đơn Hàng Chờ Xác Nhận</h5>
+                <div th:if="${pendingOrders != null and !pendingOrders.empty}">
+                    <ul class="list-group list-group-flush">
+                        <li th:each="order : ${pendingOrders.content}" class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <strong th:text="${order.orderCode}">ORD-XXX</strong>
+                                <div class="small text-muted" th:text="${order.recipientName + ' - ' + #numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></div>
+                            </div>
+                            <a th:href="@{/staff/orders/{id}(id=${order.id})}" class="btn btn-sm btn-outline-primary">Xử lý</a>
+                        </li>
+                    </ul>
+                </div>
+                <div th:if="${pendingOrders == null or pendingOrders.empty}" class="text-muted small">
+                    Không có đơn hàng nào chờ xác nhận.
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>Cảnh Báo Hết Hàng</h5>
+                <div th:if="${lowStockVariants != null and !lowStockVariants.empty}">
+                    <ul class="list-group list-group-flush">
+                        <li th:each="v : ${lowStockVariants}" class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <strong th:text="${v.product.name + ' (' + v.variantName + ')'}">SP</strong>
+                                <div class="small text-muted" th:text="${'SKU: ' + v.skuCode}"></div>
+                            </div>
+                            <span class="badge bg-danger" th:text="${'Còn ' + v.stockQuantity}">Còn 2</span>
+                        </li>
+                    </ul>
+                </div>
+                <div th:if="${lowStockVariants == null or lowStockVariants.empty}" class="text-muted small">
+                    Kho hàng ổn định, không có sản phẩm dưới ngưỡng báo động.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

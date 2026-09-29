@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Chi Tiết Phiếu Nhập Kho</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">Phiếu Nhập <span th:text="${stockImport.importCode}">IMP-001</span></h4>
+            <span class="text-muted small" th:text="${'Ngày nhập: ' + #temporals.format(stockImport.importedAt, 'dd/MM/yyyy HH:mm')}"></span>
+        </div>
+        <a th:href="@{/staff/stock-imports}" class="btn btn-outline-secondary">Quay lại danh sách</a>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <h5 class="fw-bold mb-3">Danh Sách Mặt Hàng</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Sản phẩm</th>
+                        <th>Mã SKU</th>
+                        <th>Số lượng</th>
+                        <th>Giá nhập</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="item : ${stockImport.items}">
+                        <td class="fw-semibold" th:text="${item.variant.product.name + ' (' + item.variant.variantName + ')'}">SP</td>
+                        <td th:text="${item.variant.skuCode}">SKU</td>
+                        <td th:text="${item.quantity}">10</td>
+                        <td th:text="${#numbers.formatDecimal(item.unitCost, 0, 'COMMA', 0, 'POINT') + ' đ'}">50.000 đ</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

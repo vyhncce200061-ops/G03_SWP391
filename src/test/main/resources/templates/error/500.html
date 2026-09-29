@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>500 - Lỗi Máy Chủ Nội Bộ</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5 text-center">
+    <div class="container">
+        <div class="py-5">
+            <i class="bi bi-exclamation-triangle-fill text-danger display-1"></i>
+            <h1 class="display-4 fw-bold mt-3">500 - Lỗi Máy Chủ Nội Bộ</h1>
+            <p class="lead text-muted">Hệ thống đang gặp sự cố tạm thời khi xử lý yêu cầu của bạn. Đội ngũ kỹ thuật PetShop đã ghi nhận lỗi.</p>
+            <div class="mt-4">
+                <a th:href="@{/}" class="btn btn-pet-primary px-4"><i class="bi bi-arrow-clockwise me-2"></i>Tải Lại Trang Chủ</a>
+                <a th:href="@{/contact}" class="btn btn-outline-secondary px-4 ms-2"><i class="bi bi-headset me-2"></i>Báo Cáo Sự Cố</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

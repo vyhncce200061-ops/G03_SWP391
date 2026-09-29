@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Báo Cáo Doanh Thu</title>
+</head>
+<body>
+<div layout:fragment="admin-header-title">
+    <span>Báo Cáo & Thống Kê / Doanh Thu Bán Hàng</span>
+</div>
+
+<div layout:fragment="admin-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">Thống Kê Doanh Thu Bán Hàng</h4>
+            <p class="text-muted small mb-0">Theo dõi doanh thu thực thu từ các đơn hàng đã hoàn tất (COMPLETED).</p>
+        </div>
+        <div>
+            <button onclick="window.print()" class="btn btn-outline-secondary d-flex align-items-center gap-2">
+                <i class="bi bi-printer"></i>
+                <span>In Báo Cáo</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <form th:action="@{/admin/reports/revenue}" method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-secondary">Từ ngày</label>
+                    <input type="date" name="startDate" th:value="${startDate}" class="form-control bg-light" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-secondary">Đến ngày</label>
+                    <input type="date" name="endDate" th:value="${endDate}" class="form-control bg-light" required>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        <i class="bi bi-funnel me-1"></i> Xem Thống Kê
+                    </button>
+                    <a th:href="@{/admin/reports/revenue}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Revenue Table -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0">Chi Tiết Doanh Thu Theo Ngày</h5>
+            <span class="text-muted small">Thời gian: <span class="fw-semibold text-dark" th:text="${startDate}"></span> &rarr; <span class="fw-semibold text-dark" th:text="${endDate}"></span></span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Ngày Giao Dịch</th>
+                        <th class="text-center">Số Đơn Hoàn Tất</th>
+                        <th class="text-end">Tiền Hàng (Subtotal)</th>
+                        <th class="text-end">Khuyến Mãi (Voucher)</th>
+                        <th class="text-end pe-4">Doanh Thu Thuần (Net Total)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${#lists.isEmpty(revenueData)}">
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-calendar-x display-6 d-block mb-2 text-secondary"></i>
+                            Không có phát sinh doanh thu từ đơn hàng hoàn tất trong khoảng thời gian đã chọn.
+                        </td>
+                    </tr>
+                    <tr th:each="row : ${revenueData}">
+                        <td class="ps-4 fw-semibold text-dark">
+                            <i class="bi bi-calendar-event me-2 text-primary"></i>
+                            <span th:text="${row[0]}">2026-09-28</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary rounded-pill px-3 py-2" th:text="${row[1]}">5</span>
+                        </td>
+                        <td class="text-end text-muted" th:text="${#numbers.formatDecimal(row[2], 0, 'POINT', 0, 'COMMA') + ' đ'}">1,000,000 đ</td>
+                        <td class="text-end text-danger" th:text="'-' + ${#numbers.formatDecimal(row[3], 0, 'POINT', 0, 'COMMA') + ' đ'}">-50,000 đ</td>
+                        <td class="text-end pe-4 fw-bold text-success fs-6" th:text="${#numbers.formatDecimal(row[4], 0, 'POINT', 0, 'COMMA') + ' đ'}">950,000 đ</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

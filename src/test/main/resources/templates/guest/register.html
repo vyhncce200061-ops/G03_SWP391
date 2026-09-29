@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Đăng Ký Tài Khoản</title>
+</head>
+<body>
+<div layout:fragment="content" class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-7 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-person-plus-fill text-primary fs-1"></i>
+                        <h4 class="fw-bold mt-2">Tạo Tài Khoản PetShop</h4>
+                        <p class="text-muted small">Đăng ký để tích điểm và nhận voucher giảm 10%</p>
+                    </div>
+
+                    <form th:action="@{/register}" th:object="${registerForm}" method="post">
+                        <!-- Họ và tên -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Họ và Tên</label>
+                            <input type="text" class="form-control" th:field="*{fullName}" th:errorclass="is-invalid" placeholder="Nguyễn Văn A">
+                            <div class="invalid-feedback" th:errors="*{fullName}">Vui lòng nhập họ tên</div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Địa Chỉ Email</label>
+                            <input type="email" class="form-control" th:field="*{email}" th:errorclass="is-invalid" placeholder="nguyenvana@example.com">
+                            <div class="invalid-feedback" th:errors="*{email}">Email không hợp lệ hoặc đã tồn tại</div>
+                        </div>
+
+                        <!-- Số điện thoại -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Số Điện Thoại</label>
+                            <input type="tel" class="form-control" th:field="*{phone}" th:errorclass="is-invalid" placeholder="0901234567">
+                            <div class="invalid-feedback" th:errors="*{phone}">Số điện thoại không hợp lệ</div>
+                        </div>
+
+                        <!-- Mật khẩu -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Mật Khẩu</label>
+                                <input type="password" class="form-control" th:field="*{password}" th:errorclass="is-invalid" placeholder="Ít nhất 6 ký tự">
+                                <div class="invalid-feedback" th:errors="*{password}">Mật khẩu tối thiểu 6 ký tự</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Xác Nhận Mật Khẩu</label>
+                                <input type="password" class="form-control" th:field="*{confirmPassword}" th:errorclass="is-invalid" placeholder="Nhập lại mật khẩu">
+                                <div class="invalid-feedback" th:errors="*{confirmPassword}">Mật khẩu xác nhận không khớp</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="terms" required>
+                            <label class="form-check-label small text-muted" for="terms">
+                                Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của PetShop.
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn btn-pet-primary w-100 py-2 fw-semibold">Hoàn Tất Đăng Ký</button>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <span class="small text-muted">Đã có tài khoản? </span>
+                        <a th:href="@{/login}" class="small fw-semibold text-decoration-none">Đăng nhập ngay</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

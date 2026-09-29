@@ -1,0 +1,77 @@
+# =====================================================================
+# PETSHOP SWP391 — GITIGNORE CONFIGURATION
+# =====================================================================
+
+# 1. Maven Build Artifacts
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# 2. IntelliJ IDEA Project Files
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# 3. Visual Studio Code
+.vscode/
+*.code-workspace
+.history/
+
+# 4. Eclipse & NetBeans
+.settings/
+.project
+.classpath
+bin/
+nbproject/
+nb-configuration.xml
+
+# 5. Local Application Properties & Secret Overrides (DO NOT COMMIT)
+**/application-local.yml
+**/application-local.properties
+**/application-local-*.yml
+*.env
+*.env.local
+
+# 6. Runtime Logs & Dumps
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+hs_err_pid*
+replay_pid*
+
+# 7. Operating System Artifacts
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# 8. Package Archives
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# 9. Node / Front-End Build Caches (if any CLI tools used)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
