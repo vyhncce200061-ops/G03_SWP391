@@ -11,6 +11,11 @@ import com.petshop.repository.RoleRepository;
 import com.petshop.repository.UserRepository;
 import com.petshop.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import com.petshop.config.security.JwtService;
+import com.petshop.service.EmailService;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +37,76 @@ public class AuthServiceImpl implements AuthService {
     private final CartRepository cartRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final EmailService emailService;
+
+    @Value("${app.base-url}")
+    private String baseUrl;
+
+    private static final long REGISTRATION_TTL_MS = 24L * 60 * 60 * 1000;
+
+    @Override
+    @Transactional(readOnly = true)
+    public void startRegistration(RegisterRequestDto request) {
+        String email = request.getEmail().trim().toLowerCase();
+        String phone = request.getPhone().trim();
+
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email đã được sử dụng bởi một tài khoản khác.");
+        }
+        if (userRepository.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Số điện thoại đã được đăng ký trong hệ thống.");
+        }
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Mật khẩu xác nhận không khớp.");
+        }
+
+        String token = jwtService.generateRegistrationToken(request.getFullName().trim(), email, phone,
+                passwordEncoder.encode(request.getPassword()), REGISTRATION_TTL_MS);
+        String link = baseUrl + "/verify-email?token=" + token;
+        emailService.sendRegistrationConfirmation(email, request.getFullName().trim(), link);
+        log.info("Sent registration confirmation email to {}", email);
+    }
+
+    @Override
+    @Transactional
+    public User confirmRegistration(String token) {
+        Claims claims;
+        try {
+            claims = jwtService.parseRegistrationToken(token);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new IllegalArgumentException("Liên kết xác nhận không hợp lệ hoặc đã hết hạn. Vui lòng đăng ký lại.");
+        }
+        String email = claims.getSubject();
+        String phone = claims.get("phone", String.class);
+
+        if (userRepository.existsByEmail(email) || userRepository.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Tài khoản đã được kích hoạt trước đó. Vui lòng đăng nhập.");
+        }
+        return createCustomer(claims.get("fullName", String.class), email, phone, claims.get("pwd", String.class));
+    }
+
+    private User createCustomer(String fullName, String email, String phone, String passwordHash) {
+        Role customerRole = roleRepository.findByCode("CUSTOMER")
+                .orElseGet(() -> roleRepository.save(Role.builder()
+                        .code("CUSTOMER")
+                        .name("Khách hàng")
+                        .createdAt(LocalDateTime.now())
+                        .build()));
+
+        User savedUser = userRepository.save(User.builder()
+                .fullName(fullName)
+                .email(email)
+                .phone(phone)
+                .passwordHash(passwordHash)
+                .role(customerRole)
+                .status("ACTIVE")
+                .build());
+
+        cartRepository.save(Cart.builder().user(savedUser).build());
+        log.info("Created customer account with ID: {}", savedUser.getId());
+        return savedUser;
+    }
 
     @Override
     @Transactional

@@ -35,7 +35,7 @@ spring:
     # - sendStringParametersAsUnicode=true (Preserves Vietnamese NVARCHAR diacritics without distortion)
     url: jdbc:sqlserver://localhost:1433;databaseName=PetShopDB;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true;
     username: sa
-    password: ${DB_PASSWORD:123456}
+    password: ${DB_PASSWORD:123}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
     hikari:
       pool-name: PetShopHikariPool
@@ -53,18 +53,19 @@ spring:
     database-platform: org.hibernate.dialect.SQLServerDialect
     open-in-view: false
     show-sql: true
-    hibernate:
-      # Strictly validate or none: Database schema is authoritatively created and maintained
-      # by PetShop_Database_Final.sql (preserves computed columns, filtered indexes, CHECK rules)
-      ddl-auto: validate
     properties:
       hibernate:
+        physical_naming_strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
         format_sql: true
         highlight_sql: true
         jdbc:
           batch_size: 25
           order_inserts: true
           order_updates: true
+    hibernate:
+      # Strictly validate or none: Database schema is authoritatively created and maintained
+      # by PetShop_Database_Final.sql (preserves computed columns, filtered indexes, CHECK rules)
+      ddl-auto: validate
 
   # ===================================================================
   # 3. Thymeleaf Template Engine Configuration
@@ -93,6 +94,19 @@ spring:
         cache: false
 
   # ===================================================================
+  # Mail (Gmail SMTP: use an App Password, set MAIL_USERNAME / MAIL_PASSWORD env vars)
+  # If MAIL_USERNAME is empty, the verification link is only printed to the log.
+  # ===================================================================
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+  # ===================================================================
   # 5. File Upload Configuration (Product Images, User Avatars)
   # ===================================================================
   servlet:
@@ -100,6 +114,16 @@ spring:
       enabled: true
       max-file-size: 10MB
       max-request-size: 15MB
+
+# =====================================================================
+# JWT Configuration (secret must be >= 32 chars; override via JWT_SECRET env)
+# =====================================================================
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  mail-from: ${MAIL_USERNAME:}
+  jwt:
+    secret: ${JWT_SECRET:petshop-swp391-dev-secret-key-change-me-in-production-0123456789}
+    expiration-ms: 86400000
 
 # =====================================================================
 # 6. Logging Subsystem Configuration

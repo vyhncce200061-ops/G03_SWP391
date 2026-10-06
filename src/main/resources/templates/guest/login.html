@@ -18,9 +18,12 @@
                     </div>
 
                     <!-- Spring Security Error Alert -->
-                    <div th:if="${param.error}" class="alert alert-danger py-2 small" role="alert">
+                    <div th:if="${errorMessage}" class="alert alert-danger py-2 small" role="alert">
                         <i class="bi bi-exclamation-circle-fill me-1"></i>
-                        Email, số điện thoại hoặc mật khẩu không chính xác!
+                        <span th:text="${errorMessage}"></span>
+                    </div>
+                    <div th:if="${successMessage}" class="alert alert-success py-2 small" role="alert">
+                        <span th:text="${successMessage}"></span>
                     </div>
 
                     <!-- Logout Success Alert -->
@@ -30,12 +33,12 @@
                     </div>
 
                     <!-- Form đăng nhập chuẩn Spring Security Form Login -->
-                    <form th:action="@{/login}" method="post">
+                    <form th:action="@{/login}" th:object="${loginForm}" method="post">
                         <div class="mb-3">
                             <label for="username" class="form-label small fw-semibold">Email hoặc Số điện thoại</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
-                                <input type="text" class="form-control" id="username" name="username" required autofocus placeholder="customer@petshop.vn">
+                                <input type="text" class="form-control" id="username" th:field="*{username}" required autofocus placeholder="customer@petshop.vn">
                             </div>
                         </div>
 

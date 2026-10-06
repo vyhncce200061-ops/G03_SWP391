@@ -1,7 +1,19 @@
 package com.petshop.controller.guest;
 
+import com.petshop.config.security.CustomUserDetails;
+import com.petshop.config.security.JwtAuthenticationFilter;
+import com.petshop.config.security.JwtService;
+import com.petshop.dto.auth.LoginRequestDto;
 import com.petshop.dto.auth.RegisterRequestDto;
 import com.petshop.service.AuthService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,9 +29,47 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class AuthController {
 
     private final AuthService authService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
     @GetMapping("/login")
-    public String loginForm() {
+    public String loginForm(Model model) {
+        if (!model.containsAttribute("loginForm")) {
+            model.addAttribute("loginForm", new LoginRequestDto());
+        }
+        return "guest/login";
+    }
+
+    @PostMapping("/login")
+    public String processLogin(@Valid @ModelAttribute("loginForm") LoginRequestDto loginForm,
+                               BindingResult bindingResult,
+                               HttpServletResponse response,
+                               Model model) {
+        if (bindingResult.hasErrors()) {
+            return "guest/login";
+        }
+        try {
+            Authentication auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginForm.getUsername().trim(), loginForm.getPassword()));
+            CustomUserDetails user = (CustomUserDetails) auth.getPrincipal();
+
+            Cookie cookie = new Cookie(JwtAuthenticationFilter.COOKIE_NAME, jwtService.generateToken(user));
+            cookie.setHttpOnly(true);
+            cookie.setPath("/");
+            cookie.setMaxAge((int) (jwtService.getExpirationMs() / 1000));
+            response.addCookie(cookie);
+
+            log.info("User {} logged in with role {}", user.getUsername(), user.getRoleCode());
+            switch (user.getRoleCode()) {
+                case "ADMIN": return "redirect:/admin/dashboard";
+                case "STAFF": return "redirect:/staff/dashboard";
+                default: return "redirect:/";
+            }
+        } catch (LockedException | DisabledException e) {
+            model.addAttribute("errorMessage", "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+        } catch (AuthenticationException e) {
+            model.addAttribute("errorMessage", "Email, số điện thoại hoặc mật khẩu không chính xác!");
+        }
         return "guest/login";
     }
 
@@ -41,13 +91,26 @@ public class AuthController {
         }
 
         try {
-            authService.registerCustomer(registerForm);
-            redirectAttributes.addFlashAttribute("successMessage", "Đăng ký tài khoản thành công! Vui lòng đăng nhập.");
+            authService.startRegistration(registerForm);
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "Đã gửi email xác nhận tới " + registerForm.getEmail().trim()
+                    + ". Vui lòng kiểm tra hộp thư (kể cả Spam) và bấm vào liên kết để kích hoạt tài khoản.");
             return "redirect:/login";
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             model.addAttribute("errorMessage", e.getMessage());
             return "guest/register";
         }
+    }
+
+    @GetMapping("/verify-email")
+    public String verifyEmail(@RequestParam String token, RedirectAttributes redirectAttributes) {
+        try {
+            authService.confirmRegistration(token);
+            redirectAttributes.addFlashAttribute("successMessage", "Kích hoạt tài khoản thành công! Vui lòng đăng nhập.");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/login";
     }
 
     @GetMapping("/forgot-password")

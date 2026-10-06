@@ -1,8 +1,12 @@
 package com.petshop.config;
 
 import com.petshop.config.security.CustomAccessDeniedHandler;
-import com.petshop.config.security.CustomAuthenticationSuccessHandler;
 import com.petshop.config.security.CustomUserDetailsService;
+import com.petshop.config.security.JwtAuthenticationFilter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,8 +31,8 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
-    private final CustomAuthenticationSuccessHandler authenticationSuccessHandler;
     private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     /**
      * Password encoder bean utilizing BCrypt hashing (compatible with $2a$10$ seed hashes).
@@ -68,6 +72,7 @@ public class SecurityConfig {
 
             // 2. CSRF Configuration
             .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 // Exempt server-to-server gateway webhooks from CSRF checks
                 .ignoringRequestMatchers("/payment/vnpay-ipn")
             )
@@ -105,6 +110,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/login",
                     "/register",
+                    "/verify-email",
                     "/forgot-password",
                     "/reset-password"
                 ).permitAll()
@@ -138,31 +144,26 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
 
-            // 4. Form-Based Login Configuration
-            .formLogin(form -> form
-                .loginPage("/login")
-                .loginProcessingUrl("/login")
-                .usernameParameter("username") // Supports Email or Phone
-                .passwordParameter("password")
-                .successHandler(authenticationSuccessHandler)
-                .failureUrl("/login?error=true")
-                .permitAll()
-            )
-
-            // 5. Logout Handler Configuration
+            // 4. Logout: JWT is stored in an HttpOnly cookie, so just delete it
             .logout(logout -> logout
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/login?logout=true")
-                .invalidateHttpSession(true)
                 .clearAuthentication(true)
-                .deleteCookies("JSESSIONID")
+                .deleteCookies(JwtAuthenticationFilter.COOKIE_NAME)
                 .permitAll()
             )
 
+            // 5. Stateless: identity comes from the JWT cookie on every request
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
             // 6. Exception & Access Denied Handling
             .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"))
                 .accessDeniedHandler(accessDeniedHandler)
-            );
+            )
+
+            // 7. JWT cookie filter
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
