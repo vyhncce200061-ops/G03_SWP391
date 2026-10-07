@@ -48,9 +48,18 @@ public class CartController {
     public String updateQuantity(@AuthenticationPrincipal CustomUserDetails userDetails,
                                  @RequestParam Long itemId,
                                  @RequestParam int quantity,
-                                 HttpSession session) {
-        CartDto cart = cartService.updateItemQuantity(userDetails.getId(), itemId, quantity);
-        session.setAttribute("cartCount", cart.getTotalQuantity());
+                                 HttpSession session,
+                                 RedirectAttributes redirectAttributes) {
+        try {
+            CartDto cart = cartService.updateItemQuantity(userDetails.getId(), itemId, quantity);
+
+            session.setAttribute("cartCount", cart.getTotalQuantity());
+
+            redirectAttributes.addFlashAttribute("successMessage", "Đã cập nhật số lượng sản phẩm.");
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/cart";
     }
 
@@ -59,9 +68,16 @@ public class CartController {
                              @RequestParam Long itemId,
                              HttpSession session,
                              RedirectAttributes redirectAttributes) {
-        CartDto cart = cartService.removeItem(userDetails.getId(), itemId);
-        session.setAttribute("cartCount", cart.getTotalQuantity());
-        redirectAttributes.addFlashAttribute("infoMessage", "Đã xóa sản phẩm khỏi giỏ hàng.");
+        try {
+            CartDto cart = cartService.removeItem(userDetails.getId(), itemId);
+
+            session.setAttribute("cartCount", cart.getTotalQuantity());
+
+            redirectAttributes.addFlashAttribute("infoMessage", "Đã xóa sản phẩm khỏi giỏ hàng.");
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/cart";
     }
 
