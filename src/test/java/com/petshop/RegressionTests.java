@@ -275,6 +275,7 @@ class RegressionTests {
     @Test void userManagementTabsAndActionsMatchAccountTypeAndState() throws Exception {
         String html=mvc.perform(get("/admin/users").with(user(new CustomUserDetails(admin))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertFalse(html.contains("Hỗ trợ tài khoản:"));
         assertTrue(html.contains("/admin/users/"+staff.getId()+"/reset-password"));
         assertFalse(html.contains("/admin/users/"+customer.getId()+"/reset-password"));
         assertFalse(html.contains("/admin/users/"+admin.getId()+"/reset-password"));
@@ -553,6 +554,9 @@ class RegressionTests {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertTrue(before.contains("/admin/vouchers/" + first.getId() + "/delete"));
         assertTrue(before.contains("name=\"_csrf\""));
+        assertFalse(before.contains("Chưa xóa"));
+        assertFalse(before.contains("<select name=\"deleted\""));
+        assertTrue(before.contains("deleted=true"));
         voucherService.softDeleteVoucher(first.getId()); voucherService.softDeleteVoucher(second.getId()); em.flush();
         assertEquals(0, voucherService.getAllVouchers(PageRequest.of(0, 10)).getTotalElements());
         assertEquals(0, voucherService.searchVouchers(null, null, PageRequest.of(0, 10)).getTotalElements());
@@ -563,6 +567,8 @@ class RegressionTests {
         assertTrue(html.contains("deleted=true"));
         assertFalse(html.contains("/delete\""));
         assertFalse(html.contains("/toggle-status\""));
+        assertTrue(html.contains("/restore\""));
+        assertTrue(html.contains("Phục hồi"));
         mvc.perform(get("/admin/vouchers/" + first.getId() + "/edit").with(user(new CustomUserDetails(admin))))
                 .andExpect(redirectedUrl("/admin/vouchers")).andExpect(flash().attributeExists("errorMessage"));
     }
@@ -599,5 +605,87 @@ class RegressionTests {
         var form=voucherForm();form.setTitle("Updated");
         voucherService.updateVoucher(v.getId(),form);em.flush();em.clear();
         assertEquals(1,vouchers.findById(v.getId()).orElseThrow().getUsedCount());
+    }
+
+    @Test void restoringVoucherPreservesCampaignOrderAndWalletHistory() throws Exception {
+        var request=voucherForm();request.setPerCustomerLimit(1);
+        Voucher voucher=voucherService.createVoucher(request);
+        voucherService.saveVoucherToWallet(customer.getId(),voucher.getId());
+        carts.addItemToCart(customer.getId(),variant.getId(),2);
+        var checkout=checkout();checkout.setVoucherCode(voucher.getCode());
+        Order order=orderService.checkoutOrder(customer.getId(),checkout);
+        em.flush();em.clear();
+        var original=vouchers.findById(voucher.getId()).orElseThrow();
+        var createdAt=original.getCreatedAt();var start=original.getStartDate();var end=original.getEndDate();
+        var walletBefore=wallet.findByCustomerIdAndVoucherId(customer.getId(),voucher.getId()).orElseThrow();
+        var walletId=walletBefore.getId();var savedAt=walletBefore.getSavedAt();var usedAt=walletBefore.getUsedAt();
+        voucherService.softDeleteVoucher(voucher.getId());
+        mvc.perform(post("/admin/vouchers/"+voucher.getId()+"/restore").with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(redirectedUrl("/admin/vouchers")).andExpect(flash().attributeExists("successMessage"));
+        em.flush();em.clear();
+        var restored=voucherService.getVoucherById(voucher.getId());
+        assertFalse(restored.getIsDeleted());assertNull(restored.getDeletedAt());
+        assertEquals(VoucherStatus.INACTIVE,restored.getStatus());
+        assertEquals(voucher.getCode(),restored.getCode());assertEquals(createdAt,restored.getCreatedAt());
+        assertEquals(start,restored.getStartDate());assertEquals(end,restored.getEndDate());
+        assertEquals(1,restored.getUsedCount());assertEquals(1,restored.getPerCustomerLimit());assertEquals(10,restored.getTotalUsageLimit());
+        var persisted=orders.findById(order.getId()).orElseThrow();
+        assertEquals(restored.getId(),persisted.getVoucher().getId());assertEquals(voucher.getCode(),persisted.getVoucherCodeSnapshot());
+        assertEquals(0,new BigDecimal("390000").compareTo(persisted.getTotalAmount()));
+        var walletAfter=wallet.findByCustomerIdAndVoucherId(customer.getId(),voucher.getId()).orElseThrow();
+        assertEquals(walletId,walletAfter.getId());assertEquals(savedAt,walletAfter.getSavedAt());assertEquals(usedAt,walletAfter.getUsedAt());
+        assertTrue(walletAfter.getIsUsed());assertEquals(8,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertEquals(0,voucherService.searchVouchers(null,null,true,PageRequest.of(0,10)).getTotalElements());
+        assertEquals(1,voucherService.getAllVouchers(PageRequest.of(0,10)).getTotalElements());
+        assertFalse(voucherService.validateAndCalculateDiscount(voucher.getCode(),null,new BigDecimal("400000")).isValid());
+        voucherService.toggleVoucherStatus(voucher.getId());
+        assertFalse(voucherService.validateAndCalculateDiscount(voucher.getCode(),customer.getId(),new BigDecimal("400000")).isValid());
+        assertTrue(voucherService.validateAndCalculateDiscount(voucher.getCode(),null,new BigDecimal("400000")).isValid());
+    }
+
+    @Test void onlyAdminWithCsrfCanRestoreDeletedVoucher() throws Exception {
+        Voucher voucher=voucherService.createVoucher(voucherForm());voucherService.softDeleteVoucher(voucher.getId());
+        String path="/admin/vouchers/"+voucher.getId()+"/restore";
+        for(User denied:List.of(customer,staff)) {
+            mvc.perform(post(path).with(user(new CustomUserDetails(denied))).with(csrf())).andExpect(redirectedUrl("/error/403"));
+        }
+        mvc.perform(post(path).with(csrf())).andExpect(redirectedUrlPattern("**/login"));
+        mvc.perform(post(path).with(user(new CustomUserDetails(admin)))).andExpect(redirectedUrl("/error/403"));
+        assertTrue(vouchers.findById(voucher.getId()).orElseThrow().getIsDeleted());
+        mvc.perform(post(path).with(user(new CustomUserDetails(admin))).with(csrf())).andExpect(redirectedUrl("/admin/vouchers"));
+        assertFalse(vouchers.findById(voucher.getId()).orElseThrow().getIsDeleted());
+        mvc.perform(post("/admin/vouchers/999999/restore").with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(redirectedUrl("/admin/vouchers?deleted=true")).andExpect(flash().attributeExists("errorMessage"));
+    }
+
+    @Test void restoringVoucherIsIdempotentAndDoesNotRenewDatesOrResetQuota() {
+        var form=voucherForm();form.setStartDate(LocalDateTime.now().minusDays(3));form.setEndDate(LocalDateTime.now().minusDays(2));
+        var voucher=voucherService.createVoucher(form);voucher.setUsedCount(10);vouchers.saveAndFlush(voucher);em.refresh(voucher);
+        var createdAt=voucher.getCreatedAt();var persistedEnd=voucher.getEndDate();
+        voucherService.softDeleteVoucher(voucher.getId());voucherService.restoreDeletedVoucher(voucher.getId());
+        var restored=voucherService.getVoucherById(voucher.getId());
+        assertEquals(persistedEnd,restored.getEndDate());assertEquals(10,restored.getUsedCount());
+        voucherService.toggleVoucherStatus(voucher.getId());
+        voucherService.restoreDeletedVoucher(voucher.getId());
+        assertEquals(VoucherStatus.ACTIVE,restored.getStatus());assertEquals(createdAt,restored.getCreatedAt());
+        assertFalse(voucherService.validateAndCalculateDiscount(voucher.getCode(),null,new BigDecimal("400000")).isValid());
+        var updated=voucherForm();voucherService.updateVoucher(voucher.getId(),updated);
+        assertFalse(voucherService.validateAndCalculateDiscount(voucher.getCode(),null,new BigDecimal("400000")).isValid());
+        updated.setTotalUsageLimit(11);voucherService.updateVoucher(voucher.getId(),updated);
+        assertTrue(voucherService.validateAndCalculateDiscount(voucher.getCode(),null,new BigDecimal("400000")).isValid());
+        assertEquals(10,restored.getUsedCount());assertEquals(1,vouchers.count());
+    }
+
+    @Test void deletedCodesStayReservedForCreateAndEditWithRecoveryGuidance() throws Exception {
+        var deleted=voucherService.createVoucher(voucherForm());voucherService.softDeleteVoucher(deleted.getId());
+        var request=voucherForm();request.setCode(" reg10 ");
+        var error=assertThrows(IllegalArgumentException.class,()->voucherService.createVoucher(request));
+        assertTrue(error.getMessage().contains("phục hồi"));
+        var another=voucherForm();another.setCode("OTHER10");var existing=voucherService.createVoucher(another);
+        assertThrows(IllegalArgumentException.class,()->voucherService.updateVoucher(existing.getId(),voucherForm()));
+        assertEquals("OTHER10",vouchers.findById(existing.getId()).orElseThrow().getCode());
+        mvc.perform(post("/admin/vouchers/create").with(user(new CustomUserDetails(admin))).with(csrf()).flashAttr("voucherForm",voucherForm()))
+                .andExpect(status().isOk()).andExpect(view().name("admin/voucher-form")).andExpect(model().attributeExists("errorMessage"));
+        assertEquals(2,vouchers.count());assertTrue(vouchers.findById(deleted.getId()).orElseThrow().getIsDeleted());
     }
 }

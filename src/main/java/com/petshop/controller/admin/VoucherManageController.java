@@ -142,4 +142,16 @@ public class VoucherManageController {
         }
         return "redirect:/admin/vouchers";
     }
+
+    @PostMapping("/{id}/restore")
+    public String restoreVoucher(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        try {
+            voucherService.restoreDeletedVoucher(id);
+            redirectAttributes.addFlashAttribute("successMessage", "Đã phục hồi voucher về danh sách quản lý. Hãy kiểm tra trạng thái, hạn dùng và lượt còn lại trước khi sử dụng.");
+            return "redirect:/admin/vouchers";
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/admin/vouchers?deleted=true";
+        }
+    }
 }

@@ -32,11 +32,6 @@
         <a class="nav-link" th:classappend="${role == 'ADMIN'} ? 'active'"
            th:href="@{/admin/users(role='ADMIN',keyword=${keyword},status=${status},size=${users.size})}">Quản trị viên</a>
     </nav>
-    <div class="alert alert-info small" role="note">
-        <strong>Hỗ trợ tài khoản:</strong> Khách hàng và quản trị viên tự dùng “Quên mật khẩu” ở trang đăng nhập.
-        Với Staff, dùng “Gửi lại lời mời” khi chưa đặt mật khẩu; dùng “Gửi link hỗ trợ mật khẩu” khi đã nhận tài khoản và đang hoạt động.
-        Gửi link không đổi mật khẩu hoặc ngắt phiên đăng nhập; Staff tự xác nhận mật khẩu mới qua email.
-    </div>
 
     <!-- Search & Filter Card -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">

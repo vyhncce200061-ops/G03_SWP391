@@ -17,6 +17,10 @@ SMTP lỗi/thiếu cấu hình: trả lỗi, transaction tạo Users/token đư�
 
 Trạng thái ACTIVE ở đây là quyền được phép nhận tài khoản; badge Chờ đặt mật khẩu phản ánh MustChangePassword. Không thêm giá trị trạng thái hoặc cột database mới.
 
+Link đặt mật khẩu mở trang công khai riêng, không có tài khoản hoặc điều hướng Admin. Nếu trình duyệt đang đăng nhập, mở link hợp lệ sẽ kết thúc đúng phiên của trình duyệt đó và tải lại form với session/CSRF mới. Đây là việc tách phiên khi mở link; thao tác gửi mail vẫn không đổi mật khẩu hay ngắt các phiên khác. Tài khoản được đổi mật khẩu luôn là chủ token, không phải tài khoản đang đăng nhập trước đó.
+
+Lưu thành công → hủy session đặt mật khẩu → trang login ở trạng thái chưa đăng nhập → Staff đăng nhập bằng email/mật khẩu vừa chọn. Nhập xác nhận sai giữ form để thử lại; link hết hạn/đã dùng/đã bị thu hồi hoặc tài khoản bị khóa hiển thị thông báo yêu cầu gửi lại, không đưa thẳng về login. Link không hợp lệ không tự đăng xuất tài khoản đang dùng.
+
 ## 2. Gửi lại lời mời
 
 - Admin bấm Gửi lại cho Staff ACTIVE đang chờ đặt mật khẩu. Link cũ hết hiệu lực, token mới có hạn 30 phút.
@@ -89,6 +93,8 @@ Cũng nhận MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD và APP_BASE_URL nếu dùn
 Demo: Admin tạo Staff → mở hộp thư nhận → bấm link → tự đặt mật khẩu → đăng nhập vào Staff portal → thử mở lại link (bị từ chối). Để demo gửi lại, thực hiện trước khi hoàn tất đặt mật khẩu; link trước phải mất hiệu lực.
 
 Demo role: mở màn hình sửa Staff/Customer, role chỉ đọc; thử POST roleCode khác vẫn giữ role cũ và lịch sử của cùng UserId.
+
+Để demo Admin và Staff song song, mở link Staff trong cửa sổ ẩn danh hoặc trình duyệt khác. Nếu mở cùng trình duyệt đang đăng nhập Admin, phiên Admin của trình duyệt đó sẽ kết thúc theo chính sách tách phiên nêu trên; mật khẩu Admin không thay đổi.
 
 Demo hỗ trợ mật khẩu: dùng Staff đã nhận tài khoản và đang đăng nhập ở một cửa sổ khác → Admin mở tab Nhân viên, bấm Hỗ trợ mật khẩu → Staff tiếp tục mở hồ sơ được bằng phiên cũ → mở link trong email và đặt mật khẩu mới → request tiếp theo của phiên cũ chuyển về đăng nhập → đăng nhập bằng mật khẩu mới. Tab Khách hàng/Quản trị viên không có nút hỗ trợ mật khẩu; Staff đang chờ chỉ có Gửi lại, Staff bị khóa không có hai thao tác gửi link.
 

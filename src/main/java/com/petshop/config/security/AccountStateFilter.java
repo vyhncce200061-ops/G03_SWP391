@@ -21,6 +21,13 @@ public class AccountStateFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        if ("/reset-password".equals(path)) {
+            // Recovery authorizes the token's owner, independently of any existing login.
+            // The controller checks the token and removes an existing authenticated session.
+            chain.doFilter(request, response);
+            return;
+        }
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails principal) {
             User current = users.findById(principal.getId()).orElse(null);
@@ -31,7 +38,6 @@ public class AccountStateFilter extends OncePerRequestFilter {
                 response.sendRedirect(request.getContextPath() + "/login?expired=true");
                 return;
             }
-            String path = request.getRequestURI().substring(request.getContextPath().length());
             if (Boolean.TRUE.equals(current.getMustChangePassword()) && !path.equals("/account/password")
                     && !path.equals("/logout") && !path.startsWith("/css/") && !path.startsWith("/images/")
                     && !path.startsWith("/js/")) {

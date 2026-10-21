@@ -34,7 +34,9 @@
                             <input type="text" th:field="*{code}" class="form-control text-uppercase font-monospace fw-bold"
                                    placeholder="VD: PETWELCOME20" th:classappend="${#fields.hasErrors('code')} ? 'is-invalid'">
                             <div class="invalid-feedback" th:errors="*{code}"></div>
-                            <div class="form-text">Mã viết hoa, không dấu, không khoảng trắng (duy nhất).</div>
+                            <div class="form-text">Mã viết hoa, không dấu, không khoảng trắng và duy nhất, kể cả mã đã xóa.
+                                <a th:href="@{/admin/vouchers(deleted=true,keyword=${voucherForm.code})}">Phục hồi mã đã xóa</a> để dùng lại.
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Tên Chương Trình Khuyến Mãi <span class="text-danger">*</span></label>

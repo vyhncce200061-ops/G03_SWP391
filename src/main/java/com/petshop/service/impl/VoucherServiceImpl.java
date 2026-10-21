@@ -199,10 +199,8 @@ public class VoucherServiceImpl implements VoucherService {
     @Override
     @Transactional
     public Voucher createVoucher(VoucherRequestDto request) {
-        String cleanCode = request.getCode().trim().toUpperCase();
-        if (voucherRepository.findByCode(cleanCode).isPresent()) {
-            throw new IllegalArgumentException("Mã voucher '" + cleanCode + "' đã tồn tại trong hệ thống.");
-        }
+        String cleanCode = request.getCode().trim().toUpperCase(java.util.Locale.ROOT);
+        voucherRepository.findByCode(cleanCode).ifPresent(existing -> { throw duplicateCode(existing); });
 
         validateVoucherLogic(request);
 
@@ -234,11 +232,11 @@ public class VoucherServiceImpl implements VoucherService {
 
         requireNotDeleted(voucher);
 
-        String cleanCode = request.getCode().trim().toUpperCase();
+        String cleanCode = request.getCode().trim().toUpperCase(java.util.Locale.ROOT);
         if (!voucher.getCode().equalsIgnoreCase(cleanCode)) {
             voucherRepository.findByCode(cleanCode).ifPresent(existing -> {
                 if (!existing.getId().equals(id)) {
-                    throw new IllegalArgumentException("Mã voucher '" + cleanCode + "' đã tồn tại.");
+                    throw duplicateCode(existing);
                 }
             });
             voucher.setCode(cleanCode);
@@ -288,6 +286,20 @@ public class VoucherServiceImpl implements VoucherService {
         }
         voucher.setIsDeleted(true);
         voucher.setDeletedAt(LocalDateTime.now());
+        voucher.setStatus(VoucherStatus.INACTIVE);
+        voucherRepository.save(voucher);
+    }
+
+    @Override
+    @Transactional
+    public void restoreDeletedVoucher(Long id) {
+        Voucher voucher = voucherRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mã giảm giá."));
+        entityManager.refresh(voucher, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (!Boolean.TRUE.equals(voucher.getIsDeleted())) return;
+        // Restore the same campaign; preserve its dates, quotas, usage and history.
+        voucher.setIsDeleted(false);
+        voucher.setDeletedAt(null);
         voucher.setStatus(VoucherStatus.INACTIVE);
         voucherRepository.save(voucher);
     }
@@ -357,8 +369,14 @@ public class VoucherServiceImpl implements VoucherService {
 
     private void requireNotDeleted(Voucher voucher) {
         if (Boolean.TRUE.equals(voucher.getIsDeleted())) {
-            throw new IllegalArgumentException("Voucher đã bị xóa, không thể chỉnh sửa hoặc sử dụng lại.");
+            throw new IllegalArgumentException("Voucher đã bị xóa. Hãy vào Voucher đã xóa và phục hồi trước khi chỉnh sửa hoặc sử dụng.");
         }
+    }
+
+    private IllegalArgumentException duplicateCode(Voucher voucher) {
+        return new IllegalArgumentException(Boolean.TRUE.equals(voucher.getIsDeleted())
+                ? "Mã voucher '" + voucher.getCode() + "' đã được dùng cho voucher đã xóa. Hãy vào Voucher đã xóa để phục hồi, không tạo mã trùng."
+                : "Mã voucher '" + voucher.getCode() + "' đã tồn tại trong hệ thống.");
     }
 
     private void validateVoucherLogic(VoucherRequestDto request) {

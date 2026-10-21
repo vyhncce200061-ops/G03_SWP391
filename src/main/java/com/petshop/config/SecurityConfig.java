@@ -63,6 +63,10 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        var csrfHandler = new org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler();
+        // Create the CSRF token/session before the Thymeleaf layout can flush HTML.
+        // Keep token masking and normal CSRF validation for browser forms.
+        csrfHandler.setCsrfRequestAttributeName(null);
         http
             .addFilterBefore(new com.petshop.config.security.AccountStateFilter(userRepository),
                     org.springframework.security.web.access.intercept.AuthorizationFilter.class)
@@ -71,6 +75,7 @@ public class SecurityConfig {
 
             // 2. CSRF Configuration
             .csrf(csrf -> csrf
+                .csrfTokenRequestHandler(csrfHandler)
                 // Exempt server-to-server gateway webhooks from CSRF checks
                 .ignoringRequestMatchers("/payment/vnpay-ipn")
             )

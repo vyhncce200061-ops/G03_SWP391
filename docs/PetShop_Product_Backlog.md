@@ -240,13 +240,15 @@ Bảng tổng hợp 26 tính năng của dự án với đầy đủ 6 cột b�
 #### `FEAT-12`: Quản trị chiến dịch Voucher khuyến mãi của Admin
 - **Phân hệ**: Voucher / Promotion
 - **User Story**: Là một Quản trị viên, tôi muốn tạo và cấu hình các chiến dịch mã giảm giá (giảm phần trăm hoặc giảm số tiền cố định, giới hạn lượt dùng, đơn tối thiểu, hạn mức) để thu hút khách hàng mua sắm.
-- **Mô tả nghiệp vụ**: Admin tạo và chỉnh sửa thông tin trong bảng `Vouchers`: Mã code (viết hoa duy nhất), Tiêu đề, Loại giảm giá (`PERCENT` kèm trần giảm tối đa `MaxDiscountAmount`, hoặc `FIXED`), Giá trị giảm (`DiscountValue`), Giá trị đơn hàng tối thiểu (`MinOrderAmount`), Ngày bắt đầu (`StartDate`), Ngày kết thúc (`EndDate`), Tổng số lượt sử dụng tối đa (`TotalUsageLimit`), Giới hạn lượt dùng trên mỗi khách (`PerCustomerLimit`). Bật/tắt trạng thái voucher (`ACTIVE`/`INACTIVE`).
+- **Mô tả nghiệp vụ**: Admin tạo và chỉnh sửa thông tin trong bảng `Vouchers`: Mã code (viết hoa duy nhất, kể cả voucher đã xóa), Tiêu đề, Loại giảm giá (`PERCENT` kèm trần giảm tối đa `MaxDiscountAmount`, hoặc `FIXED`), Giá trị giảm (`DiscountValue`), Giá trị đơn hàng tối thiểu (`MinOrderAmount`), Ngày bắt đầu (`StartDate`), Ngày kết thúc (`EndDate`), Tổng số lượt sử dụng tối đa (`TotalUsageLimit`), Giới hạn lượt dùng trên mỗi khách (`PerCustomerLimit`). Bật/tắt (`ACTIVE`/`INACTIVE`), xóa mềm và phục hồi voucher. Danh sách mặc định chỉ hiển thị voucher chưa xóa, không có lựa chọn lọc Chưa xóa; nút Voucher đã xóa mở danh sách phục hồi. Phục hồi đúng bản ghi và mã cũ về INACTIVE, giữ lịch sử, thời hạn và lượt đã dùng; Admin kiểm tra/chỉnh sửa trước khi kích hoạt lại. Tạo hoặc đổi sang mã của voucher đã xóa bị từ chối và hướng dẫn phục hồi.
 - **Use Cases liên quan**: `UC-26` (Manage Voucher CRUD - Admin).
 - **Mức ưu tiên**: **Should Have** | **Sprint**: **Sprint 2** | **Phụ trách**: **Member 3**
 - **Thực thể CSDL & Thành phần kỹ thuật**: `Vouchers`; `AdminVoucherController`, `admin/voucher-list.html`, `admin/voucher-form.html`.
 - **Tiêu chí nghiệm thu (Definition of Done - DoD)**:
   - Ràng buộc hợp lệ chặt chẽ: `StartDate < EndDate`, `DiscountValue > 0`, phần trăm $\le 100\%$, mã Code duy nhất.
   - Không cho phép giảm `TotalUsageLimit` nhỏ hơn số lượng đã dùng thực tế `UsedCount`.
+  - Chỉ Admin được xóa/phục hồi bằng POST có CSRF. Phục hồi đặt IsDeleted=false, DeletedAt=null và INACTIVE; không tạo bản ghi mới, không đổi mã/CreatedAt/thời hạn/UsedCount/giới hạn hoặc dữ liệu đơn hàng/ví voucher.
+  - Phục hồi lặp lại không tắt voucher đã được kích hoạt lại. Voucher hết hạn/hết quota vẫn không dùng được đến khi Admin sửa điều kiện hợp lệ; không tự gia hạn hoặc cộng lại lượt sử dụng.
 
 ---
 

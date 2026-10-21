@@ -20,6 +20,7 @@ public interface VoucherService {
     Voucher updateVoucher(Long id, com.petshop.dto.voucher.VoucherRequestDto request);
     void toggleVoucherStatus(Long id);
     void softDeleteVoucher(Long id);
+    void restoreDeletedVoucher(Long id);
 
     // Customer Voucher Wallet (UC-15)
     void saveVoucherToWallet(Long customerId, Long voucherId);
