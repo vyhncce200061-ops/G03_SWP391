@@ -64,6 +64,11 @@ class PetShopApplicationTests {
             String destination = code.equals("ADMIN") ? "/admin/dashboard" : code.equals("STAFF") ? "/staff/dashboard" : "/";
             assertTrue(loggedIn.headers().firstValue("location").orElseThrow().endsWith(destination));
             var profile = get(client, "/account/profile");
+            if (code.equals("CUSTOMER")) {
+                assertEquals(302, profile.statusCode());
+                assertTrue(profile.headers().firstValue("location").orElseThrow().endsWith("/customer/profile"));
+                profile = get(client, "/customer/profile");
+            }
             assertEquals(200, profile.statusCode());
             assertTrue(profile.body().stripTrailing().endsWith("</html>"));
             var loggedOut = post(client, "/logout", "_csrf=" + encode(csrf(profile.body())));

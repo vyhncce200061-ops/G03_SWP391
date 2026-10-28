@@ -21,6 +21,7 @@ public class AccountProfileController {
     public com.petshop.dto.auth.PasswordChangeRequestDto passwordForm() { return new com.petshop.dto.auth.PasswordChangeRequestDto(); }
     @GetMapping
     public String profile(@AuthenticationPrincipal CustomUserDetails principal, Model model) {
+        if ("CUSTOMER".equals(principal.getRoleCode())) return "redirect:/customer/profile";
         model.addAttribute("user", users.findById(principal.getId()));
         model.addAttribute("profilePath", "/account/profile");
         return "customer/profile";
@@ -28,10 +29,28 @@ public class AccountProfileController {
     @PostMapping
     public String update(@AuthenticationPrincipal CustomUserDetails principal,
             @Valid @ModelAttribute ProfileUpdateRequestDto form, BindingResult errors, Model model,
+            @RequestParam(value = "avatarFile", required = false) org.springframework.web.multipart.MultipartFile avatarFile,
             RedirectAttributes redirect) {
         if (errors.hasErrors()) return profile(principal, model);
-        try { users.updateProfile(principal.getId(), form); redirect.addFlashAttribute("successMessage", "Đã cập nhật hồ sơ."); }
+        try {
+            users.updateProfile(principal.getId(), form);
+            if (avatarFile != null && !avatarFile.isEmpty()) users.updateAvatar(principal.getId(), avatarFile);
+            redirect.addFlashAttribute("successMessage", "Đã cập nhật hồ sơ.");
+        }
         catch (IllegalArgumentException e) { redirect.addFlashAttribute("errorMessage", e.getMessage()); }
+        return "redirect:/account/profile";
+    }
+
+    @PostMapping("/avatar")
+    public String avatar(@AuthenticationPrincipal CustomUserDetails principal,
+            @RequestParam("avatarFile") org.springframework.web.multipart.MultipartFile file,
+            RedirectAttributes redirect) {
+        try {
+            users.updateAvatar(principal.getId(), file);
+            redirect.addFlashAttribute("successMessage", "Đã cập nhật ảnh đại diện.");
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            redirect.addFlashAttribute("errorMessage", exception.getMessage());
+        }
         return "redirect:/account/profile";
     }
 }

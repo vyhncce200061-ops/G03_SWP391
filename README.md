@@ -78,7 +78,7 @@ spring:
 ```
 
 ### Cách đặt mật khẩu DB riêng mà KHÔNG bị xung đột Git (Local Credentials Override):
-1. Tạo một file tên là `application-local.yml` tại `src/main/resources/` (đã được `.gitignore` bỏ qua). Có thể copy từ `application-local.yml.example`, điền Gmail gửi thư và mật khẩu ứng dụng trong file riêng này.
+1. Tạo một file tên là `application-local.yml` tại `src/main/resources/` (đã được `.gitignore` bỏ qua). Có thể copy từ `application-local.yml.example`, điền mật khẩu SQL Server của máy mình; nếu cần gửi thư thì điền thêm Gmail và mật khẩu ứng dụng.
 2. Điền thông tin tài khoản SQL Server cá nhân của bạn:
    ```yaml
    spring:
@@ -89,6 +89,8 @@ spring:
 3. Profile `dev` tự bao gồm `local`, nên Run như bình thường sẽ đọc file riêng nếu có. Có thể bật tường minh bằng `--spring.profiles.active=dev,local`. Profile `test` không tự nạp cấu hình local.
 
 File `application-local*.yml`/`.properties` được loại khỏi JAR để chia sẻ bản build an toàn. Nếu chạy JAR từ thư mục dự án và muốn đọc file local, thêm `--spring.config.additional-location=optional:file:./src/main/resources/` vào lệnh Java.
+
+Mật khẩu `spring.datasource.password` là mật khẩu đăng nhập SQL Server, không phải `Admin@123` của tài khoản trên web. Cấu hình main có giá trị mặc định cho môi trường cũ; nếu máy dùng mật khẩu khác thì phải ghi đè trong file local hoặc biến `DB_PASSWORD`. Không đổi mật khẩu tài khoản web để xử lý lỗi kết nối database. Ứng dụng kiểm tra kết nối/schema lúc khởi động với `ddl-auto: validate`; nếu log báo `Login failed for user` (18456), kiểm tra cấu hình SQL Server trước.
 
 > ⚠️ **LƯU Ý CỰC KỲ QUAN TRỌNG VỀ HIBERNATE DDL-AUTO**:
 > Trong `application.yml`, thuộc tính `spring.jpa.hibernate.ddl-auto` được đặt là **`none`** hoặc **`validate`**.  

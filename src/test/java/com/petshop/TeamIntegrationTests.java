@@ -50,6 +50,7 @@ class TeamIntegrationTests {
     @Autowired StockImportService imports;
     @Autowired CartService carts;
     @Autowired CatalogService catalog;
+    @Autowired UserService userService;
     @Autowired PlatformTransactionManager transactionManager;
     User admin, staff, customer;
     Category category;
@@ -202,5 +203,69 @@ class TeamIntegrationTests {
                 .param("petType", "DOG").param("status", "ACTIVE"))
                 .andExpect(status().isOk()).andExpect(model().attributeExists("errorMessage"));
         assertFalse(products.existsBySlug("bad-" + key));
+    }
+
+    @Test void staffAndAdminProfileFormsUseRoutesAllowedForTheirRole() throws Exception {
+        for (User actor : List.of(admin, staff)) {
+            String html = mvc.perform(get("/account/profile").with(user(new CustomUserDetails(actor))))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertTrue(html.contains("action=\"/account/profile\""));
+            assertTrue(html.contains("action=\"/account/password\""));
+            assertTrue(html.contains("action=\"/account/profile/avatar\""));
+            assertFalse(html.contains("action=\"/customer/"));
+            assertFalse(html.contains("id=\"tab-orders-pill\""));
+            assertFalse(html.contains("id=\"editAddressForm\""));
+            mvc.perform(post("/account/profile").with(user(new CustomUserDetails(actor))).with(csrf())
+                    .param("fullName", "Updated " + key).param("email", actor.getEmail()))
+                    .andExpect(redirectedUrl("/account/profile"));
+            User updated = users.findById(actor.getId()).orElseThrow();
+            assertEquals("Updated " + key, updated.getFullName());
+            assertEquals(actor.getRole().getCode(), updated.getRole().getCode());
+        }
+        mvc.perform(get("/account/profile").with(user(new CustomUserDetails(customer))))
+                .andExpect(redirectedUrl("/customer/profile"));
+    }
+
+    @Test void addressEditFormsSupplyUsableCsrfTokensFromBothCustomerPages() throws Exception {
+        var address = userService.addAddress(customer.getId(), com.petshop.dto.auth.AddressCreateDto.builder()
+                .recipientName("Customer").recipientPhone("0901000000").province("HCM").district("Thu Duc")
+                .ward("Linh Trung").addressLine("Original address").isDefault(true).build());
+        for (String page : List.of("/customer/addresses", "/customer/profile")) {
+            var result = mvc.perform(get(page).with(user(new CustomUserDetails(customer)))).andExpect(status().isOk()).andReturn();
+            var form = java.util.regex.Pattern.compile("<form[^>]*id=\"editAddressForm\"[^>]*>(.*?)</form>", java.util.regex.Pattern.DOTALL)
+                    .matcher(result.getResponse().getContentAsString());
+            assertTrue(form.find(), "Address edit form must exist");
+            var token = java.util.regex.Pattern.compile("name=\"_csrf\"[^>]*value=\"([^\"]+)\"").matcher(form.group(1));
+            assertTrue(token.find(), "Dynamic-action edit form needs an explicit CSRF token");
+            mvc.perform(post("/customer/addresses/" + address.getId() + "/edit")
+                    .with(user(new CustomUserDetails(customer)))
+                    .session((org.springframework.mock.web.MockHttpSession) result.getRequest().getSession(false))
+                    .param("_csrf", token.group(1)).param("recipientName", "Customer").param("recipientPhone", "0901000000")
+                    .param("province", "HCM").param("district", "Thu Duc").param("ward", "Linh Trung")
+                    .param("addressLine", "Updated from " + page))
+                    .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("successMessage"));
+            assertEquals("Updated from " + page, userService.getCustomerAddresses(customer.getId()).get(0).getAddressLine());
+        }
+    }
+
+    @Test void staffAndAdminCanUseTheExistingAvatarUploadWithoutCustomerAccess() throws Exception {
+        var buffer = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", buffer);
+        for (User actor : List.of(admin, staff)) {
+            String imageUrl = null;
+            try {
+                mvc.perform(multipart("/account/profile/avatar")
+                        .file(new org.springframework.mock.web.MockMultipartFile("avatarFile", "avatar.png", "image/png", buffer.toByteArray()))
+                        .with(user(new CustomUserDetails(actor))).with(csrf()))
+                        .andExpect(redirectedUrl("/account/profile")).andExpect(flash().attributeExists("successMessage"));
+                imageUrl = users.findById(actor.getId()).orElseThrow().getAvatarUrl();
+                assertTrue(imageUrl.matches("/uploads/avatars/avatar_[0-9]+_[0-9a-f-]+\\.png"));
+                mvc.perform(get(imageUrl)).andExpect(status().isOk());
+            } finally {
+                if (imageUrl != null && imageUrl.matches("/uploads/avatars/avatar_[0-9]+_[0-9a-f-]+\\.png")) {
+                    java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(imageUrl.substring(1)));
+                }
+            }
+        }
     }
 }
