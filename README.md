@@ -63,6 +63,8 @@ Toàn bộ cấu trúc bảng, ràng buộc toàn vẹn, kiểm tra máy trạng
 
 ---
 
+**Đồng bộ bổ sung ngày 29/10/2026:** Sau khi có database và trước khi Run code mới, chạy `database/migrations/V20261029__review_reply.sql` trong SSMS, chọn đúng database dự án. Áp dụng cho cả database cũ và mới; thêm ba cột phản hồi Admin vào bảng `Reviews`, giữ dữ liệu cũ. Xem [hướng dẫn](database/sync_feedback_reply/README.md).
+
 ## 3. Cấu hình ứng dụng (Application Configuration & SSL Trust)
 
 File cấu hình chính của dự án nằm tại: `src/main/resources/application.yml`.

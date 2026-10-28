@@ -16,11 +16,17 @@
 </p>
 <p th:text="${r.rating + '/5 sao'}">
 </p>
-<p style="white-space:pre-wrap" th:text="${r.comment}">
+<p style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.comment}">
 </p>
 <span class="badge bg-secondary" th:text="${r.status.name() == 'VISIBLE' ? 'Công khai' : 'Đã ẩn khỏi trang sản phẩm'}">
 </span>
-
+<div th:if="${r.replyText != null}" class="border-start border-3 ps-3 mt-3">
+<strong>Phản hồi từ PetShop</strong>
+<small class="d-block text-muted" th:text="${#temporals.format(r.repliedAt,'dd/MM/yyyy HH:mm')}">
+</small>
+<p style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.replyText}">
+</p>
+</div>
 </article>
 <nav class="d-flex gap-3">
 <a th:if="${reviews.hasPrevious()}" th:href="@{/customer/reviews(page=${reviews.number - 1})}">Trước</a>

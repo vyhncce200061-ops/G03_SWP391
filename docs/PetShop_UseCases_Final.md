@@ -6,7 +6,7 @@
 > **Đề tài**: Pet Shop E-Commerce Platform (Chuyên phụ kiện & thức ăn cho Chó và Mèo)  
 > **Ngôn ngữ đặc tả**: Tiếng Việt (Vietnamese)  
 > **Tổng số Use Case**: 73 Use Cases (29 Parent Use Cases, 44 Sub-Use Cases)  
-> **Tiêu chuẩn kiểm duyệt**: Khớp 100% bản vẽ Use Case Diagram đã hiệu chỉnh, loại bỏ UC-28 Banner, sửa UC-27.2 thành Ẩn/Hiện đánh giá, cập nhật Email Service & VNPay Sandbox, bổ sung biến thể SKU/ảnh sản phẩm/cảnh báo tồn kho/phí ship.
+> **Tiêu chuẩn kiểm duyệt**: Đối chiếu bản vẽ Use Case Diagram của nhóm; chốt ngày 29/10/2026 bổ sung Admin trả lời và giữ ẩn/hiện tại UC-27.2, loại bỏ UC-28 Banner, cập nhật Email Service & VNPay Sandbox, bổ sung biến thể SKU/ảnh sản phẩm/cảnh báo tồn kho/phí ship.
 
 ---
 
@@ -42,7 +42,7 @@ Hệ thống Pet Shop E-Commerce phục vụ bán hàng trực tuyến các sả
    - Loại bỏ hoàn toàn tác nhân phụ `Google OAuth2 Service` (không có trong phạm vi và không có cấu trúc CSDL hỗ trợ).
    - Loại bỏ `SMS OTP Service`, thay thế bằng `Email Service`.
 3. **Sửa đổi nghiệp vụ (Modifications)**:
-   - Sửa `UC-27.2` từ "Reply Review" thành **"Hide/Show Review"** (Ẩn/Hiện đánh giá). Bảng `Reviews` chỉ quản lý cờ trạng thái `Status IN ('VISIBLE', 'HIDDEN')`, không hỗ trợ phản hồi bình luận.
+   - Chốt 29/10/2026: `UC-27.2` là **Reply & Moderate Feedback**. Admin trả lời một lần, đồng thời giữ thao tác ẩn/hiện. `Reviews` bổ sung `ReplyText`, `RepliedByUserId`, `RepliedAt`; không tạo bảng Feedback khác. Staff không có quyền này. Nhóm cần cập nhật nhãn trên bản vẽ theo quyết định mới.
    - Chuyển `UC-8.4: Create Address` từ phân hệ `UC-8: Manage Profile` sang phân hệ `UC-9: Manage Address` thành `UC-9.1: Create Address`.
 4. **Bổ sung mới (New Use Cases)**:
    - `UC-18.3: Manage Product Images` (Staff) — Thêm/xóa/sắp xếp ảnh và đặt ảnh chính `IsPrimary`.
@@ -162,9 +162,9 @@ TỔNG SỐ USE CASES: 73 (GUEST: 7 | CUSTOMER: 30 | STAFF: 18 | ADMIN: 18)
 | **UC-25.2** | View Order Detail | Admin | Không | `<<extend>>` UC-25 | Hiển thị chi tiết toàn bộ chứng từ đơn hàng, thông tin thanh toán VNPay, địa chỉ giao nhận và lịch sử chuyển trạng thái. | `Orders`, `OrderItems`, `OrderStatusHistories`, `PaymentTransactions` |
 | **UC-25.3** | Confirm Order | Admin | Không | `<<extend>>` UC-25 | Cho phép Admin trực tiếp duyệt và xác nhận các đơn hàng COD đang chờ duyệt (`PENDING_CONFIRMATION`) chuyển sang `CONFIRMED`. | `Orders`, `OrderStatusHistories` |
 | **UC-26** | Manage Voucher | Admin | Không | Độc lập (CRUD) | Admin tạo, chỉnh sửa, bật/tắt, xóa mềm và phục hồi voucher. Mã duy nhất kể cả mã đã xóa; dùng lại bằng phục hồi bản ghi cũ về INACTIVE, giữ thời hạn/lượt đã dùng và lịch sử đơn/ví voucher. Danh sách mặc định không có bộ lọc Chưa xóa; mở Voucher đã xóa để phục hồi. | `Vouchers`, `Orders`, `CustomerVouchers` |
-| **UC-27** | Manage Review | Admin | Không | Base UC | Cung cấp giao diện cho Admin kiểm duyệt chất lượng nội dung đánh giá sản phẩm của khách hàng trước khi hiển thị công khai. | `Reviews` |
+| **UC-27** | Manage Review | Admin | Không | Base UC | Cung cấp giao diện cho Admin kiểm duyệt chất lượng nội dung đánh giá sản phẩm của khách hàng bằng thao tác ẩn/hiện và trả lời. | `Reviews` |
 | **UC-27.1** | View Review | Admin | Không | `<<extend>>` UC-27 | Hiển thị danh sách tất cả các đánh giá của người mua kèm số sao, nhận xét text, tên sản phẩm và tên khách hàng. | `Reviews`, `Products`, `Users` |
-| **UC-27.2** | Hide/Show Review | Admin | Không | `<<extend>>` UC-27 | Cho phép Admin thay đổi trạng thái hiển thị của đánh giá giữa `VISIBLE` (hiện) và `HIDDEN` (ẩn đánh giá tiêu cực hoặc vi phạm) *(Sửa từ Reply Review)*. | `Reviews` |
+| **UC-27.2** | Reply & Moderate Feedback | Admin | Không | `<<extend>>` UC-27 | Admin đang hoạt động trả lời một lần (1–1000 ký tự); giữ ẩn/hiện nội dung spam/vi phạm. Không tự ẩn vì khách đánh giá thấp. Ẩn đánh giá sẽ ẩn cả câu trả lời khỏi trang sản phẩm; chủ đánh giá vẫn xem được trong My Feedback. | `Reviews`, `Users` |
 | ~~**UC-28**~~ | ~~Manage Banner~~ | ~~Admin~~ | — | **ĐÃ XÓA BỎ** | *Đã loại bỏ hoàn toàn do bảng Banners bị cắt giảm khỏi phạm vi cơ sở dữ liệu.* | *(Không có)* |
 | **UC-29** | View Report | Admin | Không | Base UC | Cung cấp cho Admin hệ thống báo cáo phân tích kinh doanh để nắm bắt hiệu quả tài chính và vận hành của cửa hàng. | `Orders`, `OrderItems`, `ProductVariants`, `StockImports` |
 | **UC-29.1** | View Inventory Report | Admin | Không | `<<extend>>` UC-29 | Cung cấp báo cáo phân tích tổng lượng hàng tồn, giá trị vốn tồn kho theo danh mục và tốc độ luân chuyển hàng hóa. | `ProductVariants`, `StockImports`, `vw_StockReconciliation` |

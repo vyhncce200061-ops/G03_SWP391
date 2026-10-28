@@ -394,14 +394,16 @@ Bảng tổng hợp 26 tính năng của dự án với đầy đủ 6 cột b�
 
 #### `FEAT-24`: Đánh giá sản phẩm đã mua & Kiểm duyệt đánh giá
 - **Phân hệ**: Review / Feedback
-- **User Story**: Là một Khách hàng, tôi muốn đánh giá sao và viết nhận xét cho sản phẩm tôi đã mua; và là một Admin, tôi muốn kiểm duyệt ẩn/hiện các đánh giá để đảm bảo nội dung trên website luôn lành mạnh.
+- **User Story**: Là một Khách hàng, tôi muốn đánh giá sao và viết nhận xét cho sản phẩm tôi đã mua; và là một Admin, tôi muốn trả lời khách và kiểm duyệt ẩn/hiện các đánh giá vi phạm hoặc spam.
 - **Mô tả nghiệp vụ**: Khách hàng chỉ được gửi đánh giá đối với mặt hàng thuộc đơn hàng có trạng thái `COMPLETED` của chính mình. Đánh giá dạng Text-only gồm số sao (1 đến 5 sao) và nội dung nhận xét (tối thiểu 10 ký tự). Mỗi mặt hàng trong đơn chỉ được đánh giá đúng 1 lần duy nhất (`OrderItemId` độc nhất trong bảng `Reviews`). Admin xem danh sách toàn bộ đánh giá trên hệ thống và thao tác kiểm duyệt bằng cách chuyển cờ `Status` giữa `VISIBLE` (hiển thị) và `HIDDEN` (tạm ẩn đối với nhận xét phản cảm, spam). Chỉ những đánh giá `VISIBLE` mới được hiển thị trên trang chi tiết sản phẩm và tính vào số sao trung bình.
-- **Use Cases liên quan**: `UC-13` (Manage Feedback Base UC), `UC-13.1` (Feedback Product), `UC-13.2` (View My Feedback), `UC-27` (Manage Review Admin Base UC), `UC-27.1` (View Review Admin), `UC-27.2` (Hide/Show Review Admin - Sửa đổi từ Reply Review).
+- **Use Cases liên quan**: `UC-13` (Manage Feedback Base UC), `UC-13.1` (Feedback Product), `UC-13.2` (View My Feedback), `UC-27` (Manage Review Admin Base UC), `UC-27.1` (View Review Admin), `UC-27.2` (Reply & Moderate Feedback Admin; chốt 29/10/2026).
 - **Mức ưu tiên**: **Should Have** | **Sprint**: **Sprint 3** | **Phụ trách**: **Member 5**
-- **Thực thể CSDL & Thành phần kỹ thuật**: `Reviews`, `OrderItems`, `Orders`; `ReviewController`, `AdminReviewController`, `fragments/review-section.html`, `customer/my-reviews.html`, `admin/review-moderation.html`.
+- **Thực thể CSDL & Thành phần kỹ thuật**: `Reviews`, `OrderItems`, `Orders`; `ReviewController`, `ReviewManageController`, `guest/product-detail.html`, `customer/reviews.html`, `admin/review-list.html`.
 - **Tiêu chí nghiệm thu (Definition of Done - DoD)**:
   - Chặn tuyệt đối đánh giá cho đơn hàng chưa `COMPLETED` hoặc đánh giá lại lần 2 cho cùng 1 `OrderItemId`.
-  - Admin ẩn đánh giá lập tức không hiển thị trên giao diện người dùng và không tính vào điểm sao trung bình.
+  - Admin ẩn đánh giá: cả nhận xét và câu trả lời không còn công khai hoặc tính vào sao trung bình; My Feedback của chủ đánh giá vẫn giữ lịch sử.
+  - Admin đang ACTIVE trả lời một lần, 1–1000 ký tự; ghi rõ người trả lời/thời điểm, không sửa nhận xét khách. Staff/Customer không có quyền trả lời. Gửi lặp/đồng thời không ghi đè; CSRF và HTML escaping được kiểm tra.
+  - Dùng cùng bảng `Reviews`; chạy `database/migrations/V20261029__review_reply.sql` để thêm đúng ba cột nullable theo quyết định 29/10/2026. Xem [quy tắc và demo](FEEDBACK_REPLY_20261029.md).
 
 ---
 
@@ -572,7 +574,7 @@ Bảng xác nhận toàn bộ 73 Use Cases từ `PetShop_UseCases_Final.md` đư
 | **UC-26** | Manage Voucher (Admin) | Admin | `FEAT-12` | Member 3 |
 | **UC-27** | Manage Review (Admin) | Admin | `FEAT-24` | Member 5 |
 | **UC-27.1** | View Review | Admin | `FEAT-24` | Member 5 |
-| **UC-27.2** | Hide/Show Review (Đã sửa từ Reply)| Admin | `FEAT-24` | Member 5 |
+| **UC-27.2** | Reply & Moderate Feedback| Admin | `FEAT-24` | Member 5 |
 | ~~**UC-28**~~| ~~Manage Banner~~ | ~~Admin~~ | **ĐÃ XÓA HOÀN TOÀN** | *Không phân công* |
 | **UC-29** | View Report | Admin | `FEAT-25` | Member 5 |
 | **UC-29.1** | View Inventory Report | Admin | `FEAT-25` | Member 5 |

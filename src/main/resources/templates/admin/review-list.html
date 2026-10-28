@@ -17,7 +17,7 @@
             <h4 class="fw-bold mb-1">
                 <i class="bi bi-chat-square-quote text-primary me-2"></i>Quản Lý Đánh Giá Sản Phẩm (Feedback)
             </h4>
-            <p class="text-muted small mb-0">Theo dõi phản hồi của người mua thực tế, kiểm soát nội dung và ẩn/hiện đánh giá công khai (UC-27).</p>
+            <p class="text-muted small mb-0">Xem và trả lời người mua, kiểm duyệt ẩn/hiện đánh giá công khai.</p>
         </div>
         <div class="d-flex gap-2">
             <button onclick="window.print()" class="btn btn-outline-secondary d-flex align-items-center gap-2">
@@ -186,6 +186,27 @@
                             <p class="mb-0 text-dark small fst-italic" th:text="${r.comment != null and !r.comment.isBlank() ? r.comment : '(Không có lời bình luận)'}">
                                 Sản phẩm rất chất lượng, cún nhà mình ăn rất thích!
                             </p>
+                            <div th:if="${r.replyText != null}" class="border-start border-3 ps-3 mt-3">
+                                <strong class="small">Phản hồi từ PetShop</strong>
+                                <small class="d-block text-muted" th:text="${r.repliedBy.fullName + ' · ' + #temporals.format(r.repliedAt,'dd/MM/yyyy HH:mm')}"></small>
+                                <p class="small mb-0" style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.replyText}"></p>
+                            </div>
+                            <details th:if="${r.replyText == null}" class="mt-2"
+                                     th:open="${replyReviewId != null and replyReviewId == r.id}">
+                                <summary class="text-primary">Trả lời đánh giá</summary>
+                                <form th:action="@{/admin/reviews/{id}/reply(id=${r.id})}" method="post" class="mt-2" style="min-width:240px">
+                                    <input type="hidden" name="keyword" th:value="${keyword}">
+                                    <input type="hidden" name="rating" th:value="${rating}">
+                                    <input type="hidden" name="status" th:value="${status}">
+                                    <input type="hidden" name="page" th:value="${reviews.number}">
+                                    <input type="hidden" name="size" th:value="${reviews.size}">
+                                    <label th:for="${'reply-' + r.id}" class="form-label small">Nội dung trả lời (tối đa 1000 ký tự)</label>
+                                    <textarea th:id="${'reply-' + r.id}" name="replyText" maxlength="1000" rows="3" required class="form-control"
+                                              th:text="${replyReviewId != null and replyReviewId == r.id ? replyDraft : ''}"></textarea>
+                                    <div class="form-text">Mỗi đánh giá chỉ trả lời một lần. Kiểm tra nội dung trước khi gửi.</div>
+                                    <button type="submit" class="btn btn-sm btn-primary mt-2">Gửi trả lời</button>
+                                </form>
+                            </details>
                         </td>
                         <td class="small text-muted" th:text="${#temporals.format(r.createdAt, 'dd/MM/yyyy HH:mm')}">
                             28/09/2026 14:30
@@ -201,7 +222,6 @@
                             </span>
                         </td>
                         <td class="text-end pe-4">
-
                             <form th:action="@{/admin/reviews/{id}/toggle-status(id=${r.id})}" method="post" class="d-inline">
                                 <input type="hidden" name="keyword" th:value="${keyword}">
                                 <input type="hidden" name="rating" th:value="${rating}">

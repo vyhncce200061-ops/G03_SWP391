@@ -64,6 +64,32 @@ public class ReviewServiceImpl implements ReviewService {
 
 
     @Override
+    @Transactional
+    public Review reply(Long reviewId, Long adminId, String text) {
+        if (text == null || text.isBlank() || text.length() > 1000) {
+            throw new IllegalArgumentException("Phản hồi cần có nội dung, tối đa 1000 ký tự.");
+        }
+        var admin = users.findByIdForUpdate(adminId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản."));
+        em.refresh(admin, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (!"ACTIVE".equals(admin.getStatus()) || !"ADMIN".equals(admin.getRole().getCode())) {
+            throw new IllegalArgumentException("Chỉ Admin đang hoạt động được trả lời đánh giá.");
+        }
+        // Serialize replies and moderation on the same review. A stale submit must
+        // not overwrite a reply already sent by another admin or undo visibility.
+        var review = reviewRepository.findByIdForUpdate(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đánh giá."));
+        em.refresh(review, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (review.getReplyText() != null) {
+            throw new IllegalArgumentException("Đánh giá đã được trả lời. Vui lòng tải lại trang.");
+        }
+        review.setReplyText(text.strip());
+        review.setRepliedBy(admin);
+        review.setRepliedAt(java.time.LocalDateTime.now());
+        return reviewRepository.saveAndFlush(review);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Page<Review> searchReviews(String keyword, Integer rating, ReviewStatus status, Pageable pageable) {
         String safeKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;

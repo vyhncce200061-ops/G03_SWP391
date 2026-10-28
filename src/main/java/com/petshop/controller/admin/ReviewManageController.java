@@ -69,4 +69,34 @@ public class ReviewManageController {
         return "redirect:/admin/reviews";
 
     }
+    @PostMapping("/{id}/reply")
+    public String reply(@PathVariable Long id, @RequestParam(required = false) String replyText,
+                        @RequestParam(required = false) String keyword,
+                        @RequestParam(required = false) Integer rating,
+                        @RequestParam(required = false) ReviewStatus status,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size,
+                        @org.springframework.security.core.annotation.AuthenticationPrincipal
+                        com.petshop.config.security.CustomUserDetails admin,
+                        RedirectAttributes flash) {
+        try {
+            reviewService.reply(id, admin.getId(), replyText);
+            flash.addFlashAttribute("successMessage", "Đã trả lời đánh giá của khách.");
+        } catch (IllegalArgumentException e) {
+            flash.addFlashAttribute("errorMessage", e.getMessage());
+            flash.addFlashAttribute("replyReviewId", id);
+            flash.addFlashAttribute("replyDraft", replyText == null ? "" : replyText);
+        } catch (org.springframework.dao.DataAccessException e) {
+            log.error("Unable to save reply for review {}", id, e);
+            flash.addFlashAttribute("errorMessage", "Chưa thể lưu trả lời. Vui lòng tải lại trang để kiểm tra trước khi gửi lại.");
+            flash.addFlashAttribute("replyReviewId", id);
+            flash.addFlashAttribute("replyDraft", replyText == null ? "" : replyText);
+        }
+        flash.addAttribute("page", Math.max(0, page));
+        flash.addAttribute("size", Math.max(1, Math.min(100, size)));
+        if (keyword != null && !keyword.isBlank()) flash.addAttribute("keyword", keyword.trim());
+        if (rating != null) flash.addAttribute("rating", rating);
+        if (status != null) flash.addAttribute("status", status.name());
+        return "redirect:/admin/reviews";
+    }
 }
