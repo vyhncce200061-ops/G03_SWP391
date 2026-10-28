@@ -342,4 +342,85 @@ class TeamIntegrationTests {
         }
     }
 
+    @Test void shopReplyIsAdminOnlyValidatedSingleAndEscapedOnPublicAndPersonalViews() throws Exception {
+        var order=purchasedOrder();finish(order);var item=orderItems.findByOrderId(order.getId()).get(0);
+        var form=new com.petshop.dto.ReviewCreateDto();form.setRating(3);form.setComment("Feedback customer");
+        var review=reviewService.createReview(customer.getId(),item.getId(),form);
+        for(var actor:List.of(staff,customer)) {
+            assertThrows(IllegalArgumentException.class,()->reviewService.reply(review.getId(),actor.getId(),"Reply"));
+            mvc.perform(post("/admin/reviews/"+review.getId()+"/reply").param("replyText","Reply").with(user(new CustomUserDetails(actor))).with(csrf()))
+                    .andExpect(redirectedUrl("/error/403"));
+        }
+        for(String invalid:List.of("   ","x".repeat(1001))) assertThrows(IllegalArgumentException.class,()->reviewService.reply(review.getId(),admin.getId(),invalid));
+        mvc.perform(post("/admin/reviews/"+review.getId()+"/reply").param("replyText","<b>Shop reply</b>").with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(flash().attributeExists("successMessage"));
+        assertThrows(IllegalArgumentException.class,()->reviewService.reply(review.getId(),admin.getId(),"Overwrite"));
+        var saved=reviewRepository.findById(review.getId()).orElseThrow();
+        assertEquals(admin.getId(),saved.getRepliedBy().getId());assertNotNull(saved.getRepliedAt());assertEquals("Feedback customer",saved.getComment());
+        for(String path:List.of("/products/"+key,"/customer/reviews")) {
+            String html=mvc.perform(get(path).with(user(new CustomUserDetails(customer)))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertTrue(html.contains("&lt;b&gt;Shop reply&lt;/b&gt;"));assertFalse(html.contains("<b>Shop reply</b>"));
+        }
+        mvc.perform(get("/admin/reviews").with(user(new CustomUserDetails(admin)))).andExpect(status().isOk());
+        reviewService.toggleReviewStatus(review.getId());
+        assertFalse(mvc.perform(get("/products/"+key)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString().contains("Shop reply"));
+        assertTrue(mvc.perform(get("/customer/reviews").with(user(new CustomUserDetails(customer)))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString().contains("Shop reply"));
+    }
+
+    @Test void replyRejectsMissingInvalidAndLockedRequestsAndKeepsListContext() throws Exception {
+        var order=purchasedOrder();finish(order);var item=orderItems.findByOrderId(order.getId()).get(0);
+        var form=new com.petshop.dto.ReviewCreateDto();form.setRating(2);form.setComment("Feedback for validation");
+        var review=reviewService.createReview(customer.getId(),item.getId(),form);
+        String path="/admin/reviews/"+review.getId()+"/reply";
+        mvc.perform(post(path).param("replyText","Reply").with(user(new CustomUserDetails(admin))))
+                .andExpect(redirectedUrl("/error/403"));
+        mvc.perform(post(path).with(csrf()).with(user(new CustomUserDetails(admin))))
+                .andExpect(flash().attributeExists("errorMessage"));
+        var result=mvc.perform(post(path).param("replyText"," ").param("keyword","a&status=VISIBLE")
+                .param("page","2").param("size","20").param("status","HIDDEN")
+                .with(csrf()).with(user(new CustomUserDetails(admin))))
+                .andExpect(flash().attributeExists("errorMessage","replyDraft","replyReviewId")).andReturn();
+        assertTrue(result.getResponse().getRedirectedUrl().contains("keyword=a%26status%3DVISIBLE"));
+        assertTrue(result.getResponse().getRedirectedUrl().contains("page=2"));
+        mvc.perform(get("/admin/reviews").flashAttrs(result.getFlashMap()).with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk());
+        assertNull(reviewRepository.findById(review.getId()).orElseThrow().getReplyText());
+        assertThrows(IllegalArgumentException.class,()->reviewService.reply(-1L,admin.getId(),"Reply"));
+        admin.setStatus("LOCKED");users.save(admin);
+        mvc.perform(post(path).param("replyText","Reply").with(csrf()).with(user(new CustomUserDetails(admin))))
+                .andExpect(redirectedUrl("/login?expired=true"));
+        assertThrows(IllegalArgumentException.class,()->reviewService.reply(review.getId(),admin.getId(),"Reply"));
+        admin.setStatus("ACTIVE");users.save(admin);
+        mvc.perform(post(path).param("replyText","x".repeat(1000)).param("adminId",staff.getId().toString())
+                .with(csrf()).with(user(new CustomUserDetails(admin))))
+                .andExpect(flash().attributeExists("successMessage"));
+        var saved=reviewRepository.findById(review.getId()).orElseThrow();
+        assertEquals(1000,saved.getReplyText().length());assertEquals(admin.getId(),saved.getRepliedBy().getId());
+    }
+
+    @Test void concurrentAdminsCannotOverwriteReplyAndModerationPreservesIt() throws Exception {
+        var order=purchasedOrder();finish(order);var item=orderItems.findByOrderId(order.getId()).get(0);
+        var form=new com.petshop.dto.ReviewCreateDto();form.setRating(4);form.setComment("Feedback concurrency");
+        var review=reviewService.createReview(customer.getId(),item.getId(),form);
+        var secondAdmin=users.save(User.builder().role(admin.getRole()).fullName("Second admin")
+                .email("second-admin"+key+"@integration.test").passwordHash("unused").build());
+        var gate=new java.util.concurrent.CountDownLatch(1);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(3);
+        try {
+            var first=pool.submit(()->{gate.await();try {reviewService.reply(review.getId(),admin.getId(),"First reply");return true;} catch(IllegalArgumentException expected){return false;} });
+            var second=pool.submit(()->{gate.await();try {reviewService.reply(review.getId(),secondAdmin.getId(),"Second reply");return true;} catch(IllegalArgumentException expected){return false;} });
+            var hide=pool.submit(()->{gate.await();reviewService.toggleReviewStatus(review.getId());return true;});
+            gate.countDown();
+            boolean wonFirst=first.get(15,java.util.concurrent.TimeUnit.SECONDS);
+            assertNotEquals(wonFirst,second.get(15,java.util.concurrent.TimeUnit.SECONDS));
+            assertTrue(hide.get(15,java.util.concurrent.TimeUnit.SECONDS));
+            var saved=reviewRepository.findById(review.getId()).orElseThrow();
+            assertEquals(wonFirst ? "First reply" : "Second reply",saved.getReplyText());
+            assertEquals(wonFirst ? admin.getId() : secondAdmin.getId(),saved.getRepliedBy().getId());
+            assertEquals(ReviewStatus.HIDDEN,saved.getStatus());
+            reviewService.toggleReviewStatus(review.getId());
+            String publicHtml=mvc.perform(get("/products/"+key)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertTrue(publicHtml.contains(saved.getReplyText()));
+        } finally { pool.shutdownNow(); }
+    }
 }

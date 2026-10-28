@@ -1,10 +1,16 @@
-# Cập nhật database PetShop — 07/10/2026
+# Cập nhật database PetShop
 
 Bảng thay đổi để gửi nhóm và cập nhật tài liệu: [CHANGELOG_20261007.md](CHANGELOG_20261007.md). Gói SQL chia sẻ nằm trong `outputs/team_database_update_20261007`.
 
 Database `PetShopDB` trên máy này đã được cập nhật trong lần sửa ngày 07/10/2026. Không cần chạy lại các script sửa trên database này.
 
 Migration xóa mềm voucher cũng đã được áp dụng ngày 07/10/2026; dữ liệu voucher, ví và đơn hiện có được giữ nguyên. Bằng chứng kiểm tra và snapshot voucher trước migration nằm trong `outputs/voucher_soft_delete_20261007`.
+
+## Bổ sung ngày 29/10/2026: Admin trả lời Feedback
+
+Chạy `migrations/V20261029__review_reply.sql` trên database hiện có **trước khi khởi động code mới**, kể cả database vừa tạo từ bootstrap. Script thêm đúng ba cột nullable vào `Reviews`: `ReplyText NVARCHAR(1000)`, `RepliedByUserId BIGINT`, `RepliedAt DATETIME2(6)`; một FK đến `Users` và một CHECK yêu cầu cả ba cùng có giá trị hoặc cùng NULL. Không tạo bảng Feedback mới, không thay nội dung/trạng thái đánh giá cũ. Có thể chạy lại an toàn. Cấu hình Hibernate tiếp tục `validate`.
+
+Xem [hướng dẫn gửi nhóm](sync_feedback_reply/README.md) và [nghiệp vụ](../docs/FEEDBACK_REPLY_20261029.md). Các cột cũ về Staff/voucher vẫn cần giữ; migration này không thay thế các migration trước.
 
 ## Database đang có dữ liệu
 

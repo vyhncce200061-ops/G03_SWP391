@@ -45,6 +45,16 @@ public class Review {
     @Builder.Default
     private ReviewStatus status = ReviewStatus.VISIBLE;
 
+    @Column(name="ReplyText", length=1000)
+    private String replyText;
+
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="RepliedByUserId")
+    private User repliedBy;
+
+    @Column(name="RepliedAt")
+    private LocalDateTime repliedAt;
+
     @Column(name = "CreatedAt", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

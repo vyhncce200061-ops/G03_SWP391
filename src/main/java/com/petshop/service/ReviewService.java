@@ -11,6 +11,7 @@ public interface ReviewService {
     Page<Review> myReviews(Long customerId, Pageable pageable);
     Page<Review> publicReviews(Long productId, Pageable pageable);
     Page<Review> searchReviews(String keyword, Integer rating, ReviewStatus status, Pageable pageable);
+    Review reply(Long reviewId, Long adminId, String text);
     Review toggleReviewStatus(Long reviewId);
     Review getReviewById(Long reviewId);
     long getTotalReviewsCount();

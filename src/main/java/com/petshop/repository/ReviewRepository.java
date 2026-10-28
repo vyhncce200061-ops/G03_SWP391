@@ -40,6 +40,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Long countVisibleReviews(@Param("productId") Long productId);
 
     @Query(value = "SELECT r FROM Review r " +
+           "LEFT JOIN FETCH r.repliedBy " +
            "JOIN FETCH r.customer c " +
            "JOIN FETCH r.orderItem oi " +
            "JOIN FETCH oi.variant pv " +
