@@ -1,6 +1,10 @@
 # Copy thanh application-local.yml va dien thong tin tren may ban.
 # Khong dua application-local.yml chua mat khau len Git.
 spring:
+  datasource:
+    # Mat khau SQL Server tren may ban; khac voi mat khau tai khoan Admin tren web.
+    username: sa
+    password: ""
   mail:
     host: smtp.gmail.com
     port: 587

@@ -67,7 +67,7 @@ spring:
     hibernate:
       # Strictly validate or none: Database schema is authoritatively created and maintained
       # by PetShop_Database_Final.sql (preserves computed columns, filtered indexes, CHECK rules)
-      ddl-auto: none
+      ddl-auto: validate
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
         implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
