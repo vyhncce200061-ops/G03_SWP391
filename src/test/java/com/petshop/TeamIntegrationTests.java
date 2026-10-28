@@ -268,4 +268,78 @@ class TeamIntegrationTests {
             }
         }
     }
+
+    @Autowired OrderService orderService;
+    @Autowired OrderItemRepository orderItems;
+    @Autowired ReviewService reviewService;
+    @Autowired ReviewRepository reviewRepository;
+    @Autowired OrderRepository orderRepository;
+
+    private Order purchasedOrder() {
+        carts.addItemToCart(customer.getId(),variant.getId(),2);
+        var order=orderService.checkoutOrder(customer.getId(),com.petshop.dto.order.CheckoutSubmitDto.builder()
+                .recipientName("Customer").recipientPhone("0901234567").shippingProvince("Hồ Chí Minh")
+                .shippingDistrict("Thủ Đức").shippingWard("Linh Trung").shippingAddressLine("123 Test")
+                .paymentMethod(PaymentMethod.COD).build());
+        return order;
+    }
+    private void finish(Order order) {
+        orderService.confirmOrder(order.getId(),admin.getId());orderService.markPreparing(order.getId(),staff.getId());
+        orderService.markShipping(order.getId(),staff.getId());orderService.markCompleted(order.getId(),staff.getId());
+    }
+    @Test void feedbackRequiresPaidCompletedPurchaseAndRejectsDuplicateOrForeignItem() throws Exception {
+        var order=purchasedOrder();var item=orderItems.findByOrderId(order.getId()).get(0);
+        var form=new com.petshop.dto.ReviewCreateDto();form.setRating(5);form.setComment("Verified buyer");
+        assertThrows(IllegalArgumentException.class,()->reviewService.createReview(customer.getId(),item.getId(),form));
+        finish(order);
+        assertThrows(IllegalArgumentException.class,()->reviewService.createReview(staff.getId(),item.getId(),form));
+        var stranger=users.save(User.builder().role(customer.getRole()).fullName("Other").email("other"+key+"@integration.test").passwordHash("unused-password-hash").build());
+        assertThrows(IllegalArgumentException.class,()->reviewService.createReview(stranger.getId(),item.getId(),form));
+        for(int rating: List.of(0,6)) { form.setRating(rating);assertThrows(IllegalArgumentException.class,()->reviewService.createReview(customer.getId(),item.getId(),form)); }
+        form.setRating(5);form.setComment("x".repeat(1001));
+        assertThrows(IllegalArgumentException.class,()->reviewService.createReview(customer.getId(),item.getId(),form));
+        form.setComment("<script>alert('x')</script>");
+        mvc.perform(get("/customer/reviews/create").param("orderItemId",item.getId().toString()).with(user(new CustomUserDetails(customer)))).andExpect(status().isOk());
+        mvc.perform(post("/customer/reviews/create").param("orderItemId",item.getId().toString()).param("rating","5").with(user(new CustomUserDetails(customer))))
+                .andExpect(redirectedUrl("/error/403"));
+        var review=reviewService.createReview(customer.getId(),item.getId(),form);
+        assertThrows(IllegalArgumentException.class,()->reviewService.createReview(customer.getId(),item.getId(),form));
+        String html=mvc.perform(get("/products/"+key)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(html.contains("&lt;script&gt;"));assertFalse(html.contains("<script>alert('x')</script>"));
+        mvc.perform(get("/admin/reviews").with(user(new CustomUserDetails(admin)))).andExpect(status().isOk());
+        reviewService.toggleReviewStatus(review.getId());
+        assertFalse(mvc.perform(get("/products/"+key)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString().contains("&lt;script&gt;"));
+        assertTrue(mvc.perform(get("/customer/reviews").with(user(new CustomUserDetails(customer)))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString().contains("&lt;script&gt;"));
+        assertFalse(mvc.perform(get("/customer/reviews").with(user(new CustomUserDetails(stranger)))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString().contains("&lt;script&gt;"));
+        mvc.perform(get("/customer/reviews").with(user(new CustomUserDetails(staff)))).andExpect(redirectedUrl("/error/403"));
+    }
+    @Test void concurrentFeedbackSubmissionsProduceOneReview() throws Exception {
+        var order=purchasedOrder();finish(order);var item=orderItems.findByOrderId(order.getId()).get(0);
+        var form=new com.petshop.dto.ReviewCreateDto();form.setRating(4);form.setComment("Khách đã mua và dùng sản phẩm");
+        var gate=new java.util.concurrent.CountDownLatch(1);var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.Callable<Boolean> submit=()-> { gate.await();try {reviewService.createReview(customer.getId(),item.getId(),form);return true;}catch(IllegalArgumentException expected){return false;} };
+        try {var first=pool.submit(submit);var second=pool.submit(submit);gate.countDown();assertNotEquals(first.get(15,java.util.concurrent.TimeUnit.SECONDS),second.get(15,java.util.concurrent.TimeUnit.SECONDS));}
+        finally {pool.shutdownNow();}
+        assertTrue(reviewRepository.existsByOrderItemId(item.getId()));
+    }
+    @Test void salesReportsFilterByCompletionAndPaymentAndOrderConfirmationIsIdempotentlyRejected() throws Exception {
+        var order=purchasedOrder();
+        assertThrows(IllegalArgumentException.class,()->orderService.confirmOrder(order.getId(),customer.getId()));
+        mvc.perform(post("/staff/orders/"+order.getId()+"/confirm").with(user(new CustomUserDetails(customer))).with(csrf())).andExpect(redirectedUrl("/error/403"));
+        mvc.perform(post("/staff/orders/"+order.getId()+"/confirm").with(user(new CustomUserDetails(admin))).with(csrf())).andExpect(flash().attributeExists("successMessage"));
+        mvc.perform(post("/staff/orders/"+order.getId()+"/confirm").with(user(new CustomUserDetails(admin))).with(csrf())).andExpect(flash().attributeExists("errorMessage"));
+        orderService.markPreparing(order.getId(),staff.getId());orderService.markShipping(order.getId(),staff.getId());orderService.markCompleted(order.getId(),staff.getId());
+        var result=mvc.perform(get("/admin/reports/product-sales").with(user(new CustomUserDetails(admin)))).andExpect(status().isOk()).andReturn().getModelAndView();
+        var page=(org.springframework.data.domain.Page<Object[]>)result.getModel().get("sales");
+        var row=page.getContent().stream().filter(r->((Number)r[1]).longValue()==product.getId()).findFirst().orElseThrow();
+        assertEquals(2L,((Number)row[2]).longValue());assertEquals(0,new BigDecimal("400000").compareTo(new BigDecimal(row[3].toString())));assertEquals(1L,((Number)row[4]).longValue());
+        mvc.perform(get("/admin/reports/product-sales").with(user(new CustomUserDetails(staff)))).andExpect(redirectedUrl("/error/403"));
+        for(String path:List.of("/admin/reports/product-sales","/admin/reports/revenue","/admin/reports/reviews")) {
+            mvc.perform(get(path).param("startDate","2026-12-30").param("endDate","2026-01-01").with(user(new CustomUserDetails(admin))))
+                    .andExpect(status().isOk()).andExpect(model().attributeExists("errorMessage"));
+            mvc.perform(get(path).param("endDate","9999-12-31").with(user(new CustomUserDetails(admin))))
+                    .andExpect(status().isOk()).andExpect(model().attributeExists("errorMessage"));
+        }
+    }
+
 }

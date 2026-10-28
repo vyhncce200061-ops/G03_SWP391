@@ -223,8 +223,8 @@ class RegressionTests {
     @Test void staffRecoveryKeepsCurrentLoginUntilStaffConfirmsNewPassword() throws Exception {
         var old=new CustomUserDetails(staff);
         String originalHash=staff.getPasswordHash(), customerHash=customer.getPasswordHash();
-        mvc.perform(post("/admin/users/"+staff.getId()+"/reset-password").with(user(new CustomUserDetails(admin))).with(csrf()))
-                .andExpect(redirectedUrl("/admin/users")).andExpect(flash().attributeExists("successMessage"));
+        mvc.perform(post("/forgot-password").param("email",staff.getEmail()).with(csrf()))
+                .andExpect(redirectedUrl("/forgot-password")).andExpect(flash().attributeExists("infoMessage"));
         assertEquals(originalHash,users.findById(staff.getId()).orElseThrow().getPasswordHash());
         assertFalse(users.findById(staff.getId()).orElseThrow().getMustChangePassword());
         mvc.perform(get("/account/profile").with(user(old))).andExpect(status().isOk());
@@ -243,41 +243,25 @@ class RegressionTests {
         assertFalse(auth.verifyPasswordResetToken(token));
     }
 
-    @Test void adminPasswordSupportRejectsCustomersAdminsAndIneligibleStaff() throws Exception {
-        String customerHash=customer.getPasswordHash(), adminHash=admin.getPasswordHash(), staffHash=staff.getPasswordHash();
-        for(var target:List.of(customer,admin)) {
-            assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(target.getId(),admin.getId()));
-            mvc.perform(post("/admin/users/"+target.getId()+"/reset-password").with(user(new CustomUserDetails(admin))).with(csrf()))
-                    .andExpect(redirectedUrl("/admin/users")).andExpect(flash().attributeExists("errorMessage"));
-        }
-        staff.setStatus("LOCKED");users.saveAndFlush(staff);
-        assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(staff.getId(),admin.getId()));
+    @Test void retiredAdminRecoveryEndpointCannotSendEmail() throws Exception {
         mvc.perform(post("/admin/users/"+staff.getId()+"/reset-password").with(user(new CustomUserDetails(admin))).with(csrf()))
-                .andExpect(flash().attributeExists("errorMessage"));
-        staff.setStatus("ACTIVE");staff.setMustChangePassword(true);users.saveAndFlush(staff);
-        assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(staff.getId(),admin.getId()));
-        mvc.perform(post("/admin/users/"+staff.getId()+"/reset-password").with(user(new CustomUserDetails(admin))).with(csrf()))
-                .andExpect(flash().attributeExists("errorMessage"));
+                .andExpect(status().isNotFound());
         assertEquals(0,tokens.count());verifyNoInteractions(emailService);
-        assertEquals(customerHash,customer.getPasswordHash());assertEquals(adminHash,admin.getPasswordHash());assertEquals(staffHash,staff.getPasswordHash());
     }
-
-    @Test void onlyActiveAdminCanRequestStaffPasswordSupport() throws Exception {
-        for(var actor:List.of(customer,staff)) {
-            assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(staff.getId(),actor.getId()));
-            mvc.perform(post("/admin/users/"+staff.getId()+"/reset-password").with(user(new CustomUserDetails(actor))).with(csrf()))
-                    .andExpect(redirectedUrl("/error/403"));
+    @Test void forgotPasswordForLockedOrMissingAccountDoesNotIssueToken() throws Exception {
+        staff.setStatus("LOCKED");users.saveAndFlush(staff);
+        for (String email : List.of(staff.getEmail(),"missing@test.invalid")) {
+            mvc.perform(post("/forgot-password").param("email",email).with(csrf()))
+                    .andExpect(redirectedUrl("/forgot-password")).andExpect(flash().attributeExists("infoMessage"));
         }
-        admin.setStatus("LOCKED");users.saveAndFlush(admin);
-        assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(staff.getId(),admin.getId()));
-        assertEquals(0,tokens.count());verifyNoInteractions(emailService);
+        assertEquals(0,tokens.count());verify(emailService,never()).sendPasswordResetEmail(anyString(),anyString(),anyString());
     }
 
     @Test void userManagementTabsAndActionsMatchAccountTypeAndState() throws Exception {
         String html=mvc.perform(get("/admin/users").with(user(new CustomUserDetails(admin))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertFalse(html.contains("Hỗ trợ tài khoản:"));
-        assertTrue(html.contains("/admin/users/"+staff.getId()+"/reset-password"));
+        assertFalse(html.contains("/admin/users/"+staff.getId()+"/reset-password"));
         assertFalse(html.contains("/admin/users/"+customer.getId()+"/reset-password"));
         assertFalse(html.contains("/admin/users/"+admin.getId()+"/reset-password"));
         assertFalse(html.contains("/admin/users/"+staff.getId()+"/resend-invitation"));

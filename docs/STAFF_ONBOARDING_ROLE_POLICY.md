@@ -30,17 +30,13 @@ Lưu thành công → hủy session đặt mật khẩu → trang login ở tr�
 
 Thu hồi token bằng mốc UsedAt (đã dùng hoặc đã bị thu hồi), giữ nguyên ExpiresAt ban đầu. Cách này giữ CHECK ExpiresAt > CreatedAt của schema hiện có, kể cả khi gửi lại ngay trong cùng giây.
 
-## 3. Hỗ trợ mật khẩu Staff bởi Admin
+## 3. Staff tự quên mật khẩu (chốt lại 29/10/2026)
 
-Chỉ Admin đang hoạt động được yêu cầu gửi link cho Staff ACTIVE đã hoàn tất nhận tài khoản. Backend từ chối Customer, Admin, Staff bị khóa và Staff đang chờ đặt mật khẩu, kể cả khi gọi trực tiếp URL. Với Staff đang chờ, dùng Gửi lại lời mời; với Staff bị khóa, cần xử lý lý do khóa trước.
+Staff, Customer và Admin tự mở Quên mật khẩu tại trang đăng nhập, nhập email, nhận link và tự chọn mật khẩu mới. Admin không còn nút hoặc endpoint gửi link hỗ trợ mật khẩu cho Staff. Không đổi mật khẩu hoặc ngắt phiên chỉ vì có yêu cầu gửi link; chỉ khi chủ email xác nhận mật khẩu mới thì phiên cũ hết hiệu lực. Tài khoản khóa không được cấp token và không thể dùng token cũ.
 
-Admin gửi link → Staff nhận email → Staff tự đặt và xác nhận mật khẩu mới. Link dùng một lần trong 30 phút. Gửi link chỉ thay token, không đổi PasswordHash hoặc MustChangePassword và không ngắt phiên đăng nhập. Nếu Staff chưa mở thư, mật khẩu và phiên cũ vẫn dùng được. Khi Staff xác nhận thành công, mật khẩu mới có hiệu lực, các token còn lại bị thu hồi và phiên dùng mật khẩu cũ bị đăng xuất ở request tiếp theo. SMTP lỗi thì giữ nguyên mật khẩu và token trước thao tác. Không hiển thị mật khẩu tạm hoặc để Admin chọn mật khẩu thay Staff.
+Gửi lại lời mời vẫn chỉ dành cho Staff ACTIVE chưa hoàn tất nhận tài khoản. Đây là bước cấp tài khoản ban đầu, không phải hỗ trợ mật khẩu của tài khoản đã sử dụng. SMTP lỗi giữ lại trạng thái trước đó; không hiển thị mật khẩu tạm.
 
-Giữ chung trang Quản lý tài khoản, chia tab Tất cả / Khách hàng / Nhân viên / Quản trị viên. Tab là bộ lọc; quyền được kiểm tra tại backend. Chỉ Staff đủ điều kiện có nút Hỗ trợ mật khẩu; Staff chờ nhận tài khoản có Gửi lại. Khách hàng và quản trị viên tự dùng Quên mật khẩu. Cấp Staff và hỗ trợ truy cập thuộc luồng quản lý tài khoản UC-21; khóa/mở khóa thuộc UC-21.1. Không mô tả thao tác này là Admin cưỡng chế đổi mật khẩu hoặc chuyển vai trò.
-
-Quên mật khẩu do người dùng tự yêu cầu vẫn gửi link nhưng không vô hiệu hóa mật khẩu đang dùng, để người ngoài không thể làm khóa tài khoản chỉ bằng cách nhập email vào form.
-
-Nếu nghi ngờ Staff bị lộ tài khoản hoặc nghỉ việc, Admin dùng Khóa tài khoản để thu hồi truy cập ngay. Gửi link hỗ trợ không thay thế nghiệp vụ khóa.
+Không xóa tài khoản. Admin khóa/mở khóa, bảo toàn lịch sử đơn và chứng từ; không đổi role.
 
 ## 4. Vì sao bỏ chuyển Staff ↔ Customer?
 
@@ -65,7 +61,7 @@ Quan hệ FK, UserId và chủ sở hữu đơn/giỏ/địa chỉ/voucher/revie
 
 Repo: https://github.com/vyhncce200061-ops/G03_SWP391. Nguồn EmailService: ft/auth, commit 4233a19d3fdd55fff8bc84dac64235245b8fd4d0.
 
-Bản cập nhật 21/10 đã gộp lịch sử ft/auth tại commit trên vào nhánh tích hợp. Giữ mail HTML, xác nhận đăng ký Customer qua email, hồ sơ/ảnh đại diện, sổ địa chỉ, giao diện đơn hàng và giỏ hàng AJAX của Bảo. Bổ sung thư mời và hỗ trợ mật khẩu Staff, báo lỗi SMTP và không ghi link truy cập vào log. Giữ đăng nhập bằng session và CSRF của bản đã kiểm thử; JWT chỉ dùng xác nhận đăng ký, không dùng làm cookie đăng nhập. Vì vậy khóa tài khoản/đổi mật khẩu vẫn thu hồi phiên như quy định.
+Bản cập nhật 21/10 đã gộp lịch sử ft/auth tại commit trên vào nhánh tích hợp. Giữ mail HTML, xác nhận đăng ký Customer qua email, hồ sơ/ảnh đại diện, sổ địa chỉ, giao diện đơn hàng và giỏ hàng AJAX của Bảo. Bổ sung thư mời và quy trình tự quên mật khẩu của Staff, báo lỗi SMTP và không ghi link truy cập vào log. Giữ đăng nhập bằng session và CSRF của bản đã kiểm thử; JWT chỉ dùng xác nhận đăng ký, không dùng làm cookie đăng nhập. Vì vậy khóa tài khoản/đổi mật khẩu vẫn thu hồi phiên như quy định.
 
 Đã bỏ ProfileDemoDataInitializer và lời gọi tự sinh địa chỉ/đơn hàng khi mở hồ sơ; bỏ src/test/main là bản sao source cũ, file IDE test.iml và application-test.yml trùng trong src/main. Giữ các test Maven thật tại src/test/java và cấu hình test tại src/test/resources. Chi tiết giao nhận: [AUTH_INTEGRATION_HANDOFF.md](AUTH_INTEGRATION_HANDOFF.md).
 
@@ -96,7 +92,7 @@ Demo role: mở màn hình sửa Staff/Customer, role chỉ đọc; thử POST r
 
 Để demo Admin và Staff song song, mở link Staff trong cửa sổ ẩn danh hoặc trình duyệt khác. Nếu mở cùng trình duyệt đang đăng nhập Admin, phiên Admin của trình duyệt đó sẽ kết thúc theo chính sách tách phiên nêu trên; mật khẩu Admin không thay đổi.
 
-Demo hỗ trợ mật khẩu: dùng Staff đã nhận tài khoản và đang đăng nhập ở một cửa sổ khác → Admin mở tab Nhân viên, bấm Hỗ trợ mật khẩu → Staff tiếp tục mở hồ sơ được bằng phiên cũ → mở link trong email và đặt mật khẩu mới → request tiếp theo của phiên cũ chuyển về đăng nhập → đăng nhập bằng mật khẩu mới. Tab Khách hàng/Quản trị viên không có nút hỗ trợ mật khẩu; Staff đang chờ chỉ có Gửi lại, Staff bị khóa không có hai thao tác gửi link.
+Demo quên mật khẩu: Staff tự mở /forgot-password, nhận link, xác nhận mật khẩu mới rồi đăng nhập. Admin chỉ quản lý trạng thái tài khoản và gửi lại lời mời chưa nhận.
 
 ## 7. Database và triển khai
 

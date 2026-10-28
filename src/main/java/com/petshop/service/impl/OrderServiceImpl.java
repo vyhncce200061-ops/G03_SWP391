@@ -413,8 +413,10 @@ public class OrderServiceImpl implements OrderService {
         if (userId == null) {
             throw new IllegalArgumentException("Người dùng không hợp lệ.");
         }
-        return userRepository.findById(userId)
+        User actor = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại."));
+        if (!"ACTIVE".equals(actor.getStatus()) || !java.util.Set.of("ADMIN","STAFF").contains(actor.getRole().getCode())) throw new IllegalArgumentException("Tài khoản không có quyền xử lý đơn hàng.");
+        return actor;
     }
 
     private void requireOwner(Order order, Long customerId) {

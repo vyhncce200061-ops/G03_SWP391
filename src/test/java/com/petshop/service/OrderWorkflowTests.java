@@ -202,15 +202,16 @@ class OrderWorkflowTests {
 
     @Test
     void completedOrdersStillConsumeCustomerVoucherLimit() {
+        Long staffId = staffActor();
         Fixture f = fixture(true, false, false);
         Long voucherId = voucher();
         CheckoutSubmitDto request = request(PaymentMethod.COD);
         request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
         Order first = orders.checkoutOrder(f.customerId(), request);
-        orders.confirmOrder(first.getId(), f.customerId());
-        orders.markPreparing(first.getId(), f.customerId());
-        orders.markShipping(first.getId(), f.customerId());
-        orders.markCompleted(first.getId(), f.customerId());
+        orders.confirmOrder(first.getId(), staffId);
+        orders.markPreparing(first.getId(), staffId);
+        orders.markShipping(first.getId(), staffId);
+        orders.markCompleted(first.getId(), staffId);
         addFirstSkuAgain(f);
         assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), request));
         inTransaction(() -> {
@@ -347,20 +348,21 @@ class OrderWorkflowTests {
 
     @Test
     void staffFlowPreservesCodPaymentRulesAndBlocksLaterCustomerCancellation() {
+        Long staffId = staffActor();
         Fixture f = fixture(true, false, false);
         Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
-        orders.confirmOrder(placed.getId(), f.customerId());
+        orders.confirmOrder(placed.getId(), staffId);
         assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Muộn"));
-        orders.markPreparing(placed.getId(), f.customerId());
-        orders.markShipping(placed.getId(), f.customerId());
-        orders.markCompleted(placed.getId(), f.customerId());
+        orders.markPreparing(placed.getId(), staffId);
+        orders.markShipping(placed.getId(), staffId);
+        orders.markCompleted(placed.getId(), staffId);
         Order complete = orders.getOrderDetailForCustomer(placed.getId(), f.customerId());
         assertEquals(OrderStatus.COMPLETED, complete.getOrderStatus());
         assertEquals(PaymentStatus.PAID, complete.getPaymentStatus());
         assertNotNull(complete.getCompletedAt());
         assertEquals(5, complete.getStatusHistories().size());
-        assertThrows(IllegalStateException.class, () -> orders.markCompleted(placed.getId(), f.customerId()));
-        assertThrows(IllegalStateException.class, () -> orders.staffRejectOrder(placed.getId(), f.customerId(), "Muộn"));
+        assertThrows(IllegalStateException.class, () -> orders.markCompleted(placed.getId(), staffId));
+        assertThrows(IllegalStateException.class, () -> orders.staffRejectOrder(placed.getId(), staffId, "Muộn"));
     }
 
     @Test
@@ -400,13 +402,14 @@ class OrderWorkflowTests {
 
     @Test
     void concurrentCancelAndStaffConfirmationHaveOnlyOneWinner() throws Exception {
+        Long staffId = staffActor();
         Fixture f = fixture(true, false, false);
         Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
         List<Boolean> results = runConcurrently(() -> {
             try { orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy"); return true; }
             catch (IllegalStateException expected) { return false; }
         }, () -> {
-            try { orders.confirmOrder(placed.getId(), f.customerId()); return true; }
+            try { orders.confirmOrder(placed.getId(), staffId); return true; }
             catch (IllegalStateException expected) { return false; }
         });
         assertEquals(1, results.stream().filter(Boolean::booleanValue).count());
@@ -506,4 +509,11 @@ class OrderWorkflowTests {
     }
 
     private record Fixture(Long customerId, Long cartId, Long firstId, Long secondId, Long thirdId) { }
+    private Long staffActor() {
+        return inTransaction(() -> {
+            var role=roles.findByCode("STAFF").orElseGet(()->roles.save(Role.builder().code("STAFF").name("Staff").build()));
+            return users.save(User.builder().role(role).fullName("Order operator").email(UUID.randomUUID()+"@staff.test")
+                    .passwordHash("unused").status("ACTIVE").build()).getId();
+        });
+    }
 }

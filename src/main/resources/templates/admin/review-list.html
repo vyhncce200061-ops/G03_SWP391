@@ -15,7 +15,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
             <h4 class="fw-bold mb-1">
-                <i class="bi bi-chat-square-quote text-primary me-2"></i>Kiểm Duyệt & Quản Lý Đánh Giá
+                <i class="bi bi-chat-square-quote text-primary me-2"></i>Quản Lý Đánh Giá Sản Phẩm (Feedback)
             </h4>
             <p class="text-muted small mb-0">Theo dõi phản hồi của người mua thực tế, kiểm soát nội dung và ẩn/hiện đánh giá công khai (UC-27).</p>
         </div>
@@ -201,6 +201,7 @@
                             </span>
                         </td>
                         <td class="text-end pe-4">
+
                             <form th:action="@{/admin/reviews/{id}/toggle-status(id=${r.id})}" method="post" class="d-inline">
                                 <input type="hidden" name="keyword" th:value="${keyword}">
                                 <input type="hidden" name="rating" th:value="${rating}">

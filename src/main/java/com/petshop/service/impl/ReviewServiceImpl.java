@@ -17,6 +17,51 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
+    private final com.petshop.repository.OrderItemRepository items;
+    private final com.petshop.repository.UserRepository users;
+    private final jakarta.validation.Validator validator;
+    private final jakarta.persistence.EntityManager em;
+
+    @Override @Transactional(readOnly=true)
+    public com.petshop.entity.OrderItem eligibleItem(Long customerId, Long itemId) {
+        var item = items.findById(itemId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm đã mua."));
+        checkPurchase(item, customerId);
+        if (reviewRepository.existsByOrderItemId(itemId)) throw new IllegalArgumentException("Bạn đã đánh giá sản phẩm trong đơn này. Xem tại Đánh giá của tôi.");
+        return item;
+    }
+
+    private void checkPurchase(com.petshop.entity.OrderItem item, Long customerId) {
+        var order = item.getOrder();
+        if (!order.getCustomer().getId().equals(customerId)) throw new IllegalArgumentException("Không tìm thấy sản phẩm đã mua.");
+        if (order.getOrderStatus() != com.petshop.entity.enums.OrderStatus.COMPLETED
+                || order.getPaymentStatus() != com.petshop.entity.enums.PaymentStatus.PAID)
+            throw new IllegalArgumentException("Chỉ đánh giá sản phẩm thuộc đơn đã hoàn tất và thanh toán.");
+    }
+
+    @Override @Transactional
+    public Review createReview(Long customerId, Long itemId, com.petshop.dto.ReviewCreateDto form) {
+        if (form != null && form.getComment() != null) form.setComment(form.getComment().trim());
+        if (form == null || !validator.validate(form).isEmpty()) throw new IllegalArgumentException("Chọn 1–5 sao; nhận xét từ 10 đến 1000 ký tự.");
+        var customer = users.findByIdForUpdate(customerId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản."));
+        em.refresh(customer, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (!"ACTIVE".equals(customer.getStatus()) || !"CUSTOMER".equals(customer.getRole().getCode())) throw new IllegalArgumentException("Tài khoản không được gửi đánh giá.");
+        var item = items.findByIdForUpdate(itemId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm đã mua."));
+        checkPurchase(item, customerId);
+        if (reviewRepository.existsByOrderItemId(itemId)) throw new IllegalArgumentException("Bạn đã đánh giá sản phẩm trong đơn này.");
+        return reviewRepository.saveAndFlush(Review.builder().customer(customer).orderItem(item).rating(form.getRating())
+            .comment(form.getComment()==null || form.getComment().isBlank() ? null : form.getComment().trim()).build());
+    }
+
+    @Override @Transactional(readOnly=true)
+    public Page<Review> myReviews(Long customerId, Pageable pageable) {
+        return reviewRepository.findByCustomerIdOrderByCreatedAtDescIdDesc(customerId, pageable);
+    }
+
+    @Override @Transactional(readOnly=true)
+    public Page<Review> publicReviews(Long productId, Pageable pageable) {
+        return reviewRepository.findVisibleReviewsByProductId(productId, pageable);
+    }
+
 
     @Override
     @Transactional(readOnly = true)
@@ -28,9 +73,10 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public Review toggleReviewStatus(Long reviewId) {
-        Review review = reviewRepository.findById(reviewId)
+        Review review = reviewRepository.findByIdForUpdate(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đánh giá với mã #" + reviewId));
 
+        em.refresh(review, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (review.getStatus() == ReviewStatus.VISIBLE) {
             review.setStatus(ReviewStatus.HIDDEN);
             log.info("Review #{} hidden by admin", reviewId);

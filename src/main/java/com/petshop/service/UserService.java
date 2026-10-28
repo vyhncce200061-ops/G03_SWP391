@@ -29,6 +29,5 @@ public interface UserService {
     void toggleUserStatus(Long userId, Long adminId);
     User createStaffAccount(com.petshop.dto.admin.StaffCreateRequestDto request);
     void updateUserByAdmin(Long userId, com.petshop.dto.admin.UserAdminUpdateDto request, Long currentAdminId);
-    void requestStaffPasswordReset(Long userId, Long currentAdminId);
     void resendStaffInvitation(Long userId);
 }

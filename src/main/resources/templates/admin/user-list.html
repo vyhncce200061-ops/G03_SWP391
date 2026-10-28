@@ -119,13 +119,7 @@
                                 <a th:href="@{/admin/users/{id}/edit(id=${u.id})}" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa thông tin">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form th:if="${u.role.code == 'STAFF' and !u.mustChangePassword and u.status == 'ACTIVE'}"
-                                      th:action="@{/admin/users/{id}/reset-password(id=${u.id})}" method="post" class="d-inline"
-                                      onsubmit="return confirm('Gửi link hỗ trợ mật khẩu cho Staff qua email? Mật khẩu hiện tại vẫn dùng được đến khi Staff tự xác nhận mật khẩu mới.');">
-                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Gửi link hỗ trợ mật khẩu">
-                                        <i class="bi bi-key"></i> Hỗ trợ mật khẩu
-                                    </button>
-                                </form>
+
                                 <form th:if="${u.role.code == 'STAFF' and u.mustChangePassword and u.status == 'ACTIVE'}"
                                       th:action="@{/admin/users/{id}/resend-invitation(id=${u.id})}" method="post" class="d-inline">
                                     <button type="submit" class="btn btn-sm btn-outline-info" title="Gửi lại lời mời nhận tài khoản"><i class="bi bi-envelope-arrow-up"></i> Gửi lại</button>

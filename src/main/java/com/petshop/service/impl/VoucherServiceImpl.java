@@ -34,6 +34,7 @@ public class VoucherServiceImpl implements VoucherService {
     private final CustomerVoucherRepository customerVoucherRepository;
     private final UserRepository userRepository;
     private final jakarta.persistence.EntityManager entityManager;
+    private final jakarta.validation.Validator validator;
 
     @Override
     @Transactional(readOnly = true)
@@ -199,6 +200,7 @@ public class VoucherServiceImpl implements VoucherService {
     @Override
     @Transactional
     public Voucher createVoucher(VoucherRequestDto request) {
+        validateVoucherLogic(request);
         String cleanCode = request.getCode().trim().toUpperCase(java.util.Locale.ROOT);
         voucherRepository.findByCode(cleanCode).ifPresent(existing -> { throw duplicateCode(existing); });
 
@@ -226,6 +228,7 @@ public class VoucherServiceImpl implements VoucherService {
     @Override
     @Transactional
     public Voucher updateVoucher(Long id, VoucherRequestDto request) {
+        validateVoucherLogic(request);
         Voucher voucher = voucherRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mã giảm giá."));
         entityManager.refresh(voucher, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
@@ -380,6 +383,9 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     private void validateVoucherLogic(VoucherRequestDto request) {
+        if (request != null && request.getCode() != null) request.setCode(request.getCode().trim().toUpperCase(java.util.Locale.ROOT));
+        if (request == null || !validator.validate(request).isEmpty()) throw new IllegalArgumentException("Thông tin voucher không hợp lệ; kiểm tra mã, độ dài, số tiền và lượt dùng.");
+        if (request.getStartDate().getYear() < 1 || request.getEndDate().getYear() > 9999) throw new IllegalArgumentException("Ngày phải thuộc năm 1 đến 9999.");
         if (request.getStartDate() == null || request.getEndDate() == null
                 || !request.getEndDate().isAfter(request.getStartDate())) {
             throw new IllegalArgumentException("Ngày kết thúc phải sau ngày bắt đầu.");

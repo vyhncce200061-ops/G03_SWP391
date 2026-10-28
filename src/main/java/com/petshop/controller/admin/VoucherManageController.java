@@ -154,4 +154,9 @@ public class VoucherManageController {
             return "redirect:/admin/vouchers?deleted=true";
         }
     }
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public String conflictingData(RedirectAttributes flash) {
+        flash.addFlashAttribute("errorMessage","Thông tin đã tồn tại hoặc không còn hợp lệ. Vui lòng tải lại danh sách và kiểm tra trước khi lưu.");
+        return "redirect:/admin/vouchers";
+    }
 }

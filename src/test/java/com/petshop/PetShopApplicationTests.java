@@ -29,6 +29,12 @@ class PetShopApplicationTests {
     @Autowired com.petshop.repository.PasswordResetTokenRepository tokens;
     @org.springframework.boot.test.mock.mockito.MockBean com.petshop.service.EmailService mail;
 
+    @org.junit.jupiter.api.BeforeEach
+    void seedRequiredRoles() {
+        for (String code : List.of("ADMIN","STAFF","CUSTOMER"))
+            roles.findByCode(code).orElseGet(()->roles.save(Role.builder().code(code).name(code).build()));
+    }
+
     @Test
     void freshAnonymousAuthPagesRenderCompleteHtmlAndCreateSessionBeforeCommit() throws Exception {
         for (String path : List.of("/login", "/register", "/forgot-password", "/login?error=true", "/login?logout=true")) {

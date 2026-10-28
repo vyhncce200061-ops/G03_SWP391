@@ -240,11 +240,7 @@ public class UserServiceImpl implements UserService {
         }
 
         Role staffRole = roleRepository.findByCode("STAFF")
-                .orElseGet(() -> roleRepository.save(Role.builder()
-                        .code("STAFF")
-                        .name("Nhân viên")
-                        .createdAt(LocalDateTime.now())
-                        .build()));
+                .orElseThrow(() -> new IllegalStateException("Thiếu vai trò STAFF trong cấu hình hệ thống."));
 
         User staff = User.builder()
                 .fullName(request.getFullName().trim())
@@ -264,6 +260,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void updateUserByAdmin(Long userId, com.petshop.dto.admin.UserAdminUpdateDto request, Long currentAdminId) {
+        if (request == null || !validator.validate(request).isEmpty()) throw new IllegalArgumentException("Thông tin tài khoản không hợp lệ.");
         roleRepository.lockAdminRole().orElseThrow(() -> new IllegalStateException("Thiếu vai trò ADMIN."));
         User user = lockUser(userId);
         if (!java.util.Set.of("ACTIVE", "LOCKED").contains(request.getStatus())) {
@@ -306,28 +303,6 @@ public class UserServiceImpl implements UserService {
         user.setStatus(request.getStatus().trim().toUpperCase());
         userRepository.save(user);
         log.info("Admin {} updated details for user {}", currentAdminId, userId);
-    }
-
-    @Override
-    @Transactional
-    public void requestStaffPasswordReset(Long userId, Long currentAdminId) {
-        User actor = userRepository.findById(currentAdminId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy quản trị viên."));
-        if (!"ADMIN".equals(actor.getRole().getCode()) || !"ACTIVE".equals(actor.getStatus())) {
-            throw new IllegalArgumentException("Chỉ quản trị viên đang hoạt động được hỗ trợ mật khẩu Staff.");
-        }
-        User user = lockUser(userId);
-        if (!"STAFF".equals(user.getRole().getCode())) {
-            throw new IllegalArgumentException("Chỉ hỗ trợ mật khẩu cho tài khoản Staff. Khách hàng tự dùng Quên mật khẩu.");
-        }
-        if (!"ACTIVE".equals(user.getStatus())) {
-            throw new IllegalArgumentException("Staff đang bị khóa. Hãy mở khóa trước khi hỗ trợ mật khẩu.");
-        }
-        if (Boolean.TRUE.equals(user.getMustChangePassword())) {
-            throw new IllegalArgumentException("Staff chưa nhận tài khoản. Hãy dùng Gửi lại lời mời.");
-        }
-        accountAccessService.sendLink(user.getId(), false);
-        log.info("Admin {} requested password recovery link for staff {}", currentAdminId, userId);
     }
 
     @Override
