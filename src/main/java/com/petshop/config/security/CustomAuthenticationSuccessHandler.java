@@ -1,15 +1,19 @@
 package com.petshop.config.security;
 
+import com.petshop.repository.UserRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Collection;
 
 /**
@@ -20,12 +24,23 @@ import java.util.Collection;
  * - ROLE_CUSTOMER -> SavedRequest if present, else "/"
  */
 @Component
+@RequiredArgsConstructor
 @Slf4j
 public class CustomAuthenticationSuccessHandler extends SavedRequestAwareAuthenticationSuccessHandler {
 
+    private final UserRepository userRepository;
+
     @Override
+    @Transactional
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
+        if (authentication.getPrincipal() instanceof CustomUserDetails principal && principal.getId() != null) {
+            userRepository.findById(principal.getId()).ifPresent(user -> {
+                user.setLastLoginAt(LocalDateTime.now());
+                userRepository.save(user);
+            });
+        }
+
         Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
 
         for (GrantedAuthority authority : authorities) {

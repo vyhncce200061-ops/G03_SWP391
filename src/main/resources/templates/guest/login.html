@@ -33,6 +33,10 @@
                     </div>
 
                     <!-- Logout Success Alert -->
+                    <div th:if="${param.passwordChanged}" class="alert alert-success py-2 small" role="alert">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        Đổi mật khẩu thành công. Vui lòng đăng nhập lại với mật khẩu mới.
+                    </div>
                     <div th:if="${param.logout}" class="alert alert-success py-2 small" role="alert">
                         <i class="bi bi-check-circle-fill me-1"></i>
                         Bạn đã đăng xuất an toàn.

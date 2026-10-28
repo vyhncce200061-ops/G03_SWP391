@@ -7,7 +7,9 @@ import com.petshop.entity.User;
 import com.petshop.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -159,6 +161,7 @@ public class StaffProfileController {
             if (avatarFile != null && !avatarFile.isEmpty()) {
                 userService.updateAvatar(userDetails.getId(), avatarFile);
             }
+            refreshPrincipal(userDetails.getId());
             redirectAttributes.addFlashAttribute("successMessage", "Cập nhật thông tin cá nhân thành công!");
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
@@ -175,13 +178,31 @@ public class StaffProfileController {
     @PostMapping("/change-password")
     public String changePassword(@AuthenticationPrincipal CustomUserDetails userDetails,
                                  @Valid @ModelAttribute PasswordChangeRequestDto request,
+                                 BindingResult bindingResult,
                                  RedirectAttributes redirectAttributes) {
+        if (bindingResult.hasErrors()) {
+            redirectAttributes.addFlashAttribute("errorMessage", bindingResult.getAllErrors().get(0).getDefaultMessage());
+            return "redirect:/staff/profile";
+        }
         try {
             userService.changePassword(userDetails.getId(), request);
+            refreshPrincipal(userDetails.getId());
             redirectAttributes.addFlashAttribute("successMessage", "Đổi mật khẩu thành công!");
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/staff/profile";
+    }
+
+    private void refreshPrincipal(Long userId) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails) {
+            User updated = userService.findById(userId);
+            CustomUserDetails newDetails = new CustomUserDetails(updated);
+            var newAuth = new UsernamePasswordAuthenticationToken(
+                    newDetails, newDetails.getPassword(), newDetails.getAuthorities());
+            newAuth.setDetails(auth.getDetails());
+            SecurityContextHolder.getContext().setAuthentication(newAuth);
+        }
     }
 }

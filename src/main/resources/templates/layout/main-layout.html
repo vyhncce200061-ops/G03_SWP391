@@ -137,7 +137,8 @@
                                     </li>
                                     <li sec:authorize="hasAnyRole('STAFF', 'ADMIN')"><hr class="dropdown-divider"></li>
                                     
-                                    <li><a class="dropdown-item" th:href="@{/account/profile}"><i class="bi bi-person me-2"></i>Hồ Sơ Cá Nhân</a></li>
+                                    <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/profile}"><i class="bi bi-person me-2"></i>Hồ Sơ Cá Nhân</a></li>
+                                    <li sec:authorize="hasAnyRole('STAFF', 'ADMIN')"><a class="dropdown-item" th:href="@{/staff/profile}"><i class="bi bi-person me-2"></i>Hồ Sơ Cá Nhân</a></li>
                                     <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/orders}"><i class="bi bi-bag-check me-2"></i>Đơn Hàng Của Tôi</a></li>
                                     <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/addresses}"><i class="bi bi-geo-alt me-2"></i>Sổ Địa Chỉ</a></li>
                                     <li><hr class="dropdown-divider"></li>

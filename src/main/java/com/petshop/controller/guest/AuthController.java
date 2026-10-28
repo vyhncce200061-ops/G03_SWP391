@@ -55,11 +55,11 @@ public class AuthController {
     }
 
     @GetMapping("/verify-email")
-    public String verifyEmail(@RequestParam String token, RedirectAttributes redirectAttributes) {
+    public String verifyEmail(@RequestParam(required = false) String token, RedirectAttributes redirectAttributes) {
         try {
             authService.confirmRegistration(token);
             redirectAttributes.addFlashAttribute("successMessage", "Kích hoạt tài khoản thành công! Vui lòng đăng nhập.");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/login";
@@ -71,10 +71,12 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public String sendResetToken(@RequestParam String email, RedirectAttributes redirectAttributes) {
+    public String sendResetToken(@RequestParam(required = false) String email, RedirectAttributes redirectAttributes) {
         try {
             authService.initiatePasswordReset(email);
             redirectAttributes.addFlashAttribute("infoMessage", "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi đi.");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         } catch (IllegalStateException | org.springframework.mail.MailException e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Gửi email chưa khả dụng. Vui lòng liên hệ quản trị viên để đặt lại mật khẩu.");
         }

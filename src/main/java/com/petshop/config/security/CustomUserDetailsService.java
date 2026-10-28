@@ -11,6 +11,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
+
 /**
  * Loads user details from database by Email or Phone.
  */
@@ -24,16 +26,17 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        log.debug("Attempting authentication for identifier: {}", username);
+        String clean = username == null ? "" : username.trim();
+        log.debug("Attempting authentication for identifier: {}", clean);
 
-        User user = userRepository.findByEmailOrPhone(username.trim(), username.trim())
+        User user = userRepository.findByEmailOrPhone(clean.toLowerCase(Locale.ROOT), clean)
                 .orElseThrow(() -> {
-                    log.warn("Authentication failed: No user found for '{}'", username);
-                    return new UsernameNotFoundException("Tài khoản hoặc số điện thoại không tồn tại: " + username);
+                    log.warn("Authentication failed: No user found for '{}'", clean);
+                    return new UsernameNotFoundException("Tài khoản hoặc số điện thoại không tồn tại: " + clean);
                 });
 
         if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) {
-            log.warn("Authentication rejected: Account for '{}' is locked", username);
+            log.warn("Authentication rejected: Account for '{}' is locked", clean);
             throw new LockedException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
         }
 

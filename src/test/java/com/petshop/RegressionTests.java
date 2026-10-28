@@ -689,4 +689,92 @@ class RegressionTests {
                 .andExpect(status().isOk()).andExpect(view().name("admin/voucher-form")).andExpect(model().attributeExists("errorMessage"));
         assertEquals(2,vouchers.count());assertTrue(vouchers.findById(deleted.getId()).orElseThrow().getIsDeleted());
     }
+
+    @Test void customerAndStaffProfilePasswordAndAddressBookWorkflowsWorkCleanly() throws Exception {
+        mvc.perform(post("/login").with(csrf()).param("username", "C@REGRESSION.TEST").param("password", "Secret@123"))
+                .andExpect(redirectedUrl("/"));
+        assertNotNull(users.findById(customer.getId()).orElseThrow().getLastLoginAt());
+
+        var customerPrincipal = new CustomUserDetails(users.findById(customer.getId()).orElseThrow());
+        String profileHtml = mvc.perform(get("/customer/profile").with(user(customerPrincipal)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(profileHtml.contains("id=\"editAddressForm\""));
+
+        mvc.perform(post("/customer/profile").with(user(customerPrincipal)).with(csrf())
+                .param("fullName", "Updated Customer").param("phone", "0909888777"))
+                .andExpect(redirectedUrl("/customer/profile")).andExpect(flash().attributeExists("successMessage"));
+        assertEquals("Updated Customer", users.findById(customer.getId()).orElseThrow().getFullName());
+        assertEquals("0909888777", users.findById(customer.getId()).orElseThrow().getPhone());
+
+        mvc.perform(post("/customer/change-password").with(user(customerPrincipal)).with(csrf())
+                .param("currentPassword", "Secret@123").param("newPassword", "123").param("confirmNewPassword", "123"))
+                .andExpect(redirectedUrl("/customer/profile")).andExpect(flash().attributeExists("errorMessage"));
+
+        mvc.perform(post("/customer/change-password").with(user(customerPrincipal)).with(csrf())
+                .param("currentPassword", "Secret@123").param("newPassword", "NewCust@123").param("confirmNewPassword", "NewCust@123"))
+                .andExpect(redirectedUrl("/customer/profile")).andExpect(flash().attributeExists("successMessage"));
+        assertTrue(encoder.matches("NewCust@123", users.findById(customer.getId()).orElseThrow().getPasswordHash()));
+
+        var refreshedCustomer = new CustomUserDetails(users.findById(customer.getId()).orElseThrow());
+        mvc.perform(post("/customer/addresses/add").with(user(refreshedCustomer)).with(csrf())
+                .param("recipientName", "").param("recipientPhone", "invalid"))
+                .andExpect(redirectedUrl("/customer/addresses")).andExpect(flash().attributeExists("errorMessage"));
+
+        mvc.perform(post("/customer/addresses/add").with(user(refreshedCustomer)).with(csrf())
+                .param("recipientName", "Addr 1").param("recipientPhone", "0901111222")
+                .param("province", "TP.HCM").param("district", "Quận 1").param("ward", "Bến Nghé").param("addressLine", "1 Lê Lợi"))
+                .andExpect(redirectedUrl("/customer/addresses")).andExpect(flash().attributeExists("successMessage"));
+        var addrList1 = userService.getCustomerAddresses(customer.getId());
+        assertEquals(1, addrList1.size());
+        assertTrue(addrList1.get(0).getIsDefault());
+        Long addr1Id = addrList1.get(0).getId();
+
+        mvc.perform(post("/customer/addresses/add").with(user(refreshedCustomer)).with(csrf())
+                .param("recipientName", "Addr 2").param("recipientPhone", "0903333444")
+                .param("province", "Hà Nội").param("district", "Ba Đình").param("ward", "Điện Biên").param("addressLine", "2 Độc Lập")
+                .param("isDefault", "false").param("source", "profile"))
+                .andExpect(redirectedUrl("/customer/profile?tab=addresses")).andExpect(flash().attributeExists("successMessage"));
+        var addrList2 = userService.getCustomerAddresses(customer.getId());
+        assertEquals(2, addrList2.size());
+        Long addr2Id = addrList2.stream().filter(a -> !a.getId().equals(addr1Id)).findFirst().orElseThrow().getId();
+
+        mvc.perform(post("/customer/addresses/" + addr2Id + "/edit").with(user(refreshedCustomer)).with(csrf())
+                .param("recipientName", "Addr 2 Edited").param("recipientPhone", "0905555666")
+                .param("province", "Đà Nẵng").param("district", "Hải Châu").param("ward", "Thạch Thang").param("addressLine", "3 Bạch Đằng")
+                .param("isDefault", "true"))
+                .andExpect(redirectedUrl("/customer/addresses")).andExpect(flash().attributeExists("successMessage"));
+        assertTrue(addresses.findById(addr2Id).orElseThrow().getIsDefault());
+        assertFalse(addresses.findById(addr1Id).orElseThrow().getIsDefault());
+        assertEquals("Addr 2 Edited", addresses.findById(addr2Id).orElseThrow().getRecipientName());
+
+        mvc.perform(post("/customer/addresses/" + addr2Id + "/set-default").with(user(refreshedCustomer)).with(csrf()))
+                .andExpect(redirectedUrl("/customer/addresses")).andExpect(flash().attributeExists("successMessage"));
+        assertTrue(addresses.findById(addr2Id).orElseThrow().getIsDefault());
+
+        mvc.perform(post("/customer/addresses/" + addr2Id + "/delete").with(user(refreshedCustomer)).with(csrf()))
+                .andExpect(redirectedUrl("/customer/addresses")).andExpect(flash().attributeExists("successMessage"));
+        var remainingAddrs = userService.getCustomerAddresses(customer.getId());
+        assertEquals(1, remainingAddrs.size());
+        assertEquals(addr1Id, remainingAddrs.get(0).getId());
+        assertTrue(remainingAddrs.get(0).getIsDefault());
+
+        var staffPrincipal = new CustomUserDetails(users.findById(staff.getId()).orElseThrow());
+        mvc.perform(get("/staff/profile").with(user(staffPrincipal))).andExpect(status().isOk());
+        mvc.perform(post("/staff/profile").with(user(staffPrincipal)).with(csrf())
+                .param("fullName", "Updated Staff").param("phone", "0907777888"))
+                .andExpect(redirectedUrl("/staff/profile")).andExpect(flash().attributeExists("successMessage"));
+        assertEquals("Updated Staff", users.findById(staff.getId()).orElseThrow().getFullName());
+
+        mvc.perform(post("/staff/change-password").with(user(staffPrincipal)).with(csrf())
+                .param("currentPassword", "Secret@123").param("newPassword", "short").param("confirmNewPassword", "short"))
+                .andExpect(redirectedUrl("/staff/profile")).andExpect(flash().attributeExists("errorMessage"));
+
+        mvc.perform(post("/staff/change-password").with(user(staffPrincipal)).with(csrf())
+                .param("currentPassword", "Secret@123").param("newPassword", "NewStaff@123").param("confirmNewPassword", "NewStaff@123"))
+                .andExpect(redirectedUrl("/staff/profile")).andExpect(flash().attributeExists("successMessage"));
+        assertTrue(encoder.matches("NewStaff@123", users.findById(staff.getId()).orElseThrow().getPasswordHash()));
+
+        mvc.perform(post("/logout").with(csrf()))
+                .andExpect(redirectedUrl("/login?logout=true"));
+    }
 }

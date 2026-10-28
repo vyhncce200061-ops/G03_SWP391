@@ -18,7 +18,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -95,6 +97,7 @@ public class CustomerProfileController {
             if (avatarFile != null && !avatarFile.isEmpty()) {
                 userService.updateAvatar(userDetails.getId(), avatarFile);
             }
+            refreshPrincipal(userDetails.getId());
             redirectAttributes.addFlashAttribute("successMessage", "Cập nhật thông tin cá nhân thành công!");
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
@@ -106,10 +109,11 @@ public class CustomerProfileController {
 
     @PostMapping("/avatar")
     public String uploadAvatar(@AuthenticationPrincipal CustomUserDetails userDetails,
-                               @RequestParam("avatarFile") org.springframework.web.multipart.MultipartFile avatarFile,
+                               @RequestParam(value = "avatarFile", required = false) org.springframework.web.multipart.MultipartFile avatarFile,
                                RedirectAttributes redirectAttributes) {
         try {
             userService.updateAvatar(userDetails.getId(), avatarFile);
+            refreshPrincipal(userDetails.getId());
             redirectAttributes.addFlashAttribute("successMessage", "Cập nhật ảnh đại diện thành công!");
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
@@ -122,9 +126,15 @@ public class CustomerProfileController {
     @PostMapping("/change-password")
     public String changePassword(@AuthenticationPrincipal CustomUserDetails userDetails,
                                  @Valid @ModelAttribute PasswordChangeRequestDto request,
+                                 BindingResult bindingResult,
                                  RedirectAttributes redirectAttributes) {
+        if (bindingResult.hasErrors()) {
+            redirectAttributes.addFlashAttribute("errorMessage", bindingResult.getAllErrors().get(0).getDefaultMessage());
+            return "redirect:/customer/profile";
+        }
         try {
             userService.changePassword(userDetails.getId(), request);
+            refreshPrincipal(userDetails.getId());
             redirectAttributes.addFlashAttribute("successMessage", "Đổi mật khẩu thành công!");
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
@@ -144,32 +154,40 @@ public class CustomerProfileController {
     @PostMapping("/addresses/add")
     public String addAddress(@AuthenticationPrincipal CustomUserDetails userDetails,
                              @Valid @ModelAttribute("addressForm") AddressCreateDto request,
+                             BindingResult bindingResult,
                              @RequestParam(value = "source", required = false) String source,
                              RedirectAttributes redirectAttributes) {
-        userService.addAddress(userDetails.getId(), request);
-        redirectAttributes.addFlashAttribute("successMessage", "Thêm địa chỉ giao hàng thành công!");
-        if ("profile".equalsIgnoreCase(source)) {
-            return "redirect:/customer/profile?tab=addresses";
+        if (bindingResult.hasErrors()) {
+            redirectAttributes.addFlashAttribute("errorMessage", bindingResult.getAllErrors().get(0).getDefaultMessage());
+            return redirectAddressSource(source);
         }
-        return "redirect:/customer/addresses";
+        try {
+            userService.addAddress(userDetails.getId(), request);
+            redirectAttributes.addFlashAttribute("successMessage", "Thêm địa chỉ giao hàng thành công!");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return redirectAddressSource(source);
     }
 
     @PostMapping("/addresses/{id}/edit")
     public String updateAddress(@AuthenticationPrincipal CustomUserDetails userDetails,
                                 @PathVariable Long id,
                                 @Valid @ModelAttribute("addressForm") AddressUpdateDto request,
+                                BindingResult bindingResult,
                                 @RequestParam(value = "source", required = false) String source,
                                 RedirectAttributes redirectAttributes) {
+        if (bindingResult.hasErrors()) {
+            redirectAttributes.addFlashAttribute("errorMessage", bindingResult.getAllErrors().get(0).getDefaultMessage());
+            return redirectAddressSource(source);
+        }
         try {
             userService.updateAddress(userDetails.getId(), id, request);
             redirectAttributes.addFlashAttribute("successMessage", "Cập nhật địa chỉ giao hàng thành công!");
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
-        if ("profile".equalsIgnoreCase(source)) {
-            return "redirect:/customer/profile?tab=addresses";
-        }
-        return "redirect:/customer/addresses";
+        return redirectAddressSource(source);
     }
 
     @PostMapping("/addresses/{id}/set-default")
@@ -177,12 +195,13 @@ public class CustomerProfileController {
                                     @PathVariable Long id,
                                     @RequestParam(value = "source", required = false) String source,
                                     RedirectAttributes redirectAttributes) {
-        userService.setDefaultAddress(userDetails.getId(), id);
-        redirectAttributes.addFlashAttribute("successMessage", "Đã đặt làm địa chỉ mặc định!");
-        if ("profile".equalsIgnoreCase(source)) {
-            return "redirect:/customer/profile?tab=addresses";
+        try {
+            userService.setDefaultAddress(userDetails.getId(), id);
+            redirectAttributes.addFlashAttribute("successMessage", "Đã đặt làm địa chỉ mặc định!");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
-        return "redirect:/customer/addresses";
+        return redirectAddressSource(source);
     }
 
     @PostMapping("/addresses/{id}/delete")
@@ -190,11 +209,31 @@ public class CustomerProfileController {
                                 @PathVariable Long id,
                                 @RequestParam(value = "source", required = false) String source,
                                 RedirectAttributes redirectAttributes) {
-        userService.deleteAddress(userDetails.getId(), id);
-        redirectAttributes.addFlashAttribute("successMessage", "Đã xóa địa chỉ thành công!");
+        try {
+            userService.deleteAddress(userDetails.getId(), id);
+            redirectAttributes.addFlashAttribute("successMessage", "Đã xóa địa chỉ thành công!");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return redirectAddressSource(source);
+    }
+
+    private String redirectAddressSource(String source) {
         if ("profile".equalsIgnoreCase(source)) {
             return "redirect:/customer/profile?tab=addresses";
         }
         return "redirect:/customer/addresses";
+    }
+
+    private void refreshPrincipal(Long userId) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails) {
+            User updated = userService.findById(userId);
+            CustomUserDetails newDetails = new CustomUserDetails(updated);
+            var newAuth = new UsernamePasswordAuthenticationToken(
+                    newDetails, newDetails.getPassword(), newDetails.getAuthorities());
+            newAuth.setDetails(auth.getDetails());
+            SecurityContextHolder.getContext().setAuthentication(newAuth);
+        }
     }
 }

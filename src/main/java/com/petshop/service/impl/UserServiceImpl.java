@@ -4,7 +4,6 @@ import com.petshop.dto.auth.AddressCreateDto;
 import com.petshop.dto.auth.AddressUpdateDto;
 import com.petshop.dto.auth.PasswordChangeRequestDto;
 import com.petshop.dto.auth.ProfileUpdateRequestDto;
-import com.petshop.dto.auth.RegisterRequestDto;
 import com.petshop.entity.Role;
 import com.petshop.entity.User;
 import com.petshop.entity.UserAddress;
@@ -55,19 +54,28 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void updateProfile(Long userId, ProfileUpdateRequestDto request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Dữ liệu cập nhật hồ sơ không hợp lệ.");
+        }
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        }
         User user = lockUser(userId);
         user.setFullName(request.getFullName().trim());
         if (request.getPhone() != null && !request.getPhone().isBlank()) {
             String phone = request.getPhone().trim();
             userRepository.findByPhone(phone).ifPresent(existing -> {
-                if (!existing.getId().equals(userId)) throw new IllegalArgumentException("Số điện thoại đã được dùng bởi tài khoản khác.");
+                if (!existing.getId().equals(userId)) {
+                    throw new IllegalArgumentException("Số điện thoại đã được dùng bởi tài khoản khác.");
+                }
             });
             user.setPhone(phone);
         }
         if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
             user.setAvatarUrl(request.getAvatarUrl().trim());
         }
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
         log.info("Updated profile for user ID: {}", userId);
     }
 
@@ -78,7 +86,7 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Chọn ảnh đại diện tối đa 5 MB.");
         }
         String type = file.getContentType();
-        if (type == null || !java.util.Set.of("image/jpeg", "image/png", "image/gif").contains(type)) {
+        if (type == null || !java.util.Set.of("image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/gif").contains(type.toLowerCase(java.util.Locale.ROOT))) {
             throw new IllegalArgumentException("Ảnh đại diện cần có định dạng JPG, PNG hoặc GIF.");
         }
         try (var input = file.getInputStream()) {
@@ -94,7 +102,7 @@ public class UserServiceImpl implements UserService {
                 throw new IllegalStateException("Không thể lưu ảnh đại diện.");
             }
             user.setAvatarUrl("/uploads/avatars/" + name);
-            userRepository.save(user);
+            userRepository.saveAndFlush(user);
         } catch (java.io.IOException e) {
             throw new IllegalStateException("Không thể lưu ảnh đại diện. Vui lòng thử lại.", e);
         }
@@ -103,8 +111,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void changePassword(Long userId, PasswordChangeRequestDto request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Dữ liệu đổi mật khẩu không hợp lệ.");
+        }
         User user = lockUser(userId);
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+        if (request.getCurrentPassword() == null || !passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác.");
         }
         if (!java.util.Objects.equals(request.getNewPassword(), request.getConfirmNewPassword())) {
@@ -118,7 +129,7 @@ public class UserServiceImpl implements UserService {
         }
         user.setMustChangePassword(false);
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
         log.info("Changed password for user ID: {}", userId);
     }
 
@@ -131,7 +142,14 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserAddress addAddress(Long customerId, AddressCreateDto request) {
-        User customer = lockUser(customerId);
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin địa chỉ không hợp lệ.");
+        }
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        }
+        lockUser(customerId);
         boolean isFirst = addressRepository.countByCustomerIdAndIsDeletedFalse(customerId) == 0;
         boolean makeDefault = isFirst || Boolean.TRUE.equals(request.getIsDefault());
 
@@ -139,6 +157,7 @@ public class UserServiceImpl implements UserService {
             addressRepository.resetDefaultAddresses(customerId);
         }
 
+        User customer = userRepository.getReferenceById(customerId);
         UserAddress address = UserAddress.builder()
                 .customer(customer)
                 .recipientName(request.getRecipientName().trim())
@@ -151,14 +170,30 @@ public class UserServiceImpl implements UserService {
                 .isDeleted(false)
                 .build();
 
-        return addressRepository.save(address);
+        return addressRepository.saveAndFlush(address);
     }
 
     @Override
     @Transactional
     public void updateAddress(Long customerId, Long addressId, AddressUpdateDto request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin địa chỉ không hợp lệ.");
+        }
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        }
+        lockUser(customerId);
         UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
+
+        boolean shouldMakeDefault = Boolean.TRUE.equals(request.getIsDefault()) && !Boolean.TRUE.equals(address.getIsDefault());
+        if (shouldMakeDefault) {
+            addressRepository.resetDefaultAddresses(customerId);
+            address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
+            address.setIsDefault(true);
+        }
 
         address.setRecipientName(request.getRecipientName().trim());
         address.setRecipientPhone(request.getRecipientPhone().trim());
@@ -167,12 +202,7 @@ public class UserServiceImpl implements UserService {
         address.setWard(request.getWard().trim());
         address.setAddressLine(request.getAddressLine().trim());
 
-        if (Boolean.TRUE.equals(request.getIsDefault()) && !Boolean.TRUE.equals(address.getIsDefault())) {
-            addressRepository.resetDefaultAddresses(customerId);
-            address.setIsDefault(true);
-        }
-
-        addressRepository.save(address);
+        addressRepository.saveAndFlush(address);
         log.info("Updated address ID {} for customer ID {}", addressId, customerId);
     }
 
@@ -180,11 +210,14 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void setDefaultAddress(Long customerId, Long addressId) {
         lockUser(customerId);
+        if (addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId).isEmpty()) {
+            throw new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ.");
+        }
+        addressRepository.resetDefaultAddresses(customerId);
         UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
-        addressRepository.resetDefaultAddresses(customerId);
         address.setIsDefault(true);
-        addressRepository.save(address);
+        addressRepository.saveAndFlush(address);
     }
 
     @Override
@@ -193,9 +226,19 @@ public class UserServiceImpl implements UserService {
         lockUser(customerId);
         UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
+        boolean wasDefault = Boolean.TRUE.equals(address.getIsDefault());
         address.setIsDeleted(true);
         address.setIsDefault(false);
-        addressRepository.save(address);
+        addressRepository.saveAndFlush(address);
+
+        if (wasDefault) {
+            List<UserAddress> remaining = addressRepository.findByCustomerIdAndIsDeletedFalseOrderByIsDefaultDescCreatedAtDesc(customerId);
+            if (!remaining.isEmpty() && remaining.stream().noneMatch(a -> Boolean.TRUE.equals(a.getIsDefault()))) {
+                UserAddress nextDefault = remaining.get(0);
+                nextDefault.setIsDefault(true);
+                addressRepository.saveAndFlush(nextDefault);
+            }
+        }
     }
 
     @Override

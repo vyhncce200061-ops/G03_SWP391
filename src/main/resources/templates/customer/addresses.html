@@ -189,7 +189,8 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form id="editAddressForm" method="post">
+                <form id="editAddressForm" th:action="@{/customer/addresses/0/edit}" method="post">
+                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                     <div class="modal-body p-4">
                         <div class="row g-3">
                             <div class="col-sm-6">
