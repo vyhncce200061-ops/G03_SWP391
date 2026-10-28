@@ -17,6 +17,7 @@ import static org.mockito.Mockito.*;
 @ActiveProfiles("test")
 class StaffMailRollbackTests {
     @Autowired UserService service;
+    @Autowired AuthService auth;
     @Autowired UserRepository users;
     @Autowired RoleRepository roles;
     @Autowired PasswordResetTokenRepository tokens;
@@ -38,7 +39,7 @@ class StaffMailRollbackTests {
         var original=users.save(User.builder().role(role).fullName("Existing staff").email("existing@rollback.test").phone("0901000009")
                 .passwordHash(encoder.encode("Old@123")).build());
         doThrow(new IllegalStateException("SMTP rejected")).when(mail).sendPasswordResetEmail(anyString(),anyString(),anyString());
-        assertThrows(IllegalStateException.class,()->service.requestStaffPasswordReset(original.getId(),admin.getId()));
+        assertThrows(IllegalStateException.class,()->auth.initiatePasswordReset(original.getEmail()));
         var unchanged=users.findById(original.getId()).orElseThrow();
         assertEquals(original.getPasswordHash(),unchanged.getPasswordHash());
         assertFalse(unchanged.getMustChangePassword()); assertEquals(0,tokens.count());
@@ -49,10 +50,10 @@ class StaffMailRollbackTests {
         assertEquals(2,tokens.count());
         assertEquals(1,tokens.findAll().stream().filter(t->t.getUsedAt()!=null).count());
         assertTrue(tokens.findAll().stream().allMatch(t->t.getExpiresAt().isAfter(t.getCreatedAt())));
-        service.requestStaffPasswordReset(original.getId(),admin.getId());
+        auth.initiatePasswordReset(original.getEmail());
         var previous=tokens.findAll().stream().filter(t->t.getUser().getId().equals(original.getId())).findFirst().orElseThrow();
         doThrow(new IllegalStateException("SMTP rejected")).when(mail).sendPasswordResetEmail(anyString(),anyString(),anyString());
-        assertThrows(IllegalStateException.class,()->service.requestStaffPasswordReset(original.getId(),admin.getId()));
+        assertThrows(IllegalStateException.class,()->auth.initiatePasswordReset(original.getEmail()));
         assertEquals(3,tokens.count());
         assertNull(tokens.findById(previous.getId()).orElseThrow().getUsedAt());
         assertEquals(original.getPasswordHash(),users.findById(original.getId()).orElseThrow().getPasswordHash());

@@ -13,17 +13,22 @@ import java.util.Optional;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Review r WHERE r.id = :id")
+    Optional<Review> findByIdForUpdate(@Param("id") Long id);
     Optional<Review> findByOrderItemId(Long orderItemId);
     boolean existsByOrderItemId(Long orderItemId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orderItem", "orderItem.order"})
     @Query("SELECT r FROM Review r " +
            "JOIN r.orderItem oi " +
            "JOIN oi.variant pv " +
            "WHERE pv.product.id = :productId AND r.status = com.petshop.entity.enums.ReviewStatus.VISIBLE " +
-           "ORDER BY r.createdAt DESC")
+           "ORDER BY r.createdAt DESC, r.id DESC")
     Page<Review> findVisibleReviewsByProductId(@Param("productId") Long productId, Pageable pageable);
 
-    Page<Review> findByCustomerIdOrderByCreatedAtDesc(Long customerId, Pageable pageable);
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orderItem", "orderItem.order"})
+    Page<Review> findByCustomerIdOrderByCreatedAtDescIdDesc(Long customerId, Pageable pageable);
 
     @Query("SELECT AVG(r.rating * 1.0) FROM Review r " +
            "JOIN r.orderItem oi JOIN oi.variant pv " +
@@ -45,7 +50,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
            "     OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "     OR LOWER(c.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "     OR LOWER(r.comment) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-           "ORDER BY r.createdAt DESC",
+           "ORDER BY r.createdAt DESC, r.id DESC",
            countQuery = "SELECT COUNT(r) FROM Review r " +
            "JOIN r.customer c " +
            "JOIN r.orderItem oi " +

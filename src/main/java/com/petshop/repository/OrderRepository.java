@@ -59,7 +59,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 
     @Query("SELECT CAST(o.completedAt AS LocalDate) as revDate, COUNT(o) as orderCount, " +
            "SUM(o.subtotalAmount) as goodsTotal, SUM(o.discountAmount) as discountTotal, SUM(o.subtotalAmount - o.discountAmount) as netTotal, SUM(o.shippingFee), SUM(o.totalAmount) " +
-           "FROM Order o WHERE o.orderStatus = com.petshop.entity.enums.OrderStatus.COMPLETED AND o.completedAt >= :startDate AND o.completedAt < :endDate " +
+           "FROM Order o WHERE o.orderStatus = com.petshop.entity.enums.OrderStatus.COMPLETED AND o.paymentStatus = com.petshop.entity.enums.PaymentStatus.PAID AND o.completedAt >= :startDate AND o.completedAt < :endDate " +
            "GROUP BY CAST(o.completedAt AS LocalDate) ORDER BY revDate ASC")
     List<Object[]> getRevenueStatistics(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 

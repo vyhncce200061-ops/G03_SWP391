@@ -7,6 +7,8 @@
 </head>
 <body>
 <div layout:fragment="content" class="py-5">
+
+
     <div class="container">
         <div class="row g-5">
             <div class="col-md-6 text-center">
@@ -58,6 +60,7 @@
             </div>
         </div>
     </div>
+<section class="container my-4"><div class="card p-3"><h2 class="h5">Đánh giá từ khách đã mua hàng</h2><p th:if="${reviews.empty}">Chưa có đánh giá công khai.</p><article th:each="r : ${reviews.content}" class="border-bottom py-3"><strong th:text="${r.rating + '/5 sao'}"></strong> <small th:text="${#temporals.format(r.createdAt,'dd/MM/yyyy')}"></small><p style="white-space:pre-wrap" th:text="${r.comment}"></p></article><nav class="d-flex gap-3"><a th:if="${reviews.hasPrevious()}" th:href="@{/products/{slug}(slug=${product.slug},reviewPage=${reviews.number-1})}">Trước</a><a th:if="${reviews.hasNext()}" th:href="@{/products/{slug}(slug=${product.slug},reviewPage=${reviews.number+1})}">Sau</a></nav></div></section>
 </div>
 </body>
 </html>

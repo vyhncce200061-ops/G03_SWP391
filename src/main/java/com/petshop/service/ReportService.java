@@ -17,6 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReportService {
     private final EntityManager em;
     private final ProductVariantRepository variants;
+    private final com.petshop.repository.OrderItemRepository items;
+
+    public org.springframework.data.domain.Page<Object[]> productSales(LocalDateTime start, LocalDateTime end, org.springframework.data.domain.Pageable page) {
+        return items.productSales(start,end,page);
+    }
 
     public List<StockReportRow> stockReconciliation() {
         Map<Long,Object[]> imported = new HashMap<>();
@@ -31,7 +36,7 @@ public class ReportService {
             long quantity = in == null ? 0 : ((Number)in[1]).longValue();
             long sold = held.getOrDefault(v.getId(),0L);
             BigDecimal value = null;
-            if (quantity > 0 && ((Number)in[3]).longValue() == 0 && in[2] != null)
+            if (quantity > 0 && v.getStockQuantity() == quantity - sold && ((Number)in[3]).longValue() == 0 && in[2] != null)
                 value = new BigDecimal(in[2].toString()).multiply(BigDecimal.valueOf(v.getStockQuantity())).divide(BigDecimal.valueOf(quantity), 2, RoundingMode.HALF_UP);
             rows.add(new StockReportRow(v.getSkuCode(),v.getProduct().getName(),v.getStockQuantity(),quantity,sold,quantity-sold,v.getStockQuantity()-(quantity-sold),value));
         }
@@ -40,7 +45,7 @@ public class ReportService {
     }
 
     public List<Object[]> topSelling(LocalDateTime start, LocalDateTime end) {
-        return em.createQuery("SELECT i.variant.product.name, i.variant.product.id, SUM(i.quantity), SUM(i.unitPrice*i.quantity) FROM OrderItem i WHERE i.order.orderStatus = com.petshop.entity.enums.OrderStatus.COMPLETED AND i.order.completedAt >= :start AND i.order.completedAt < :end GROUP BY i.variant.product.name, i.variant.product.id ORDER BY SUM(i.quantity) DESC, i.variant.product.id ASC",Object[].class)
+        return em.createQuery("SELECT i.variant.product.name, i.variant.product.id, SUM(i.quantity), SUM(i.unitPrice*i.quantity) FROM OrderItem i WHERE i.order.orderStatus = com.petshop.entity.enums.OrderStatus.COMPLETED AND i.order.paymentStatus = com.petshop.entity.enums.PaymentStatus.PAID AND i.order.completedAt >= :start AND i.order.completedAt < :end GROUP BY i.variant.product.name, i.variant.product.id ORDER BY SUM(i.quantity) DESC, i.variant.product.id ASC",Object[].class)
                 .setParameter("start",start).setParameter("end",end).setMaxResults(10).getResultList();
     }
 

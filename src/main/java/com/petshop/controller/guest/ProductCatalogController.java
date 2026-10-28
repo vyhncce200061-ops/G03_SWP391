@@ -18,6 +18,7 @@ import com.petshop.entity.Product;
 public class ProductCatalogController {
 
     private final CatalogService catalogService;
+    private final com.petshop.service.ReviewService reviews;
 
     @GetMapping("/products")
     public String listProducts(
@@ -74,7 +75,7 @@ public class ProductCatalogController {
 
 
     @GetMapping("/products/{slug}")
-    public String productDetail(@PathVariable String slug, Model model) {
+    public String productDetail(@PathVariable String slug, @RequestParam(defaultValue="0") int reviewPage, Model model) {
         Product product;
         try {
             product = catalogService.getProductBySlug(slug);
@@ -83,6 +84,7 @@ public class ProductCatalogController {
         }
 
         model.addAttribute("product", product);
+        model.addAttribute("reviews", reviews.publicReviews(product.getId(), PageRequest.of(Math.max(0, reviewPage),10)));
         model.addAttribute("availableVariants", product.getVariants().stream()
                 .filter(v -> v.getStatus() == com.petshop.entity.enums.ProductVariantStatus.ACTIVE && v.getStockQuantity() > 0)
                 .toList());

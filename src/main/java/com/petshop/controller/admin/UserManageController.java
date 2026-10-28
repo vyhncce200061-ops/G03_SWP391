@@ -118,19 +118,6 @@ public class UserManageController {
         }
     }
 
-    @PostMapping("/{id}/reset-password")
-    public String resetPassword(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                @PathVariable Long id,
-                                RedirectAttributes redirectAttributes) {
-        try {
-            userService.requestStaffPasswordReset(id, userDetails.getId());
-            redirectAttributes.addFlashAttribute("successMessage", "Đã gửi link hỗ trợ mật khẩu cho Staff, hiệu lực 30 phút và dùng một lần. Mật khẩu hiện tại vẫn dùng được đến khi Staff xác nhận mật khẩu mới.");
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Không thể gửi link hỗ trợ mật khẩu Staff: " + e.getMessage());
-        }
-        return "redirect:/admin/users";
-    }
-
     @PostMapping("/{id}/resend-invitation")
     public String resendInvitation(@PathVariable Long id, RedirectAttributes redirectAttributes) {
         try {
@@ -139,6 +126,16 @@ public class UserManageController {
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
+        return "redirect:/admin/users";
+    }
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public String conflictingData(RedirectAttributes flash) {
+        flash.addFlashAttribute("errorMessage","Thông tin đã tồn tại hoặc không còn hợp lệ. Vui lòng tải lại danh sách và kiểm tra trước khi lưu.");
+        return "redirect:/admin/users";
+    }
+    @ExceptionHandler(IllegalArgumentException.class)
+    public String invalidAccount(IllegalArgumentException error, RedirectAttributes flash) {
+        flash.addFlashAttribute("errorMessage", error.getMessage());
         return "redirect:/admin/users";
     }
 }
