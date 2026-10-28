@@ -1,3 +1,4 @@
+
 package com.petshop.controller.admin;
 
 import com.petshop.config.security.CustomUserDetails;
@@ -23,25 +24,24 @@ public class AdminProductController {
     private final ProductManageService productManageService;
     private final CatalogService catalogService;
 
-    // Hiển thị và tìm kiếm sản phẩm dành cho Admin
+    // Display product list
     @GetMapping
     public String listProducts(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
             Model model) {
 
-        Pageable pageable = PageRequest.of(
-                Math.max(page, 0),
-                Math.max(size, 1)
-        );
+        // Always display 10 products per page
+        Pageable pageable = PageRequest.of(Math.max(page, 0), 10);
 
         Integer selectedCategoryId =
                 categoryId == null ? null : categoryId.intValue();
 
         Page<Product> products = productManageService.searchProducts(
-                keyword, selectedCategoryId, pageable
+                keyword,
+                selectedCategoryId,
+                pageable
         );
 
         model.addAttribute("products", products);
@@ -52,7 +52,7 @@ public class AdminProductController {
         return "staff/product-list";
     }
 
-    // Hiển thị form tạo mới sản phẩm
+    // Display create form
     @GetMapping("/create")
     public String createForm(Model model) {
         model.addAttribute("product", new Product());
@@ -63,7 +63,7 @@ public class AdminProductController {
         return "staff/product-form";
     }
 
-    // Xử lý tạo mới sản phẩm
+    // Create product
     @PostMapping("/create")
     public String createProduct(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -71,12 +71,18 @@ public class AdminProductController {
             RedirectAttributes redirectAttributes) {
 
         try {
+            if (userDetails == null) {
+                redirectAttributes.addFlashAttribute(
+                        "errorMessage", "Vui lòng đăng nhập lại."
+                );
+                return "redirect:/login";
+            }
+
             productManageService.createProduct(product, userDetails.getId());
 
             redirectAttributes.addFlashAttribute(
                     "successMessage", "Thêm sản phẩm thành công!"
             );
-            return "redirect:/admin/products";
 
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute(
@@ -84,9 +90,11 @@ public class AdminProductController {
             );
             return "redirect:/admin/products/create";
         }
+
+        return "redirect:/admin/products";
     }
 
-    // Hiển thị form chỉnh sửa sản phẩm
+    // Display edit form
     @GetMapping("/{id}/edit")
     public String editForm(
             @PathVariable Long id,
@@ -100,7 +108,7 @@ public class AdminProductController {
         return "staff/product-form";
     }
 
-    // Xử lý cập nhật sản phẩm
+    // Update product
     @PostMapping("/{id}/edit")
     public String updateProduct(
             @PathVariable Long id,
@@ -109,6 +117,10 @@ public class AdminProductController {
             RedirectAttributes redirectAttributes) {
 
         try {
+            if (userDetails == null) {
+                return "redirect:/login";
+            }
+
             productManageService.updateProduct(
                     id, product, userDetails.getId()
             );
@@ -126,7 +138,7 @@ public class AdminProductController {
         return "redirect:/admin/products";
     }
 
-    // Ẩn hoặc hiện trạng thái sản phẩm
+    // Update product status
     @PostMapping("/{id}/status")
     public String updateStatus(
             @PathVariable Long id,

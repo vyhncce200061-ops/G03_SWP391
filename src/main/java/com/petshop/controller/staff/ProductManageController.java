@@ -1,3 +1,4 @@
+
 package com.petshop.controller.staff;
 
 import com.petshop.config.security.CustomUserDetails;
@@ -24,19 +25,17 @@ public class ProductManageController {
     private final ProductManageService productManageService;
     private final CatalogService catalogService;
 
-    // Hiển thị danh sách sản phẩm dành cho Staff
+    // Display staff product list
+
     @GetMapping
     public String listProducts(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
             Model model) {
 
         int safePage = Math.max(page, 0);
-        int safeSize = Math.min(Math.max(size, 1), 100);
-
-        Pageable pageable = PageRequest.of(safePage, safeSize);
+        Pageable pageable = PageRequest.of(safePage, 10);
 
         Integer selectedCategoryId =
                 categoryId == null ? null : categoryId.intValue();
@@ -55,7 +54,8 @@ public class ProductManageController {
         return "staff/product-list";
     }
 
-    // Xem chi tiết sản phẩm
+
+    // View product details
     @GetMapping("/{id}")
     public String viewProduct(
             @PathVariable Long id,
@@ -65,6 +65,7 @@ public class ProductManageController {
         try {
             model.addAttribute("product", productManageService.findById(id));
             return "staff/product-detail";
+
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute(
                     "errorMessage", "Không tìm thấy sản phẩm."
@@ -73,7 +74,7 @@ public class ProductManageController {
         }
     }
 
-    // Form tạo mới sản phẩm
+    // Display create form
     @GetMapping("/create")
     public String createForm(Model model) {
         if (!model.containsAttribute("product")) {
@@ -86,7 +87,7 @@ public class ProductManageController {
         return "staff/product-form";
     }
 
-    // Xử lý lưu sản phẩm mới
+    // Save new product
     @PostMapping("/create")
     public String saveProduct(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -107,7 +108,8 @@ public class ProductManageController {
                     "successMessage", "Tạo sản phẩm thành công!"
             );
 
-            return "redirect:/staff/products";
+            // Return to the first page to see the newest product
+            return "redirect:/staff/products?page=0";
 
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute(
@@ -119,7 +121,7 @@ public class ProductManageController {
         }
     }
 
-    // Form chỉnh sửa sản phẩm
+    // Display edit form
     @GetMapping("/{id}/edit")
     public String editForm(
             @PathVariable Long id,
@@ -141,7 +143,7 @@ public class ProductManageController {
         }
     }
 
-    // Xử lý cập nhật sản phẩm
+    // Update product
     @PostMapping("/{id}/edit")
     public String updateProduct(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -175,7 +177,7 @@ public class ProductManageController {
         return "redirect:/staff/products";
     }
 
-    // Cập nhật trạng thái ẩn/hiện sản phẩm
+    // Update product status
     @PostMapping("/{id}/status")
     public String updateProductStatus(
             @PathVariable Long id,
@@ -198,7 +200,7 @@ public class ProductManageController {
         return "redirect:/staff/products";
     }
 
-    // Xóa mềm sản phẩm (chuyển sang trạng thái ẩn)
+    // Soft-delete product by hiding it
     @PostMapping("/{id}/delete")
     public String hideProduct(
             @PathVariable Long id,
@@ -220,7 +222,7 @@ public class ProductManageController {
         return "redirect:/staff/products";
     }
 
-    // Hiển thị danh sách biến thể sản phẩm (SKU)
+    // Display product variants
     @GetMapping("/{id}/variants")
     public String manageVariants(
             @PathVariable Long id,
@@ -243,7 +245,7 @@ public class ProductManageController {
         }
     }
 
-    // Thêm biến thể cho sản phẩm
+    // Add product variant
     @PostMapping("/{id}/variants")
     public String addVariant(
             @PathVariable Long id,
@@ -266,7 +268,7 @@ public class ProductManageController {
         return "redirect:/staff/products/" + id + "/variants";
     }
 
-    // Cập nhật biến thể sản phẩm
+    // Update product variant
     @PostMapping("/variants/{vid}/edit")
     public String updateVariant(
             @PathVariable Long vid,

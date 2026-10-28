@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi"
       xmlns:th="http://www.thymeleaf.org"
@@ -14,7 +15,7 @@
     <div class="container py-4">
         <div class="row g-4">
 
-            <!-- SIDEBAR FILTER -->
+            <!-- SIDEBAR: CATEGORY FILTER -->
             <aside class="col-lg-3">
                 <div class="card border-0 shadow-sm rounded-3">
                     <div class="card-body">
@@ -24,42 +25,42 @@
                             Bộ Lọc Sản Phẩm
                         </h5>
 
-                        <!-- CATEGORY FILTER FORM -->
-                        <div class="mb-3">
-                            <h6 class="text-uppercase text-muted fw-bold small mb-3">
-                                Danh mục
-                            </h6>
+                        <h6 class="text-uppercase text-muted fw-bold small mb-3">
+                            Danh mục
+                        </h6>
 
-                            <form id="filterForm" method="get" th:action="@{/products}">
+                        <form method="get" th:action="@{/products}">
+                            <input type="hidden" name="keyword"
+                                   th:value="${keyword}">
+                            <input type="hidden" name="sort"
+                                   th:value="${sort}">
+                            <input type="hidden" name="priceRange"
+                                   th:value="${priceRange}">
+                            <input type="hidden" name="brandId"
+                                   th:value="${selectedBrandId}">
 
-                                <!-- Giữ lại từ khóa tìm kiếm và cách sắp xếp hiện tại khi bấm đổi danh mục -->
-                                <input type="hidden" name="keyword" th:value="${keyword}">
-                                <input type="hidden" name="sort" th:value="${sort}">
+                            <div class="d-grid gap-2">
 
-                                <div class="d-grid gap-2">
+                                <button type="submit"
+                                        name="categoryId"
+                                        value=""
+                                        class="btn text-start fw-medium rounded-2"
+                                        th:classappend="${selectedCategoryId == null or selectedCategoryId == ''} ? 'btn-success text-white' : 'btn-light'">
+                                    🐾 Tất cả sản phẩm
+                                </button>
 
-                                    <button type="submit"
-                                            name="categoryId"
-                                            value=""
-                                            class="btn text-start fw-medium rounded-2"
-                                            th:classappend="${selectedCategoryId == null or selectedCategoryId == ''} ? 'btn-success text-white' : 'btn-light'">
-                                        🐾 Tất cả sản phẩm
-                                    </button>
+                                <button type="submit"
+                                        th:each="category : ${categories}"
+                                        name="categoryId"
+                                        th:value="${category.id}"
+                                        class="btn text-start fw-medium rounded-2"
+                                        th:classappend="${selectedCategoryId != null and selectedCategoryId.toString() == category.id.toString()} ? 'btn-success text-white' : 'btn-light'"
+                                        th:text="${category.name}">
+                                    Danh mục
+                                </button>
 
-                                    <button type="submit"
-                                            th:each="category : ${categories}"
-                                            name="categoryId"
-                                            th:value="${category.id}"
-                                            class="btn text-start fw-medium rounded-2"
-                                            th:classappend="${selectedCategoryId == category.id} ? 'btn-success text-white' : 'btn-light'"
-                                            th:text="${category.name}">
-                                        Danh mục
-                                    </button>
-
-                                </div>
-
-                            </form>
-                        </div>
+                            </div>
+                        </form>
 
                     </div>
                 </div>
@@ -68,42 +69,128 @@
             <!-- PRODUCT LIST -->
             <section class="col-lg-9">
 
-                <!-- SEARCH AND SORT (Giữ nguyên thanh tìm kiếm & sắp xếp phía trên) -->
+                <!-- FILTER AND SORT -->
                 <div class="card border-0 shadow-sm rounded-3 mb-4">
                     <div class="card-body">
 
                         <form method="get"
                               th:action="@{/products}"
-                              class="d-flex flex-column flex-sm-row gap-2">
+                              class="row g-3 align-items-end">
 
-                            <!-- Giữ lại danh mục đang chọn khi bấm tìm kiếm hoặc sắp xếp -->
-                            <input type="hidden" name="categoryId" th:value="${selectedCategoryId}">
-
-                            <input type="text"
-                                   name="keyword"
-                                   class="form-control"
-                                   placeholder="Tìm kiếm sản phẩm..."
+                            <input type="hidden" name="categoryId"
+                                   th:value="${selectedCategoryId}">
+                            <input type="hidden" name="keyword"
                                    th:value="${keyword}">
 
-                            <select name="sort"
-                                    id="sortSelect"
-                                    class="form-select"
-                                    style="max-width: 200px;"
-                                    onchange="this.form.submit()"> <!-- Tự động lọc khi đổi kiểu sắp xếp -->
+                            <!-- PRICE RANGE -->
+                            <div class="col-12 col-md-4">
+                                <label for="priceRange"
+                                       class="form-label fw-semibold">
+                                    <i class="bi bi-currency-dollar text-success"></i>
+                                    Khoảng giá
+                                </label>
 
-                                <option value="newest" th:selected="${sort == 'newest'}">Mới nhất</option>
-                                <option value="asc" th:selected="${sort == 'asc'}">Tên A - Z</option>
-                                <option value="desc" th:selected="${sort == 'desc'}">Tên Z - A</option>
+                                <select name="priceRange"
+                                        id="priceRange"
+                                        class="form-select">
+                                    <option value=""
+                                            th:selected="${priceRange == null or priceRange == ''}">
+                                        Tất cả mức giá
+                                    </option>
+                                    <option value="under100"
+                                            th:selected="${priceRange == 'under100'}">
+                                        Dưới 100.000đ
+                                    </option>
+                                    <option value="100to300"
+                                            th:selected="${priceRange == '100to300'}">
+                                        100.000đ - 300.000đ
+                                    </option>
+                                    <option value="300to500"
+                                            th:selected="${priceRange == '300to500'}">
+                                        300.000đ - 500.000đ
+                                    </option>
+                                    <option value="over500"
+                                            th:selected="${priceRange == 'over500'}">
+                                        Trên 500.000đ
+                                    </option>
+                                </select>
+                            </div>
 
-                            </select>
+                            <!-- BRAND -->
+                            <div class="col-12 col-md-4">
+                                <label for="brandId"
+                                       class="form-label fw-semibold">
+                                    <i class="bi bi-award text-success"></i>
+                                    Thương hiệu
+                                </label>
 
-                            <button type="submit" class="btn btn-success text-nowrap">
-                                <i class="bi bi-search"></i>
-                                Tìm kiếm
-                            </button>
+                                <select name="brandId"
+                                        id="brandId"
+                                        class="form-select">
+                                    <option value="">Tất cả thương hiệu</option>
+
+                                    <option th:each="brand : ${brands}"
+                                            th:value="${brand.id}"
+                                            th:text="${brand.name}"
+                                            th:selected="${selectedBrandId != null and selectedBrandId.toString() == brand.id.toString()}">
+                                        Thương hiệu
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- SORT -->
+                            <div class="col-12 col-md-4">
+                                <label for="sort"
+                                       class="form-label fw-semibold">
+                                    <i class="bi bi-sort-down text-success"></i>
+                                    Sắp xếp
+                                </label>
+
+                                <select name="sort"
+                                        id="sort"
+                                        class="form-select">
+                                    <option value="newest"
+                                            th:selected="${sort == 'newest'}">
+                                        Mới nhất
+                                    </option>
+                                    <option value="asc"
+                                            th:selected="${sort == 'asc'}">
+                                        Tên A - Z
+                                    </option>
+                                    <option value="desc"
+                                            th:selected="${sort == 'desc'}">
+                                        Tên Z - A
+                                    </option>
+                                    <option value="priceAsc"
+                                            th:selected="${sort == 'priceAsc'}">
+                                        Giá thấp đến cao
+                                    </option>
+                                    <option value="priceDesc"
+                                            th:selected="${sort == 'priceDesc'}">
+                                        Giá cao đến thấp
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- BUTTONS -->
+                            <div class="col-12 d-flex justify-content-end gap-2">
+                                <a th:href="@{/products(
+                                        categoryId=${selectedCategoryId},
+                                        keyword=${keyword}
+                                   )}"
+                                   class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                    Xóa lọc
+                                </a>
+
+                                <button type="submit"
+                                        class="btn btn-success px-4">
+                                    <i class="bi bi-funnel"></i>
+                                    Áp dụng
+                                </button>
+                            </div>
 
                         </form>
-
                     </div>
                 </div>
 
@@ -119,19 +206,17 @@
                 <!-- EMPTY STATE -->
                 <div th:if="${productPage == null or productPage.empty}"
                      class="card border-0 shadow-sm text-center py-5">
-
                     <div class="card-body">
                         <p class="fs-1 mb-2">🐾</p>
                         <h5 class="fw-bold">Không tìm thấy sản phẩm</h5>
                         <p class="text-muted small">
-                            Hãy thử từ khóa hoặc danh mục khác nhé.
+                            Hãy thử thay đổi danh mục hoặc bộ lọc nhé.
                         </p>
                         <a th:href="@{/products}"
                            class="btn btn-success rounded-2 px-4">
-                            Xóa bộ lọc
+                            Xem tất cả sản phẩm
                         </a>
                     </div>
-
                 </div>
 
                 <!-- PRODUCT GRID -->
@@ -144,10 +229,9 @@
 
                         <div class="card h-100 border-0 shadow-sm rounded-3 overflow-hidden">
 
-                            <!-- PRODUCT IMAGE -->
+                            <!-- IMAGE -->
                             <a th:href="@{/products/{slug}(slug=${product.slug})}"
                                class="text-decoration-none bg-white">
-
                                 <div class="d-flex align-items-center justify-content-center p-3"
                                      style="height: 220px;">
 
@@ -182,12 +266,27 @@
                                     </a>
                                 </h6>
 
-                                <p class="small text-muted mb-3"
+                                <p class="small text-muted mb-2"
                                    th:if="${product.brandName != null}"
                                    th:text="${product.brandName}">
                                     Thương hiệu
                                 </p>
 
+                                <!-- PRODUCT PRICE -->
+                                <div class="mb-3">
+                                    <span class="text-success fw-bold fs-5"
+                                          th:if="${product.minPrice != null}"
+                                          th:text="${#numbers.formatDecimal(product.minPrice, 0, 'COMMA', 0, 'POINT')} + ' đ'">
+                                        Giá sản phẩm
+                                    </span>
+
+                                    <span class="text-muted small"
+                                          th:if="${product.minPrice == null}">
+                                        Chưa có giá
+                                    </span>
+                                </div>
+
+                                <!-- DETAIL -->
                                 <div class="mt-auto">
                                     <a th:href="@{/products/{slug}(slug=${product.slug})}"
                                        class="btn btn-outline-success w-100">
@@ -196,10 +295,8 @@
                                 </div>
 
                             </div>
-
                         </div>
                     </div>
-
                 </div>
 
                 <!-- PAGINATION -->
@@ -209,51 +306,51 @@
 
                     <ul class="pagination justify-content-center flex-wrap">
 
-                        <!-- PREVIOUS -->
                         <li class="page-item"
                             th:classappend="${productPage.first} ? 'disabled'">
-
                             <a class="page-link"
                                th:href="@{/products(
                                     page=${productPage.number - 1},
                                     size=${productPage.size},
                                     keyword=${keyword},
                                     categoryId=${selectedCategoryId},
-                                    sort=${sort}
+                                    sort=${sort},
+                                    priceRange=${priceRange},
+                                    brandId=${selectedBrandId}
                                )}">
                                 Trước
                             </a>
                         </li>
 
-                        <!-- PAGE NUMBERS -->
                         <li class="page-item"
                             th:each="pageNumber : ${#numbers.sequence(0, productPage.totalPages - 1)}"
                             th:classappend="${pageNumber == productPage.number} ? 'active'">
-
                             <a class="page-link"
                                th:href="@{/products(
                                     page=${pageNumber},
                                     size=${productPage.size},
                                     keyword=${keyword},
                                     categoryId=${selectedCategoryId},
-                                    sort=${sort}
+                                    sort=${sort},
+                                    priceRange=${priceRange},
+                                    brandId=${selectedBrandId}
                                )}"
                                th:text="${pageNumber + 1}">
                                 1
                             </a>
                         </li>
 
-                        <!-- NEXT -->
                         <li class="page-item"
                             th:classappend="${productPage.last} ? 'disabled'">
-
                             <a class="page-link"
                                th:href="@{/products(
                                     page=${productPage.number + 1},
                                     size=${productPage.size},
                                     keyword=${keyword},
                                     categoryId=${selectedCategoryId},
-                                    sort=${sort}
+                                    sort=${sort},
+                                    priceRange=${priceRange},
+                                    brandId=${selectedBrandId}
                                )}">
                                 Sau
                             </a>
