@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi"
       xmlns:th="http://www.thymeleaf.org"
@@ -15,7 +14,9 @@
 
         <!-- Page header -->
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-            <h2 class="fw-bold text-dark mb-0">Quản lý danh mục</h2>
+            <h2 class="fw-bold text-dark mb-0">
+                Quản lý danh mục
+            </h2>
 
             <a th:href="@{/admin/categories/create}"
                class="btn btn-success rounded-pill px-4">
@@ -29,8 +30,10 @@
              class="alert alert-success alert-dismissible fade show"
              role="alert">
             <span th:text="${successMessage}"></span>
-            <button type="button" class="btn-close"
-                    data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                    aria-label="Close"></button>
         </div>
 
         <!-- Error message -->
@@ -38,12 +41,15 @@
              class="alert alert-danger alert-dismissible fade show"
              role="alert">
             <span th:text="${errorMessage}"></span>
-            <button type="button" class="btn-close"
-                    data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                    aria-label="Close"></button>
         </div>
 
         <!-- Category table -->
         <div class="card border-0 shadow-sm rounded-4">
+
             <div class="card-header bg-white border-0 pt-4 px-4">
                 <h5 class="fw-bold mb-0">
                     <i class="bi bi-grid-fill text-success me-2"></i>
@@ -54,6 +60,7 @@
             <div class="card-body p-4">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
+
                         <thead class="table-light">
                         <tr>
                             <th>ID</th>
@@ -67,7 +74,10 @@
                         </thead>
 
                         <tbody>
+
+                        <!-- Category rows -->
                         <tr th:each="cat : ${categories}">
+
                             <td th:text="${cat.id}"></td>
 
                             <td>
@@ -75,7 +85,8 @@
                                       th:text="${cat.code}"></span>
                             </td>
 
-                            <td class="fw-semibold" th:text="${cat.name}"></td>
+                            <td class="fw-semibold"
+                                th:text="${cat.name}"></td>
 
                             <td>
                                 <span th:text="${cat.description != null
@@ -85,6 +96,7 @@
 
                             <td th:text="${cat.sortOrder}"></td>
 
+                            <!-- Status -->
                             <td>
                                 <span th:if="${cat.isActive}"
                                       class="badge rounded-pill bg-success-subtle text-success">
@@ -97,6 +109,7 @@
                                 </span>
                             </td>
 
+                            <!-- Actions -->
                             <td>
                                 <div class="d-flex justify-content-center gap-2 flex-wrap">
 
@@ -110,7 +123,9 @@
 
                                     <!-- Activate / deactivate -->
                                     <form th:action="@{/admin/categories/toggle-status/{id}(id=${cat.id})}"
-                                          method="post" class="d-inline">
+                                          method="post"
+                                          class="d-inline">
+
                                         <button type="submit"
                                                 class="btn btn-sm"
                                                 th:classappend="${cat.isActive}
@@ -120,9 +135,11 @@
                                                     ? 'Ngừng hoạt động'
                                                     : 'Kích hoạt lại'"
                                                 onclick="return confirm('Em có chắc muốn thay đổi trạng thái danh mục này không?')">
+
                                             <i th:class="${cat.isActive}
                                                 ? 'bi bi-pause-circle'
                                                 : 'bi bi-check-circle'"></i>
+
                                             <span th:text="${cat.isActive}
                                                 ? 'Ngừng hoạt động'
                                                 : 'Kích hoạt'"></span>
@@ -132,8 +149,10 @@
                                     <!-- Soft delete -->
                                     <form th:if="${cat.isActive}"
                                           th:action="@{/admin/categories/delete/{id}(id=${cat.id})}"
-                                          method="post" class="d-inline"
+                                          method="post"
+                                          class="d-inline"
                                           onsubmit="return confirm('Xóa mềm danh mục này? Danh mục sẽ được chuyển sang trạng thái ngừng hoạt động.');">
+
                                         <button type="submit"
                                                 class="btn btn-sm btn-outline-danger">
                                             <i class="bi bi-trash"></i>
@@ -149,19 +168,32 @@
                         <tr th:if="${#lists.isEmpty(categories)}">
                             <td colspan="7" class="text-center py-5">
                                 <i class="bi bi-inbox display-5 text-muted"></i>
+
                                 <p class="text-muted mt-3 mb-2">
                                     Chưa có danh mục nào.
                                 </p>
+
                                 <a th:href="@{/admin/categories/create}"
                                    class="btn btn-success btn-sm rounded-pill px-3">
+                                    <i class="bi bi-plus-circle me-1"></i>
                                     Thêm danh mục đầu tiên
                                 </a>
                             </td>
                         </tr>
+
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- Back to Admin button -->
+        <div class="d-flex justify-content-start mt-4 mb-3">
+            <a th:href="@{/admin/dashboard}"
+               class="btn btn-success rounded-pill px-4 py-2 text-white">
+                <i class="bi bi-arrow-left me-2"></i>
+                Quay lại trang Admin
+            </a>
         </div>
 
     </div>
