@@ -10,7 +10,14 @@
     <div class="container">
         <h3 class="fw-bold mb-4">Thanh Toán</h3>
         
-        <form th:action="@{/checkout/place-order}" th:object="${checkoutForm}" method="post">
+        <form id="checkout-form" th:action="@{/checkout/place-order}" th:object="${checkoutForm}" method="post"
+              th:attr="data-quote-url=@{/checkout/quote},data-csrf-header=${_csrf.headerName},data-csrf-token=${_csrf.token}">
+            <div th:if="${checkoutError}" class="alert alert-danger" role="alert" th:text="${checkoutError}"></div>
+            <div th:if="${#fields.hasAnyErrors()}" class="alert alert-danger" role="alert">
+                <ul class="mb-0"><li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li></ul>
+            </div>
+            <div id="quote-message" class="alert alert-warning" role="status"
+                 th:hidden="${quote.message == null}" th:text="${quote.message}"></div>
             <div class="row g-4">
                 <div class="col-lg-7">
                     <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
@@ -18,31 +25,31 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label small">Họ và tên người nhận</label>
-                                <input type="text" class="form-control" th:field="*{recipientName}" required>
+                                <input type="text" class="form-control" th:field="*{recipientName}" maxlength="150" required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small">Số điện thoại</label>
-                                <input type="text" class="form-control" th:field="*{recipientPhone}" required>
+                                <input type="text" class="form-control" th:field="*{recipientPhone}" maxlength="20" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small">Tỉnh / Thành phố</label>
-                                <input type="text" class="form-control" th:field="*{shippingProvince}" required>
+                                <input type="text" class="form-control" th:field="*{shippingProvince}" maxlength="100" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small">Quận / Huyện</label>
-                                <input type="text" class="form-control" th:field="*{shippingDistrict}" required>
+                                <input type="text" class="form-control" th:field="*{shippingDistrict}" maxlength="100" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small">Phường / Xã</label>
-                                <input type="text" class="form-control" th:field="*{shippingWard}" required>
+                                <input type="text" class="form-control" th:field="*{shippingWard}" maxlength="100" required>
                             </div>
                             <div class="col-12">
                                 <label class="form-label small">Địa chỉ chi tiết</label>
-                                <input type="text" class="form-control" th:field="*{shippingAddressLine}" required>
+                                <input type="text" class="form-control" th:field="*{shippingAddressLine}" maxlength="300" required>
                             </div>
                             <div class="col-12">
-                                <label class="form-label small">Ghi chú cho shipper</label>
-                                <textarea class="form-control" th:field="*{customerNote}" rows="2"></textarea>
+                                <label class="form-label small">Ghi chú đơn hàng</label>
+                                <textarea class="form-control" th:field="*{customerNote}" maxlength="1000" rows="2"></textarea>
                             </div>
                         </div>
                     </div>
@@ -50,15 +57,16 @@
                     <div class="card border-0 shadow-sm rounded-4 p-4">
                         <h5 class="fw-bold mb-3">Phương Thức Thanh Toán</h5>
                         <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" th:field="*{paymentMethod}" value="COD" id="payCOD" checked>
+                            <input class="form-check-input" type="radio" th:field="*{paymentMethod}" value="COD" id="payCOD">
                             <label class="form-check-label" for="payCOD">
                                 <strong>COD</strong> — Thanh toán tiền mặt khi nhận hàng
                             </label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" th:field="*{paymentMethod}" value="VNPAY" id="payVNPAY">
+                            <input class="form-check-input" type="radio" th:field="*{paymentMethod}" value="VNPAY" id="payVNPAY" th:disabled="${!vnPayAvailable}">
                             <label class="form-check-label" for="payVNPAY">
                                 <strong>VNPay</strong> — Cổng thanh toán trực tuyến (Sandbox)
+<!--                                <small th:if="${!vnPayAvailable}" class="d-block text-muted"></small>-->
                             </label>
                         </div>
                     </div>
@@ -66,41 +74,51 @@
 
                 <div class="col-lg-5">
                     <div class="card border-0 shadow-sm rounded-4 p-4">
-                        <h5 class="fw-bold mb-3">Tóm Tắt Đơn Hàng</h5>
+                        <h5 class="fw-bold mb-3">Sản Phẩm Đã Chọn</h5>
+                        <p th:if="${quote.items.empty}" class="text-muted">Chưa chọn sản phẩm. <a th:href="@{/cart}">Quay lại giỏ hàng</a> để chọn.</p>
                         <ul class="list-group list-group-flush mb-3">
-                            <li th:each="item : ${cart.items}" class="list-group-item d-flex justify-content-between px-0">
+                            <li th:each="item : ${quote.items}" th:attr="data-quote-item=${item.id}" class="list-group-item d-flex justify-content-between px-0">
                                 <div>
                                     <h6 class="my-0" th:text="${item.productName + ' (' + item.variantName + ')'}">Sản phẩm</h6>
-                                    <small class="text-muted" th:text="${'SL: ' + item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}"></small>
+                                    <small data-item-quantity class="text-muted" th:text="${'SL: ' + item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + 'đ'}"></small>
                                 </div>
-                                <span class="text-muted" th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                                <span data-item-total class="text-muted" th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                             </li>
                         </ul>
 
                         <div class="mb-3">
                             <label class="form-label small">Mã giảm giá (Voucher):</label>
-                            <input type="text" class="form-control" th:field="*{voucherCode}" placeholder="PETWELCOME10">
+                            <input type="text" class="form-control" th:field="*{voucherCode}" maxlength="50" autocomplete="off" placeholder="PETWELCOME10">
                         </div>
 
                         <div class="d-flex justify-content-between mb-2">
                             <span>Tạm tính:</span>
-                            <span th:text="${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                            <span id="quote-subtotal" th:text="${#numbers.formatDecimal(quote.subtotal, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                         </div>
                         <div class="d-flex justify-content-between mb-2 text-muted">
-                            <span>Phí ship:</span>
-                            <span>30.000 đ</span>
+                            <span>Phí giao hàng cố định:</span>
+                            <span id="quote-shipping" th:text="${#numbers.formatDecimal(quote.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Giảm giá:</span>
+                            <span id="quote-discount" th:text="${'-' + #numbers.formatDecimal(quote.discountAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
                         </div>
                         <hr>
                         <div class="d-flex justify-content-between mb-4">
                             <strong>Tổng cộng:</strong>
-                            <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(cart.subtotal + 30000, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
+                            <strong id="quote-total" class="text-danger fs-5" th:text="${#numbers.formatDecimal(quote.totalAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}"></strong>
                         </div>
-                        <button type="submit" class="btn btn-pet-primary w-100 py-3 fw-bold">Xác Nhận Đặt Hàng</button>
+                        <p id="quote-status" class="small text-muted" aria-live="polite"></p>
+                        <a th:href="@{/cart}" class="d-block mb-3">Thay đổi sản phẩm đã chọn</a>
+                        <button id="place-order" type="submit" th:disabled="${!quote.checkoutAllowed}" class="btn btn-pet-primary w-100 py-3 fw-bold">Xác Nhận Đặt Hàng</button>
                     </div>
                 </div>
             </div>
         </form>
     </div>
 </div>
+<th:block layout:fragment="custom-js">
+    <script th:src="@{/js/checkout.js}" defer></script>
+</th:block>
 </body>
 </html>

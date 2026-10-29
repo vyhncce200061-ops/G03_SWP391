@@ -17,9 +17,28 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     boolean existsByEmail(String email);
     boolean existsByPhone(String phone);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
+
+    long countByRoleCodeAndStatus(String roleCode, String status);
+
     Page<User> findByRoleCode(String roleCode, Pageable pageable);
     Page<User> findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(String name, String email, Pageable pageable);
 
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE " +
+           "(:status IS NULL OR u.status = :status) AND " +
+           "(:roleCode IS NULL OR :roleCode = '' OR u.role.code = :roleCode) AND " +
+           "(:keyword IS NULL OR :keyword = '' OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "u.phone LIKE CONCAT('%', :keyword, '%'))")
+    Page<User> searchUsers(@org.springframework.data.repository.query.Param("keyword") String keyword,
+                           @org.springframework.data.repository.query.Param("roleCode") String roleCode,
+                           @org.springframework.data.repository.query.Param("status") String status,
+                           Pageable pageable);
+
     long countByRoleCode(String roleCode);
     long countByStatus(String status);
+    long countByCreatedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

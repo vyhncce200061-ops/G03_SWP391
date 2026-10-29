@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <!-- Dynamic title based on mode (Create/Edit) -->
+    <title th:text="${variantForm.skuCode != null ? 'Sửa Biến Thể' : 'Thêm Biến Thể'}">Biến Thể</title>
+</head>
+<body>
+<div layout:fragment="admin-content">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="page-title">
+                <span th:text="${variantForm.skuCode != null ? 'Sửa Biến Thể SKU' : 'Thêm Biến Thể Mới'}">Tiêu đề</span>
+            </h4>
+            <p class="mb-0 text-muted">Sản phẩm:
+                <span class="fw-bold fs-5 text-pet-primary" th:text="${product.name}">Tên SP</span>
+            </p>
+        </div>
+        <a th:href="@{/staff/products/{id}/variants(id=${product.id})}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 p-4" style="max-width: 700px;">
+        <!-- Form action changes based on mode: Edit or Create -->
+        <form th:action="${variantForm.skuCode != null
+                        ? '/staff/products/variants/' + variantForm.id + '/edit'
+                        : '/staff/products/' + product.id + '/variants'}"
+              th:object="${variantForm}" method="post">
+
+            <!-- Hidden productId for redirect after edit -->
+            <input type="hidden" th:if="${variantForm.skuCode != null}" name="productId" th:value="${product.id}">
+
+            <div class="row g-3">
+                <!-- SKU Code (Readonly when editing) -->
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Mã SKU <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" th:field="*{skuCode}"
+                           th:readonly="${variantForm.skuCode != null}" placeholder="VD: RC-POODLE-500G">
+                    <small class="text-muted" th:if="${variantForm.skuCode != null}">Mã SKU không thể thay đổi.</small>
+                </div>
+
+                <!-- Variant Name -->
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Tên biến thể <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" th:field="*{variantName}" placeholder="VD: Túi 500g">
+                </div>
+
+                <!-- Price -->
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Giá bán (VNĐ) <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" th:field="*{price}" min="0" step="1000">
+                </div>
+
+                <!-- Low Stock Threshold -->
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Ngưỡng cảnh báo <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" th:field="*{lowStockThreshold}" min="0">
+                </div>
+
+                <!-- Status -->
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Trạng thái <span class="text-danger">*</span></label>
+                    <select class="form-select" th:field="*{status}">
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="INACTIVE">INACTIVE</option>
+                        <option value="DISCONTINUED">DISCONTINUED</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 pt-3 border-top">
+                <button type="submit" class="btn btn-pet-outline px-4">
+                    Lưu Thay Đổi
+                </button>
+                <a th:href="@{/staff/products/{id}/variants(id=${product.id})}" class="btn btn-outline-secondary ms-2">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

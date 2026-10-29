@@ -8,7 +8,9 @@
 <body>
 <div layout:fragment="admin-content">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold mb-0">Quản Lý Nhập Kho</h4>
+        <h4 class="page-title">
+            Quản Lý Nhập Kho
+        </h4>
         <a th:href="@{/staff/stock-imports/create}" class="btn btn-pet-primary"><i class="bi bi-plus-lg me-1"></i>Tạo Phiếu Nhập</a>
     </div>
 
@@ -33,7 +35,7 @@
                         <td th:text="${imp.createdBy != null ? imp.createdBy.fullName : '-'}">Nhân viên</td>
                         <td th:text="${imp.note}">Ghi chú</td>
                         <td>
-                            <a th:href="@{/staff/stock-imports/{id}(id=${imp.id})}" class="btn btn-sm btn-outline-primary">Chi Tiết</a>
+                            <a th:href="@{/staff/stock-imports/{id}(id=${imp.id})}" class="btn btn-sm btn-pet-outline">Chi Tiết</a>
                         </td>
                     </tr>
                 </tbody>

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Hồ Sơ Cá Nhân</title>
+    <th:block layout:fragment="admin-css">
+        <style>
+            .staff-profile-avatar {
+                width: 120px;
+                height: 120px;
+                object-fit: cover;
+                border-radius: 50%;
+                border: 4px solid #ccfbf1;
+                box-shadow: 0 4px 16px rgba(13, 148, 136, 0.18);
+            }
+            .staff-profile-avatar-placeholder {
+                width: 120px;
+                height: 120px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+                color: #ffffff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 3rem;
+                font-weight: 700;
+                border: 4px solid #ccfbf1;
+                box-shadow: 0 4px 16px rgba(13, 148, 136, 0.18);
+            }
+            .info-label {
+                color: #64748b;
+                font-size: 0.82rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .info-value {
+                color: #1e293b;
+                font-size: 1.05rem;
+                font-weight: 600;
+            }
+            .profile-section-card {
+                border-radius: 16px;
+                border: 1px solid #e2e8f0;
+                transition: box-shadow 0.2s ease;
+            }
+            .profile-section-card:hover {
+                box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+            }
+            .avatar-upload-wrapper {
+                display: inline-block;
+                cursor: pointer;
+                position: relative;
+                border-radius: 50%;
+                overflow: hidden;
+                transition: transform 0.25s ease, box-shadow 0.25s ease;
+            }
+            .avatar-upload-wrapper:hover {
+                transform: scale(1.05);
+                box-shadow: 0 8px 25px rgba(13, 148, 136, 0.3);
+            }
+            .avatar-upload-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                background: rgba(13, 148, 136, 0.65);
+                backdrop-filter: blur(2px);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.25s ease;
+            }
+            .avatar-upload-wrapper:hover .avatar-upload-overlay {
+                opacity: 1;
+            }
+            .bg-teal-subtle {
+                background-color: #f0fdfa !important;
+            }
+            .text-teal {
+                color: #0d9488 !important;
+            }
+            .border-teal-subtle {
+                border-color: #99f6e4 !important;
+            }
+        </style>
+    </th:block>
+</head>
+<body>
+
+<h6 layout:fragment="admin-header-title">
+    <i class="bi bi-person-badge me-1"></i> Hồ Sơ Cá Nhân
+</h6>
+
+<main layout:fragment="admin-content" class="container-fluid px-4 py-3 flex-grow-1">
+
+    <div class="row g-4">
+        <!-- ========================================================= -->
+        <!-- CỘT TRÁI: THÔNG TIN TÓM TẮT NHÂN VIÊN                    -->
+        <!-- ========================================================= -->
+        <div class="col-lg-4">
+            <div class="card profile-section-card border-0 shadow-sm p-4 text-center">
+                <!-- Avatar -->
+                <div class="mb-3 d-flex justify-content-center">
+                    <div class="avatar-upload-wrapper"
+                         role="button"
+                         data-bs-toggle="modal"
+                         data-bs-target="#staffUpdateProfileModal"
+                         title="Nhấn để cập nhật thông tin cá nhân">
+                        <img th:if="${user.avatarUrl != null and !user.avatarUrl.isBlank()}"
+                             th:src="${user.avatarUrl}" alt="Avatar" class="staff-profile-avatar">
+                        <div th:unless="${user.avatarUrl != null and !user.avatarUrl.isBlank()}"
+                             class="staff-profile-avatar-placeholder">
+                            <span th:text="${user.fullName != null and !user.fullName.isBlank() ? user.fullName.substring(0, 1).toUpperCase() : 'S'}"></span>
+                        </div>
+                        <div class="avatar-upload-overlay">
+                            <i class="bi bi-pencil-square fs-4 text-white"></i>
+                            <span class="text-white small fw-semibold mt-1">Chỉnh sửa</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="fw-bold mb-1" th:text="${user.fullName}">Nhân Viên PetShop</h5>
+                <p class="text-muted small mb-2" th:text="${user.email}">staff@petshop.vn</p>
+
+                <div class="d-flex justify-content-center gap-2 mb-3">
+                    <span th:if="${user.role != null and user.role.code == 'ADMIN'}" class="badge bg-danger px-3 py-2 rounded-pill">
+                        <i class="bi bi-shield-shaded me-1"></i> Quản trị viên
+                    </span>
+                    <span th:if="${user.role != null and user.role.code == 'STAFF'}" class="badge bg-info text-dark px-3 py-2 rounded-pill">
+                        <i class="bi bi-person-workspace me-1"></i> Nhân viên
+                    </span>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                        <i class="bi bi-shield-check me-1"></i> Đang hoạt động
+                    </span>
+                </div>
+
+                <!-- Nút Sửa Thông Tin -->
+                <button type="button" class="btn btn-outline-secondary w-100 py-2 fw-semibold rounded-3 mb-2"
+                        data-bs-toggle="modal" data-bs-target="#staffUpdateProfileModal">
+                    <i class="bi bi-pencil-square me-2" style="color: #0d9488;"></i> Sửa Thông Tin Cá Nhân
+                </button>
+
+                <div class="text-muted small mt-2">
+                    <span><i class="bi bi-calendar3 me-1"></i> Tham gia từ: </span>
+                    <span class="fw-semibold" th:text="${user.createdAt != null ? #temporals.format(user.createdAt, 'dd/MM/yyyy') : 'N/A'}"></span>
+                </div>
+
+                <!-- Thống kê nhanh cột trái -->
+                <div class="row g-2 mt-3 pt-3 border-top text-center">
+                    <div class="col-6">
+                        <div class="p-2 rounded-3 bg-light">
+                            <div class="fs-4 fw-bold text-primary" th:text="${processedOrdersCount}">0</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Đơn đã duyệt</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2 rounded-3 bg-light">
+                            <div class="fs-4 fw-bold text-teal" th:text="${stockImportsCount}">0</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Phiếu nhập kho</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- CỘT PHẢI: CHI TIẾT THÔNG TIN & ĐỔI MẬT KHẨU              -->
+        <!-- ========================================================= -->
+        <div class="col-lg-8">
+            <!-- Card: Thông tin chi tiết -->
+            <div class="card profile-section-card border-0 shadow-sm p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                    <h5 class="fw-bold m-0 text-dark">
+                        <i class="bi bi-person-lines-fill me-2" style="color: #0d9488;"></i> Thông Tin Chi Tiết
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                            data-bs-toggle="modal" data-bs-target="#staffUpdateProfileModal">
+                        <i class="bi bi-pencil me-1"></i> Chỉnh sửa
+                    </button>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-sm-6">
+                        <div class="info-label mb-1">Họ và tên</div>
+                        <div class="info-value" th:text="${user.fullName}">Nhân Viên PetShop</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="info-label mb-1">Số điện thoại</div>
+                        <div class="info-value" th:text="${user.phone != null and !user.phone.isBlank() ? user.phone : 'Chưa cập nhật'}">0900000002</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="info-label mb-1">Địa chỉ Email</div>
+                        <div class="info-value">
+                            <span th:text="${user.email}">staff@petshop.vn</span>
+                            <span class="badge bg-success-subtle text-success ms-1 small">Đã kích hoạt</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="info-label mb-1">Vai trò trong hệ thống</div>
+                        <div class="info-value text-capitalize" th:text="${user.role != null ? user.role.name : 'Nhân viên'}">Nhân viên</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="info-label mb-1">Trạng thái tài khoản</div>
+                        <div class="info-value">
+                            <span th:if="${user.status == 'ACTIVE'}" class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Đang hoạt động</span>
+                            <span th:if="${user.status != 'ACTIVE'}" class="text-danger fw-bold"><i class="bi bi-x-circle-fill me-1"></i> Đã khóa</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="info-label mb-1">Đăng nhập gần nhất</div>
+                        <div class="info-value" th:text="${user.lastLoginAt != null ? #temporals.format(user.lastLoginAt, 'dd/MM/yyyy HH:mm') : 'Chưa ghi nhận'}">N/A</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- CARD: THỐNG KÊ HIỆU SUẤT & ĐÓNG GÓP CÔNG VIỆC            -->
+            <!-- ========================================================= -->
+            <div class="card profile-section-card border-0 shadow-sm p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom flex-wrap gap-2">
+                    <div>
+                        <h5 class="fw-bold m-0 text-dark">
+                            <i class="bi bi-graph-up-arrow me-2" style="color: #0d9488;"></i> Thống Kê Hoạt Động & Đóng Góp
+                        </h5>
+                        <p class="text-muted small m-0 mt-1">Ghi nhận số liệu thực tế nhân viên đã xử lý đơn hàng và nghiệp vụ nhập kho</p>
+                    </div>
+                    <span class="badge bg-teal-subtle text-teal border border-teal-subtle px-3 py-2 rounded-pill small">
+                        <i class="bi bi-award-fill me-1"></i> Nhân viên tích cực
+                    </span>
+                </div>
+
+                <!-- 3 Thẻ chỉ số KPI lớn -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-4 border bg-white h-100 d-flex align-items-center gap-3 shadow-sm">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-primary-subtle text-primary"
+                                 style="width: 52px; height: 52px; min-width: 52px;">
+                                <i class="bi bi-clipboard2-check-fill fs-4"></i>
+                            </div>
+                            <div>
+                                <div class="text-muted small fw-semibold">Đơn hàng đã duyệt</div>
+                                <div class="fs-3 fw-bold text-dark" th:text="${processedOrdersCount}">0</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Xác nhận & xử lý</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-4 border bg-white h-100 d-flex align-items-center gap-3 shadow-sm">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-teal-subtle text-teal"
+                                 style="width: 52px; height: 52px; min-width: 52px;">
+                                <i class="bi bi-box-arrow-in-down fs-4"></i>
+                            </div>
+                            <div>
+                                <div class="text-muted small fw-semibold">Phiếu nhập kho</div>
+                                <div class="fs-3 fw-bold text-dark" th:text="${stockImportsCount}">0</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Lô hàng đã nhập</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-4 border bg-white h-100 d-flex align-items-center gap-3 shadow-sm">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-warning-subtle text-warning-emphasis"
+                                 style="width: 52px; height: 52px; min-width: 52px;">
+                                <i class="bi bi-activity fs-4"></i>
+                            </div>
+                            <div>
+                                <div class="text-muted small fw-semibold">Tổng lượt thao tác</div>
+                                <div class="fs-3 fw-bold text-dark" th:text="${totalActionsCount}">0</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Audit log hệ thống</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nhật ký hoạt động gần đây -->
+                <div class="border rounded-4 p-3 bg-light-subtle">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold m-0 text-dark">
+                            <i class="bi bi-clock-history me-1 text-secondary"></i> Nhật Ký Hoạt Động Gần Đây Nhất
+                        </h6>
+                        <span class="text-muted small">Cập nhật tự động</span>
+                    </div>
+
+                    <div th:if="${recentActivities != null and !recentActivities.empty}" class="list-group list-group-flush rounded-3 bg-white border">
+                        <div th:each="act : ${recentActivities}" class="list-group-item d-flex justify-content-between align-items-center p-3 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-light text-secondary"
+                                     style="width: 42px; height: 42px; min-width: 42px;">
+                                    <i class="bi fs-5" th:classappend="${act.iconClass}"></i>
+                                </div>
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                        <span class="badge" th:classappend="${act.badgeClass}" th:text="${act.title}">Xác nhận đơn hàng</span>
+                                        <a th:href="@{${act.targetUrl}}" class="fw-bold text-decoration-none text-dark small" th:text="${act.referenceCode}">#ORD-123</a>
+                                    </div>
+                                    <div class="text-muted small" th:text="${act.detail}">Chi tiết hành động</div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <span class="text-muted small d-block">
+                                    <i class="bi bi-calendar-event me-1"></i>
+                                    <span th:text="${act.timestamp != null ? #temporals.format(act.timestamp, 'dd/MM/yyyy HH:mm') : 'N/A'}"></span>
+                                </span>
+                                <a th:href="@{${act.targetUrl}}" class="btn btn-sm btn-link text-decoration-none p-0 mt-1" style="font-size: 0.82rem; color: #0d9488;">
+                                    Xem chi tiết <i class="bi bi-arrow-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div th:if="${recentActivities == null or recentActivities.empty}" class="text-center py-4 bg-white rounded-3 border">
+                        <i class="bi bi-inbox text-muted display-6"></i>
+                        <p class="text-muted small mb-0 mt-2">Chưa có hoạt động nào được ghi nhận gần đây.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Đổi Mật Khẩu -->
+            <div class="card profile-section-card border-0 shadow-sm p-4">
+                <div class="mb-4 pb-2 border-bottom">
+                    <h5 class="fw-bold m-0 text-dark">
+                        <i class="bi bi-shield-lock-fill text-danger me-2"></i> Đổi Mật Khẩu
+                    </h5>
+                    <p class="text-muted small m-0 mt-1">Để bảo vệ tài khoản nhân viên, vui lòng dùng mật khẩu mạnh và không chia sẻ cho người khác</p>
+                </div>
+
+                <form th:action="@{/staff/change-password}" method="post">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="staffCurrentPassword" class="form-label small fw-semibold">Mật khẩu hiện tại</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-key"></i></span>
+                                <input type="password" id="staffCurrentPassword" name="currentPassword" class="form-control" required placeholder="Nhập mật khẩu hiện tại">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="staffNewPassword" class="form-label small fw-semibold">Mật khẩu mới</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-lock"></i></span>
+                                <input type="password" id="staffNewPassword" name="newPassword" class="form-control" required minlength="6" placeholder="Tối thiểu 6 ký tự">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="staffConfirmNewPassword" class="form-label small fw-semibold">Xác nhận mật khẩu mới</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-shield-check"></i></span>
+                                <input type="password" id="staffConfirmNewPassword" name="confirmNewPassword" class="form-control" required minlength="6" placeholder="Nhập lại mật khẩu mới">
+                            </div>
+                        </div>
+                        <div class="col-12 pt-2">
+                            <button type="submit" class="btn btn-outline-danger px-4 py-2 fw-semibold rounded-3">
+                                <i class="bi bi-arrow-repeat me-1"></i> Lưu Mật Khẩu Mới
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL POPUP: CẬP NHẬT THÔNG TIN CÁ NHÂN NHÂN VIÊN                 -->
+    <!-- ================================================================= -->
+    <div class="modal fade" id="staffUpdateProfileModal" tabindex="-1" aria-labelledby="staffUpdateProfileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
+                <div class="modal-header text-white border-0 py-3" style="background-color: #134e4a;">
+                    <h5 class="modal-title fw-bold" id="staffUpdateProfileModalLabel">
+                        <i class="bi bi-pencil-square me-2"></i> Cập Nhật Thông Tin Cá Nhân
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form th:action="@{/staff/profile}" method="post" enctype="multipart/form-data">
+                    <div class="modal-body p-4">
+                        <!-- Avatar -->
+                        <div class="mb-4 text-center">
+                            <div class="d-inline-block position-relative mb-2">
+                                <img id="staffModalAvatarPreview"
+                                     th:if="${user.avatarUrl != null and !user.avatarUrl.isBlank()}"
+                                     th:src="${user.avatarUrl}" alt="Avatar"
+                                     class="rounded-circle border border-3 shadow-sm"
+                                     style="width: 80px; height: 80px; object-fit: cover; border-color: #0d9488 !important;">
+                                <div id="staffModalAvatarPlaceholder"
+                                     th:unless="${user.avatarUrl != null and !user.avatarUrl.isBlank()}"
+                                     class="rounded-circle text-white d-flex align-items-center justify-content-center shadow-sm fw-bold fs-3 mx-auto"
+                                     style="width: 80px; height: 80px; background: linear-gradient(135deg, #0d9488, #0f766e);">
+                                    <span th:text="${user.fullName != null and !user.fullName.isBlank() ? user.fullName.substring(0, 1).toUpperCase() : 'S'}"></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="staffAvatarFile" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1" style="cursor: pointer;">
+                                    <i class="bi bi-camera me-1" style="color: #0d9488;"></i> Đổi ảnh đại diện
+                                </label>
+                                <input type="file" id="staffAvatarFile" name="avatarFile"
+                                       accept="image/png, image/jpeg, image/jpg, image/webp"
+                                       class="d-none"
+                                       onchange="previewStaffAvatar(this)">
+                                <div id="staffAvatarFileName" class="small text-muted mt-1"></div>
+                            </div>
+                        </div>
+
+                        <!-- Họ và Tên -->
+                        <div class="mb-3">
+                            <label for="staffModalFullName" class="form-label small fw-semibold">Họ và Tên <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
+                                <input type="text" id="staffModalFullName" name="fullName" class="form-control"
+                                       th:value="${user.fullName}" required placeholder="Nhập họ và tên đầy đủ">
+                            </div>
+                        </div>
+
+                        <!-- Email (Readonly) -->
+                        <div class="mb-3">
+                            <label for="staffModalEmail" class="form-label small fw-semibold">Địa Chỉ Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
+                                <input type="email" id="staffModalEmail" name="email" class="form-control bg-light text-muted"
+                                       th:value="${user.email}" readonly>
+                            </div>
+                            <div class="form-text small text-muted">
+                                <i class="bi bi-info-circle me-1"></i> Email dùng để đăng nhập, không thể thay đổi.
+                            </div>
+                        </div>
+
+                        <!-- Số Điện Thoại -->
+                        <div class="mb-3">
+                            <label for="staffModalPhone" class="form-label small fw-semibold">Số Điện Thoại</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-telephone"></i></span>
+                                <input type="tel" id="staffModalPhone" name="phone" class="form-control"
+                                       th:value="${user.phone}" placeholder="Ví dụ: 0901234567">
+                            </div>
+                        </div>
+
+                        <!-- Giữ nguyên avatarUrl hiện tại -->
+                        <input type="hidden" name="avatarUrl" th:value="${user.avatarUrl}">
+                    </div>
+
+                    <div class="modal-footer bg-light border-0 py-3 px-4">
+                        <button type="button" class="btn btn-outline-secondary px-3 rounded-3" data-bs-dismiss="modal">Hủy bỏ</button>
+                        <button type="submit" class="btn px-4 fw-semibold rounded-3 text-white" style="background-color: #0d9488;">
+                            <i class="bi bi-check2 me-1"></i> Lưu Thay Đổi
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
+
+<th:block layout:fragment="admin-js">
+    <script>
+        function previewStaffAvatar(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const nameDisplay = document.getElementById("staffAvatarFileName");
+                if (nameDisplay) {
+                    nameDisplay.textContent = file.name;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    let img = document.getElementById("staffModalAvatarPreview");
+                    let placeholder = document.getElementById("staffModalAvatarPlaceholder");
+                    if (img) {
+                        img.src = e.target.result;
+                    } else if (placeholder) {
+                        const newImg = document.createElement("img");
+                        newImg.id = "staffModalAvatarPreview";
+                        newImg.src = e.target.result;
+                        newImg.className = "rounded-circle border border-3 shadow-sm";
+                        newImg.style.width = "80px";
+                        newImg.style.height = "80px";
+                        newImg.style.objectFit = "cover";
+                        newImg.style.borderColor = "#0d9488";
+                        placeholder.parentNode.replaceChild(newImg, placeholder);
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    </script>
+</th:block>
+</body>
+</html>

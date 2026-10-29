@@ -9,19 +9,45 @@
 <div layout:fragment="content" class="py-5">
     <div class="container">
         <h3 class="fw-bold mb-4">Lịch Sử Đơn Hàng</h3>
-        
+        <form th:action="@{/customer/orders}" method="get" class="row g-3 align-items-end mb-4">
+            <div class="col-md-4">
+                <label for="orderStatus" class="form-label">Trạng thái đơn</label>
+                <select id="orderStatus" name="status" class="form-select">
+                    <option value="">Tất cả trạng thái</option>
+                    <option th:each="status : ${orderStatuses}" th:value="${status.name()}"
+                            th:text="${orderStatusLabels[status.name()]}" th:selected="${status == currentStatus}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="fromDate" class="form-label">Đặt từ ngày</label>
+                <input id="fromDate" type="date" name="fromDate" min="0001-01-01" max="9999-12-31"
+                       th:value="${fromDate}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="toDate" class="form-label">Đến hết ngày</label>
+                <input id="toDate" type="date" name="toDate" min="0001-01-01" max="9999-12-31"
+                       th:value="${toDate}" class="form-control">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <input type="hidden" name="size" th:value="${orders.size}">
+                <button class="btn btn-primary" type="submit">Lọc</button>
+                <a th:href="@{/customer/orders}" class="btn btn-outline-secondary">Xóa lọc</a>
+            </div>
+        </form>
+
         <div th:if="${orders != null and !orders.empty}">
             <div th:each="order : ${orders.content}" class="card border-0 shadow-sm rounded-4 p-4 mb-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="fw-bold fs-6" th:text="${order.orderCode}">ORD-XXXX</span>
-                    <span class="badge bg-primary" th:text="${order.orderStatus}">CONFIRMED</span>
+                    <span class="badge bg-primary" th:text="${orderStatusLabels[order.orderStatus.name()]}">Đã xác nhận</span>
                 </div>
                 <div class="text-muted small mb-2" th:text="${#temporals.format(order.createdAt, 'dd/MM/yyyy HH:mm')}">Thời gian</div>
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <span>Tổng tiền: </span>
-                        <strong class="text-danger" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</strong>
+                        <strong class="text-danger" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}">100.000đ</strong>
                         <span class="badge bg-secondary ms-2" th:text="${order.paymentMethod}">COD</span>
+                        <span class="small text-muted ms-2" th:text="${paymentStatusLabels[order.paymentStatus.name()]}">Chưa thanh toán</span>
                     </div>
                     <a th:href="@{/customer/orders/{id}(id=${order.id})}" class="btn btn-sm btn-outline-primary">Chi Tiết</a>
                 </div>
@@ -30,8 +56,16 @@
 
         <div th:if="${orders == null or orders.empty}" class="text-center py-5">
             <i class="bi bi-box-seam display-1 text-muted"></i>
-            <h5 class="mt-3 text-muted">Bạn chưa có đơn hàng nào</h5>
+            <h5 class="mt-3 text-muted">Không có đơn hàng phù hợp</h5>
         </div>
+
+        <nav th:if="${orders.totalPages > 1}" aria-label="Phân trang đơn hàng" class="d-flex justify-content-center align-items-center gap-3">
+            <a th:if="${orders.hasPrevious()}" class="btn btn-outline-primary"
+               th:href="@{/customer/orders(page=${orders.number - 1},size=${orders.size},status=${currentStatus},fromDate=${fromDate},toDate=${toDate})}">Trang trước</a>
+            <span th:text="${'Trang ' + (orders.number + 1) + ' / ' + orders.totalPages}"></span>
+            <a th:if="${orders.hasNext()}" class="btn btn-outline-primary"
+               th:href="@{/customer/orders(page=${orders.number + 1},size=${orders.size},status=${currentStatus},fromDate=${fromDate},toDate=${toDate})}">Trang sau</a>
+        </nav>
     </div>
 </div>
 </body>

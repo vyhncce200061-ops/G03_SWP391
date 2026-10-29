@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main-layout}">
+<head>
+<title>Đánh giá sản phẩm</title>
+</head>
+<body>
+<main layout:fragment="content" class="container py-4">
+<div class="card p-4 mx-auto" style="max-width:680px">
+<h1 class="h4">Đánh giá sản phẩm đã mua</h1>
+<p th:text="${item.productNameSnapshot + ' — ' + item.variantNameSnapshot}">
+</p>
+<form th:action="@{/customer/reviews/create}" th:object="${reviewForm}" method="post">
+<input type="hidden" name="orderItemId" th:value="${item.id}">
+<label for="rating" class="form-label">Số sao</label>
+<select id="rating" th:field="*{rating}" class="form-select" required>
+<option value="">Chọn số sao</option>
+<option th:each="n : ${#numbers.sequence(1,5)}" th:value="${n}" th:text="${n + ' sao'}">
+</option>
+</select>
+<p class="text-danger" th:errors="*{rating}">
+</p>
+<label for="comment" class="form-label mt-3">Nhận xét (10–1000 ký tự)</label>
+<textarea id="comment" th:field="*{comment}" minlength="10" maxlength="1000" required rows="5" class="form-control">
+</textarea>
+<p class="text-danger" th:errors="*{comment}">
+</p>
+<p class="small text-muted mt-2">Mỗi sản phẩm trong một đơn được đánh giá một lần, sau khi hoàn tất và thanh toán.</p>
+<button class="btn btn-primary">Gửi đánh giá</button> <a th:href="@{/customer/reviews}" class="btn btn-outline-secondary">Quay lại</a>
+</form>
+</div>
+</main>
+</body>
+</html>

@@ -16,6 +16,7 @@ public class RegisterRequestDto {
     @Size(max = 150, message = "Họ và tên không vượt quá 150 ký tự")
     private String fullName;
 
+    @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không đúng định dạng")
     @Size(max = 255, message = "Email không vượt quá 255 ký tự")
     private String email;

@@ -7,42 +7,141 @@
 </head>
 <body>
 <div layout:fragment="admin-content">
-    <h4 class="fw-bold mb-4">Tạo Phiếu Nhập Kho</h4>
+    <h4 class="page-title mb-4">
+        Tạo Phiếu Nhập Kho
+    </h4>
+
+    <!-- Global error -->
+    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span th:text="${errorMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 
     <div class="card border-0 shadow-sm rounded-4 p-4">
-        <form th:action="@{/staff/stock-imports/create}" method="post">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Nhà cung cấp</label>
-                    <input type="text" name="supplierName" class="form-control" placeholder="Royal Canin Vietnam" required>
+        <form th:action="@{/staff/stock-imports/create}" th:object="${stockImportForm}" method="post">
+
+            <!-- Header info -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Mã phiếu nhập</label>
+                    <input type="text" class="form-control" th:value="${importCode}" readonly>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Nhà cung cấp <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" th:field="*{supplierName}"
+                           th:classappend="${#fields.hasErrors('supplierName')} ? 'is-invalid'"
+                           placeholder="VD: Royal Canin Vietnam">
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('supplierName')}"
+                         th:errors="*{supplierName}"></div>
+                </div>
+                <div class="col-md-4">
                     <label class="form-label fw-semibold">Ghi chú</label>
-                    <input type="text" name="note" class="form-control" placeholder="Lô hàng tháng 10">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Chọn sản phẩm (SKU) nhập</label>
-                    <select name="variantId" class="form-select" required>
-                        <option th:each="v : ${variants}" th:value="${v.id}"
-                                th:text="${v.product.name + ' - ' + v.variantName + ' (SKU: ' + v.skuCode + ')'}">
-                        </option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Số lượng</label>
-                    <input type="number" name="quantity" class="form-control" value="10" min="1" required>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Đơn giá nhập (VNĐ)</label>
-                    <input type="number" name="unitCost" class="form-control" value="50000" min="0" required>
+                    <input type="text" class="form-control" th:field="*{note}" placeholder="VD: Lô hàng tháng 10">
                 </div>
             </div>
+
+            <!-- Items -->
+            <h6 class="fw-bold mb-3">
+                <i class="bi bi-list-check me-2"></i>Danh Sách Sản Phẩm Nhập
+            </h6>
+
+            <div th:if="${#fields.hasErrors('items')}" class="alert alert-warning">
+                <span th:errors="*{items}"></span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="width: 40%;">Sản phẩm (SKU)</th>
+                        <th style="width: 15%;">Số lượng</th>
+                        <th style="width: 20%;">Đơn giá nhập (VNĐ)</th>
+                        <th style="width: 15%;">Thành tiền</th>
+                        <th style="width: 10%;" class="text-center">Xóa</th>
+                    </tr>
+                    </thead>
+                    <tbody id="itemsBody">
+                    <tr th:each="item, stat : ${stockImportForm.items}">
+                        <td>
+                            <select class="form-select" th:field="*{items[__${stat.index}__].variantId}">
+                                <option value="">-- Chọn SKU --</option>
+                                <option th:each="v : ${variants}" th:value="${v.id}"
+                                        th:text="${v.product.name + ' - ' + v.variantName + ' (' + v.skuCode + ')'}"></option>
+                            </select>
+                            <div class="text-danger small mt-1"
+                                 th:if="${#fields.hasErrors('items[' + stat.index + '].variantId')}"
+                                 th:errors="*{items[__${stat.index}__].variantId}"></div>
+                        </td>
+                        <td>
+                            <input type="number" class="form-control"
+                                   th:field="*{items[__${stat.index}__].quantity}"
+                                   min="1" placeholder="SL" oninput="updateTotal(this)">
+                            <div class="text-danger small mt-1"
+                                 th:if="${#fields.hasErrors('items[' + stat.index + '].quantity')}"
+                                 th:errors="*{items[__${stat.index}__].quantity}"></div>
+                        </td>
+                        <td>
+                            <input type="number" class="form-control"
+                                   th:field="*{items[__${stat.index}__].unitCost}"
+                                   min="0" step="1000" placeholder="Giá nhập" oninput="updateTotal(this)">
+                            <div class="text-danger small mt-1"
+                                 th:if="${#fields.hasErrors('items[' + stat.index + '].unitCost')}"
+                                 th:errors="*{items[__${stat.index}__].unitCost}"></div>
+                        </td>
+                        <td class="fw-bold text-end rowTotal">0 đ</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="addRow()">
+                <i class="bi bi-plus-circle me-1"></i>Thêm dòng
+            </button>
+
             <div class="mt-4">
-                <button type="submit" class="btn btn-pet-primary">Tạo Phiếu & Cập Nhật Tồn Kho</button>
+                <button type="submit" class="btn btn-pet-outline">
+                    Tạo Phiếu & Cập Nhật Tồn Kho
+                </button>
                 <a th:href="@{/staff/stock-imports}" class="btn btn-outline-secondary ms-2">Hủy</a>
             </div>
         </form>
     </div>
+
+    <!-- Hidden template for new row (must stay in HTML because it contains Thymeleaf th:each) -->
+    <template id="rowTemplate">
+        <tr>
+            <td>
+                <select class="form-select" name="items[INDEX].variantId">
+                    <option value="">-- Chọn SKU --</option>
+                    <option th:each="v : ${variants}" th:value="${v.id}"
+                            th:text="${v.product.name + ' - ' + v.variantName + ' (' + v.skuCode + ')'}"></option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control" name="items[INDEX].quantity"
+                       min="1" placeholder="SL" oninput="updateTotal(this)">
+            </td>
+            <td>
+                <input type="number" class="form-control" name="items[INDEX].unitCost"
+                       min="0" step="1000" placeholder="Giá nhập" oninput="updateTotal(this)">
+            </td>
+            <td class="fw-bold text-end rowTotal">0 đ</td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <!-- External JS file -->
+    <script th:src="@{/js/stock-import.js}"></script>
 </div>
 </body>
 </html>

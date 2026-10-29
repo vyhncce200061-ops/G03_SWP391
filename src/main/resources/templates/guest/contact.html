@@ -3,18 +3,92 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/main-layout}">
 <head>
-    <title>Liên Hệ</title>
+    <title>Liên Hệ - PetShop</title>
 </head>
 <body>
-<div layout:fragment="content" class="py-5">
+<div layout:fragment="content">
     <div class="container">
-        <h2 class="fw-bold mb-4">Liên Hệ PetShop</h2>
-        <div class="row">
-            <div class="col-md-6">
-                <p><i class="bi bi-geo-alt me-2"></i>Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh</p>
-                <p><i class="bi bi-telephone me-2"></i>Hotline: 1900 1234</p>
-                <p><i class="bi bi-envelope me-2"></i>Email: support@petshop.vn</p>
+
+        <div class="text-center mb-5">
+            <span class="badge bg-success text-white fw-bold text-uppercase px-3 py-2 rounded-2 mb-3">
+                Hỗ Trợ Khách Hàng
+            </span>
+
+            <h2 class="fw-bold text-white">Liên Hệ Với PetShop</h2>
+            <p class="text-white">Chúng tôi luôn lắng nghe mọi thắc mắc và đóng góp ý kiến từ bạn</p>
+        </div>
+
+        <div class="row g-5">
+
+            <!-- Thông tin liên hệ -->
+            <div class="col-lg-5">
+                <div class="card border-secondary shadow-sm rounded-4 p-4 h-100 bg-dark text-white">
+
+                    <h4 class="fw-bold text-white mb-4">Thông Tin Liên Lạc</h4>
+
+                    <ul class="list-unstyled">
+
+                        <li class="d-flex align-items-start mb-3">
+                            <div class="bg-success text-white p-3 rounded-3 me-3 fs-5">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-white mb-1">Địa chỉ cửa hàng</h6>
+                                <p class="text-white small mb-0">Trường Đại Học FPT</p>
+                            </div>
+                        </li>
+
+                        <li class="d-flex align-items-start mb-3">
+                            <div class="bg-success text-white p-3 rounded-3 me-3 fs-5">
+                                <i class="bi bi-telephone-fill"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-white mb-1">Hotline hỗ trợ</h6>
+                                <p class="text-white small mb-0">1900 1234 (8:00 - 21:00 hàng ngày)</p>
+                            </div>
+                        </li>
+
+                        <li class="d-flex align-items-start">
+                            <div class="bg-success text-white p-3 rounded-3 me-3 fs-5">
+                                <i class="bi bi-envelope-fill"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-white mb-1">Hỗ trợ qua email</h6>
+                                <p class="text-white small mb-0">support@petshop.vn</p>
+                            </div>
+                        </li>
+
+                    </ul>
+
+                    <div class="mt-auto pt-4 border-top border-secondary">
+                        <h6 class="fw-bold text-white mb-3">Kết nối với chúng tôi</h6>
+
+                        <div class="d-flex gap-2">
+                            <a href="#" class="btn btn-outline-success text-white rounded-circle">
+                                <i class="bi bi-facebook"></i>
+                            </a>
+                            <a href="#" class="btn btn-outline-success text-white rounded-circle">
+                                <i class="bi bi-instagram"></i>
+                            </a>
+                            <a href="#" class="btn btn-outline-success text-white rounded-circle">
+                                <i class="bi bi-youtube"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
             </div>
+
+            <!-- Form gửi tin nhắn liên hệ -->
+            <div class="col-lg-7">
+                <div class="card border-secondary shadow-sm rounded-4 p-4 bg-dark text-white">
+
+                    <h4 class="fw-bold text-white mb-4">Gửi Tin Nhắn Cho Chúng Tôi</h4>
+
+                    <p>Gửi nội dung cần hỗ trợ qua email:</p><a class="btn btn-pet-primary text-white" href="mailto:support@petshop.vn"><i class="bi bi-envelope me-2"></i>support@petshop.vn</a>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

@@ -3,7 +3,7 @@
 # =====================================================================
 
 server:
-  port: 8080
+  port: 8081
   servlet:
     context-path: /
     encoding:
@@ -20,11 +20,22 @@ server:
 spring:
   application:
     name: petshop-app
+  mail:
+    host: ${SMTP_HOST:${MAIL_HOST:}}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:${MAIL_USERNAME:}}
+    password: ${SMTP_PASSWORD:${MAIL_PASSWORD:}}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   
   profiles:
     active: dev
     group:
-      dev: dev
+      dev: local
 
   # ===================================================================
   # 1. Datasource Configuration (Microsoft SQL Server 2019+)
@@ -57,8 +68,12 @@ spring:
       # Strictly validate or none: Database schema is authoritatively created and maintained
       # by PetShop_Database_Final.sql (preserves computed columns, filtered indexes, CHECK rules)
       ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
     properties:
       hibernate:
+        default_schema: dbo
         format_sql: true
         highlight_sql: true
         jdbc:
@@ -114,3 +129,19 @@ logging:
     org.hibernate.type.descriptor.sql: TRACE
   pattern:
     console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+
+petshop:
+  browser:
+    auto-open: ${AUTO_OPEN_BROWSER:true}
+  shipping-fee: ${SHIPPING_FEE:30000}
+  public-base-url: ${PUBLIC_BASE_URL:${APP_BASE_URL:http://localhost:8080}}
+  mail-from: ${SMTP_FROM:${SMTP_USERNAME:${MAIL_USERNAME:}}}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:}
+
+vnpay:
+  tmn-code: ${VNPAY_TMN_CODE:}
+  hash-secret: ${VNPAY_HASH_SECRET:}
+  return-url: ${VNPAY_RETURN_URL:}

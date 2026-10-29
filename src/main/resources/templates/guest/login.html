@@ -12,15 +12,24 @@
             <div class="col-md-6 col-lg-5">
                 <div class="card border-0 shadow-sm rounded-4 p-4">
                     <div class="text-center mb-4">
-                        <i class="bi bi-heart-pulse-fill text-danger fs-1"></i>
+                        <span style="font-size:3rem;line-height:1;">&#128062;</span>
                         <h4 class="fw-bold mt-2">Đăng Nhập Tài Khoản</h4>
                         <p class="text-muted small">Chào mừng bạn quay trở lại với PetShop</p>
                     </div>
 
                     <!-- Spring Security Error Alert -->
                     <div th:if="${param.error}" class="alert alert-danger py-2 small" role="alert">
+                        Email, số điện thoại hoặc mật khẩu không chính xác, hoặc tài khoản đã bị khóa.
+                    </div>
+                    <div th:if="${param.expired}" class="alert alert-warning py-2 small" role="alert">
+                        Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.
+                    </div>
+                    <div th:if="${errorMessage}" class="alert alert-danger py-2 small" role="alert">
                         <i class="bi bi-exclamation-circle-fill me-1"></i>
-                        Email, số điện thoại hoặc mật khẩu không chính xác!
+                        <span th:text="${errorMessage}"></span>
+                    </div>
+                    <div th:if="${successMessage}" class="alert alert-success py-2 small" role="alert">
+                        <span th:text="${successMessage}"></span>
                     </div>
 
                     <!-- Logout Success Alert -->
@@ -30,12 +39,12 @@
                     </div>
 
                     <!-- Form đăng nhập chuẩn Spring Security Form Login -->
-                    <form th:action="@{/login}" method="post">
+                    <form th:action="@{/login}" th:object="${loginForm}" method="post">
                         <div class="mb-3">
                             <label for="username" class="form-label small fw-semibold">Email hoặc Số điện thoại</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
-                                <input type="text" class="form-control" id="username" name="username" required autofocus placeholder="customer@petshop.vn">
+                                <input type="text" class="form-control" id="username" th:field="*{username}" required autofocus placeholder="customer@petshop.vn">
                             </div>
                         </div>
 
@@ -48,11 +57,6 @@
                                 <span class="input-group-text bg-white"><i class="bi bi-lock"></i></span>
                                 <input type="password" class="form-control" id="password" name="password" required placeholder="••••••••">
                             </div>
-                        </div>
-
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="remember-me" name="remember-me">
-                            <label class="form-check-label small" for="remember-me">Ghi nhớ đăng nhập</label>
                         </div>
 
                         <button type="submit" class="btn btn-pet-primary w-100 py-2 fw-semibold">Đăng Nhập</button>

@@ -1,0 +1,26 @@
+# Copy thanh application-local.yml va dien thong tin tren may ban.
+# Khong dua application-local.yml chua mat khau len Git.
+spring:
+  datasource:
+    # Mat khau SQL Server tren may ban; khac voi mat khau tai khoan Admin tren web.
+    username: sa
+    password: ""
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ""
+    password: ""
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+
+petshop:
+  mail-from: ${spring.mail.username}
+  public-base-url: http://localhost:8080
+
+# Khong dung khoa vi du chung; tao khoa ngau nhien it nhat 32 ky tu tren may ban.
+# De trong: he thong tao khoa tam, link xac nhan dang ky het hieu luc khi restart.
+app:
+  jwt:
+    secret: ""

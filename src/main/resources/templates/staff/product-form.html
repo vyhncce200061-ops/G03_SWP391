@@ -3,71 +3,132 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/admin-layout}">
 <head>
-    <title>Thông Tin Sản Phẩm</title>
+    <title th:text="${productForm.id != null ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'}">Sản Phẩm</title>
 </head>
 <body>
 <div layout:fragment="admin-content">
-    <h4 class="fw-bold mb-4" th:text="${product.id != null ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'}">Sản Phẩm</h4>
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="page-title" th:text="${productForm.id != null ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'}">
+            Sản Phẩm
+        </h4>
+        <a th:href="@{${productBasePath}}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Quay lại
+        </a>
+    </div>
+
+    <!-- Global Error Message -->
+    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span th:text="${errorMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 
     <div class="card border-0 shadow-sm rounded-4 p-4">
-        <form th:action="${product.id != null ? '/staff/products/' + product.id + '/edit' : '/staff/products/create'}"
-              th:object="${product}" method="post">
-            <div class="row g-3">
-                <div class="col-md-8">
-                    <label class="form-label fw-semibold">Tên sản phẩm</label>
-                    <input type="text" class="form-control" th:field="*{name}" required>
+        <!-- IMPORTANT: Must have enctype for file upload -->
+        <form th:action="${productForm.id != null ? productBasePath + '/' + productForm.id + '/edit' : productBasePath + '/create'}"
+              th:object="${productForm}" method="post" enctype="multipart/form-data">
+
+            <div class="row g-4">
+                <!-- LEFT COLUMN: MAIN INFORMATION -->
+                <div class="col-lg-8">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Tên sản phẩm <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" th:field="*{name}" th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">URL Slug <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" th:field="*{slug}" th:classappend="${#fields.hasErrors('slug')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('slug')}" th:errors="*{slug}"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
+                            <select class="form-select" th:field="*{categoryId}" th:classappend="${#fields.hasErrors('categoryId')} ? 'is-invalid'">
+                                <option value="">-- Chọn danh mục --</option>
+                                <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+                            </select>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('categoryId')}" th:errors="*{categoryId}"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Thương hiệu</label>
+                            <select class="form-select" th:field="*{brandId}">
+                                <option value="">-- Không chọn --</option>
+                                <option th:each="b : ${brands}" th:value="${b.id}" th:text="${b.name}"></option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Loài thú cưng <span class="text-danger">*</span></label>
+                            <select class="form-select" th:field="*{petType}">
+                                <option value="DOG">Chó (DOG)</option>
+                                <option value="CAT">Mèo (CAT)</option>
+                                <option value="BOTH">Cả hai (BOTH)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Mô tả ngắn</label>
+                            <textarea class="form-control" th:field="*{shortDescription}" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Mô tả chi tiết</label>
+                            <textarea class="form-control" th:field="*{description}" rows="5"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Hướng dẫn sử dụng</label>
+                            <textarea class="form-control" th:field="*{usageInstructions}" rows="3"></textarea>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Trạng thái <span class="text-danger">*</span></label>
+                            <select class="form-select" th:field="*{status}">
+                                <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+                                <option value="HIDDEN">Ẩn (HIDDEN)</option>
+                                <option value="DISCONTINUED">Ngừng kinh doanh (DISCONTINUED)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-center pt-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" th:field="*{isFeatured}">
+                                <label class="form-check-label fw-semibold">Sản phẩm nổi bật (Featured)</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">URL Slug</label>
-                    <input type="text" class="form-control" th:field="*{slug}" required>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Danh mục</label>
-                    <select class="form-select" th:field="*{category.id}" required>
-                        <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Thương hiệu</label>
-                    <select class="form-select" th:field="*{brand.id}">
-                        <option value="">-- Không chọn --</option>
-                        <option th:each="b : ${brands}" th:value="${b.id}" th:text="${b.name}"></option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Loài thú cưng</label>
-                    <select class="form-select" th:field="*{petType}">
-                        <option value="DOG">Chó (DOG)</option>
-                        <option value="CAT">Mèo (CAT)</option>
-                        <option value="BOTH">Cả hai (BOTH)</option>
-                    </select>
-                </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Mô tả ngắn</label>
-                    <textarea class="form-control" th:field="*{shortDescription}" rows="2"></textarea>
-                </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Mô tả chi tiết</label>
-                    <textarea class="form-control" th:field="*{description}" rows="5"></textarea>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Trạng thái</label>
-                    <select class="form-select" th:field="*{status}">
-                        <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-                        <option value="HIDDEN">Ẩn (HIDDEN)</option>
-                        <option value="DISCONTINUED">Ngừng kinh doanh (DISCONTINUED)</option>
-                    </select>
-                </div>
-                <div class="col-md-6 d-flex align-items-center pt-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" th:field="*{isFeatured}">
-                        <label class="form-check-label fw-semibold">Sản phẩm nổi bật (Featured)</label>
+
+                <!-- RIGHT COLUMN: IMAGE UPLOAD AREA -->
+                <div class="col-lg-4">
+                    <div class="card border border-light-subtle bg-light rounded-3 p-3 h-100">
+                        <label class="form-label fw-bold mb-3"><i class="bi bi-images me-2"></i>Hình ảnh sản phẩm</label>
+
+                        <!-- Display existing images if editing -->
+                        <div th:if="${productForm.id != null and !productForm.existingImageUrls.isEmpty()}">
+                            <p class="small text-muted mb-2">Ảnh hiện tại:</p>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <img th:each="imgUrl : ${productForm.existingImageUrls}"
+                                     th:src="@{${imgUrl}}"
+                                     class="img-thumbnail rounded shadow-sm"
+                                     style="width: 80px; height: 80px; object-fit: cover;">
+                            </div>
+                        </div>
+
+                        <!-- File input for new images -->
+                        <label class="form-label small fw-semibold" th:text="${productForm.id != null ? 'Tải thêm ảnh mới:' : 'Tải ảnh lên:'}">Tải ảnh lên:</label>
+                        <input class="form-control" type="file" th:field="*{imageFiles}" accept=".jpg, .jpeg, .png" multiple>
+                        <small class="text-muted mt-2 d-block" style="font-size: 0.75rem; line-height: 1.4;">
+                            <i class="bi bi-info-circle me-1"></i> Giữ phím <kbd>Ctrl</kbd> (Windows) hoặc <kbd>Cmd</kbd> (Mac) để chọn nhiều ảnh. Chỉ nhận file .jpg, .png.
+                        </small>
                     </div>
                 </div>
             </div>
-            <div class="mt-4">
-                <button type="submit" class="btn btn-pet-primary">Lưu Sản Phẩm</button>
-                <a th:href="@{/staff/products}" class="btn btn-outline-secondary ms-2">Quay lại</a>
+
+            <!-- Submit Button -->
+            <div class="mt-4 pt-3 border-top">
+                <button type="submit" class="btn btn-pet-outline">
+                    Lưu Sản Phẩm
+                </button>
             </div>
         </form>
     </div>

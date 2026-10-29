@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/admin-layout}">
+<head>
+<title>Báo cáo bán sản phẩm</title>
+</head>
+<body>
+<main layout:fragment="admin-content" class="container-fluid p-4">
+<h1 class="h4">Báo cáo bán sản phẩm</h1>
+<p>Đơn đã hoàn tất và thanh toán, theo ngày hoàn tất. Tiền hàng tính theo giá tại lúc đặt, trước giảm giá và không gồm phí vận chuyển.</p>
+<form method="get" class="row g-3 mb-4">
+<div class="col-md-4">
+<label for="from" class="form-label">Từ ngày</label>
+<input id="from" name="startDate" type="date" th:value="${startDate}" class="form-control" required>
+</div>
+<div class="col-md-4">
+<label for="to" class="form-label">Đến ngày</label>
+<input id="to" name="endDate" type="date" th:value="${endDate}" class="form-control" required>
+</div>
+<div class="col-md-4 align-self-end">
+<button class="btn btn-primary">Xem báo cáo</button>
+</div>
+</form>
+<div class="table-responsive">
+<table class="table table-striped bg-white">
+<thead>
+<tr>
+<th>Sản phẩm</th>
+<th>Số lượng bán</th>
+<th>Số đơn</th>
+<th>Tiền hàng trước giảm</th>
+</tr>
+</thead>
+<tbody>
+<tr th:each="r : ${sales.content}">
+<td th:text="${r[0]}">
+</td>
+<td th:text="${r[2]}">
+</td>
+<td th:text="${r[4]}">
+</td>
+<td th:text="${#numbers.formatDecimal(r[3],1,'POINT',2,'COMMA') + ' đ'}">
+</td>
+</tr>
+<tr th:if="${sales.empty}">
+<td colspan="4">Chưa có sản phẩm bán trong kỳ này.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<nav class="d-flex gap-3">
+<a th:if="${sales.hasPrevious()}" th:href="@{/admin/reports/product-sales(startDate=${startDate},endDate=${endDate},page=${sales.number-1})}">Trước</a>
+<a th:if="${sales.hasNext()}" th:href="@{/admin/reports/product-sales(startDate=${startDate},endDate=${endDate},page=${sales.number+1})}">Sau</a>
+</nav>
+</main>
+</body>
+</html>

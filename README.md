@@ -4,7 +4,9 @@
 > **Môn học / Course**: SWP391 — FPT University  
 > **Nhóm thực hiện / Team**: 5 sinh viên (SE2003 - Group 03)  
 > **Kiến trúc / Architecture**: Monolithic Server-Side Rendering (SSR) Spring Boot 3.3.4 MVC + Thymeleaf Layout Dialect + Spring Security 6  
-> **Cơ sở dữ liệu / Database**: Microsoft SQL Server 2019+ (`PetShopDB`, 20 bảng, 4 views)  
+> **Cơ sở dữ liệu / Database**: Microsoft SQL Server 2019+ (`PetShopDB`, 21 bảng, 4 views)
+
+Bản gộp nhóm ngày 26/10/2026: xem [hướng dẫn nhận source và kiểm thử](docs/DEV_INTEGRATION_20261026.md). Với database đã có dữ liệu, dùng [script đồng bộ tăng dần](database/sync_existing/README.md); không chạy lại bootstrap để cập nhật.
 
 ---
 
@@ -61,6 +63,8 @@ Toàn bộ cấu trúc bảng, ràng buộc toàn vẹn, kiểm tra máy trạng
 
 ---
 
+**Đồng bộ bổ sung ngày 29/10/2026:** Sau khi có database và trước khi Run code mới, chạy `database/migrations/V20261029__review_reply.sql` trong SSMS, chọn đúng database dự án. Áp dụng cho cả database cũ và mới; thêm ba cột phản hồi Admin vào bảng `Reviews`, giữ dữ liệu cũ. Xem [hướng dẫn](database/sync_feedback_reply/README.md).
+
 ## 3. Cấu hình ứng dụng (Application Configuration & SSL Trust)
 
 File cấu hình chính của dự án nằm tại: `src/main/resources/application.yml`.
@@ -76,7 +80,7 @@ spring:
 ```
 
 ### Cách đặt mật khẩu DB riêng mà KHÔNG bị xung đột Git (Local Credentials Override):
-1. Tạo một file tên là `application-local.yml` tại `src/main/resources/` (file này đã được đưa vào `.gitignore`, sẽ không bao giờ bị push lên Git).
+1. Tạo một file tên là `application-local.yml` tại `src/main/resources/` (đã được `.gitignore` bỏ qua). Có thể copy từ `application-local.yml.example`, điền mật khẩu SQL Server của máy mình; nếu cần gửi thư thì điền thêm Gmail và mật khẩu ứng dụng.
 2. Điền thông tin tài khoản SQL Server cá nhân của bạn:
    ```yaml
    spring:
@@ -84,8 +88,11 @@ spring:
        username: sa
        password: MatKhauCuaBan123
    ```
-3. Khi chạy bằng dòng lệnh hoặc cấu hình IDE, kích hoạt profile `local`:
-   `-Dspring.profiles.active=dev,local`
+3. Profile `dev` tự bao gồm `local`, nên Run như bình thường sẽ đọc file riêng nếu có. Có thể bật tường minh bằng `--spring.profiles.active=dev,local`. Profile `test` không tự nạp cấu hình local.
+
+File `application-local*.yml`/`.properties` được loại khỏi JAR để chia sẻ bản build an toàn. Nếu chạy JAR từ thư mục dự án và muốn đọc file local, thêm `--spring.config.additional-location=optional:file:./src/main/resources/` vào lệnh Java.
+
+Mật khẩu `spring.datasource.password` là mật khẩu đăng nhập SQL Server, không phải `Admin@123` của tài khoản trên web. Cấu hình main có giá trị mặc định cho môi trường cũ; nếu máy dùng mật khẩu khác thì phải ghi đè trong file local hoặc biến `DB_PASSWORD`. Không đổi mật khẩu tài khoản web để xử lý lỗi kết nối database. Ứng dụng kiểm tra kết nối/schema lúc khởi động với `ddl-auto: validate`; nếu log báo `Login failed for user` (18456), kiểm tra cấu hình SQL Server trước.
 
 > ⚠️ **LƯU Ý CỰC KỲ QUAN TRỌNG VỀ HIBERNATE DDL-AUTO**:
 > Trong `application.yml`, thuộc tính `spring.jpa.hibernate.ddl-auto` được đặt là **`none`** hoặc **`validate`**.  
@@ -111,9 +118,20 @@ mvn clean spring-boot:run
 Sau khi ứng dụng khởi động thành công (thấy log `Started PetShopApplication in ... seconds`), truy cập hệ thống tại trình duyệt:  
 👉 **URL**: [http://localhost:8080](http://localhost:8080)
 
+Ở profile `dev`, ứng dụng tự mở URL này trong trình duyệt mặc định sau khi khởi động thành công.
+Nếu đổi cổng hoặc context path, URL tự mở sẽ theo cấu hình thực tế. DevTools restart sẽ không mở thêm tab.
+Để tắt tự mở, đặt biến môi trường `AUTO_OPEN_BROWSER=false` hoặc tham số `--petshop.browser.auto-open=false`.
+Chức năng này không hoạt động ở profile `test` hoặc khi không dùng profile `dev`.
+
 ---
 
 ## 5. Tài khoản mẫu đăng nhập (Seed Credentials)
+
+Quy trình cấp Staff hiện tại: Admin nhập họ tên/email/SĐT, hệ thống gửi link dùng một lần để Staff tự đặt mật khẩu. Cần cấu hình SMTP trước khi tạo; không có mật khẩu ban đầu để Admin đọc/gửi miệng. Màn hình sửa tài khoản không hỗ trợ đổi role. Chi tiết và cấu hình: [docs/STAFF_ONBOARDING_ROLE_POLICY.md](docs/STAFF_ONBOARDING_ROLE_POLICY.md).
+
+Trang quản lý tài khoản chia tab theo loại người dùng. Admin chỉ gửi link hỗ trợ mật khẩu cho Staff ACTIVE đã nhận tài khoản; gửi link giữ nguyên đăng nhập đến khi Staff tự xác nhận mật khẩu mới. Staff chờ nhận tài khoản dùng Gửi lại lời mời. Customer/Admin tự dùng Quên mật khẩu trên trang đăng nhập.
+
+Bản gộp ft/auth ngày 21/10 giữ xác nhận đăng ký Customer qua email, hồ sơ/ảnh đại diện, địa chỉ, đơn hàng và giỏ hàng AJAX của Bảo. Đăng nhập dùng session và CSRF; JWT chỉ xác nhận đăng ký. Đã dọn source trùng và bỏ tự tạo dữ liệu demo khi mở hồ sơ. Chi tiết cấu hình, database và kiểm chứng: [docs/AUTH_INTEGRATION_HANDOFF.md](docs/AUTH_INTEGRATION_HANDOFF.md).
 
 Hệ thống đã nạp sẵn 3 tài khoản mặc định đại diện cho 3 Role với mật khẩu đã mã hóa BCrypt (`$2a$10$...`):
 

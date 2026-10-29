@@ -24,10 +24,14 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <thymeleaf-layout-dialect.version>3.3.0</thymeleaf-layout-dialect.version>
-        <lombok.version>1.18.34</lombok.version>
+        <lombok.version>1.18.38</lombok.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
         <!-- ================================================================= -->
         <!-- 1. Spring Boot Web & MVC                                         -->
         <!-- ================================================================= -->
@@ -85,6 +89,25 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- JWT (jjwt) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- ================================================================= -->
         <!-- 5. Developer Tools & Utilities                                    -->
         <!-- ================================================================= -->
@@ -127,6 +150,17 @@
 
     <build>
         <plugins>
+            <!-- Keep private machine credentials out of distributable JARs. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>application-local*.yml</exclude>
+                        <exclude>application-local*.properties</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <!-- Spring Boot Executable Packaging Plugin -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>

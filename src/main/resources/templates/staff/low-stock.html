@@ -8,7 +8,10 @@
 <body>
 <div layout:fragment="admin-content">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold mb-0 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Cảnh Báo Sắp Hết Hàng</h4>
+        <h4 class="fw-bold mb-0 text-danger">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            Cảnh Báo Tồn Kho
+        </h4>
         <a th:href="@{/staff/stock-imports/create}" class="btn btn-pet-primary"><i class="bi bi-plus-lg me-1"></i>Tạo Phiếu Nhập Kho</a>
     </div>
 
@@ -31,9 +34,24 @@
                         <td th:text="${v.variantName + ' (' + v.skuCode + ')'}">SKU</td>
                         <td><span class="badge bg-danger fs-6" th:text="${v.stockQuantity}">2</span></td>
                         <td th:text="${v.lowStockThreshold}">5</td>
-                        <td><span class="badge bg-warning text-dark" th:text="${v.status}">ACTIVE</span></td>
                         <td>
-                            <a th:href="@{/staff/stock-imports/create}" class="btn btn-sm btn-outline-primary">Nhập thêm</a>
+                            <span th:if="${v.stockQuantity == 0}" class="badge bg-danger">
+                                Hết hàng
+                            </span>
+
+                            <span th:if="${v.stockQuantity > 0}" class="badge bg-warning text-dark">
+                                Sắp hết hàng
+                            </span>
+                        </td>
+                        <td>
+                            <a th:href="@{/staff/stock-imports/create}" class="btn btn-sm btn-pet-outline">
+                                Nhập thêm
+                            </a>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(lowStockVariants)}">
+                        <td colspan="6" class="text-center text-muted py-4">
+                            Không có sản phẩm nào đang ở mức tồn kho thấp.
                         </td>
                     </tr>
                 </tbody>

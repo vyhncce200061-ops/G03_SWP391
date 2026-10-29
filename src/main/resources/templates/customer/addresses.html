@@ -3,68 +3,280 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/main-layout}">
 <head>
-    <title>Sổ Địa Chỉ</title>
+    <title>Sổ Địa Chỉ Giao Hàng</title>
+    <th:block layout:fragment="custom-css">
+        <style>
+            .address-item-card {
+                border-radius: 18px;
+                border: 1.5px solid #e2e8f0;
+                transition: all 0.2s ease;
+                background-color: #ffffff;
+            }
+            .address-item-card.is-default {
+                border-color: #0d9488;
+                background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+                box-shadow: 0 4px 14px rgba(13, 148, 136, 0.08);
+            }
+            .address-item-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+            }
+        </style>
+    </th:block>
 </head>
 <body>
-<div layout:fragment="content" class="py-5">
+<div layout:fragment="content" class="py-4">
     <div class="container">
-        <h3 class="fw-bold mb-4">Sổ Địa Chỉ Giao Hàng</h3>
-        <div class="row">
-            <div class="col-md-7 mb-4">
-                <div th:each="addr : ${addresses}" class="card border-0 shadow-sm rounded-3 p-3 mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="fw-bold mb-1" th:text="${addr.recipientName + ' | ' + addr.recipientPhone}">Tên người nhận</h6>
-                        <span th:if="${addr.isDefault}" class="badge bg-success">Mặc định</span>
-                    </div>
-                    <p class="text-muted small mb-2" th:text="${addr.addressLine + ', ' + addr.ward + ', ' + addr.district + ', ' + addr.province}">Địa chỉ</p>
-                    <div class="d-flex gap-2">
-                        <form th:if="${!addr.isDefault}" th:action="@{/customer/addresses/{id}/set-default(id=${addr.id})}" method="post">
-                            <button type="submit" class="btn btn-sm btn-outline-secondary">Đặt làm mặc định</button>
-                        </form>
-                        <form th:action="@{/customer/addresses/{id}/delete(id=${addr.id})}" method="post">
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
-                        </form>
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a th:href="@{/}" class="text-decoration-none">Trang chủ</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/customer/profile}" class="text-decoration-none">Hồ sơ cá nhân</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Sổ địa chỉ giao hàng</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-geo-alt-fill text-danger me-2"></i> Sổ Địa Chỉ Giao Hàng
+                </h3>
+                <p class="text-muted small mb-0">Quản lý danh sách địa chỉ nhận hàng để đặt đơn thuận tiện và chính xác nhất</p>
+            </div>
+            <a th:href="@{/customer/profile}" class="btn btn-outline-secondary rounded-pill px-4">
+                <i class="bi bi-arrow-left me-1"></i> Quay Về Hồ Sơ
+            </a>
+        </div>
+
+        <div class="row g-4">
+            <!-- Cột trái: Danh sách các địa chỉ đã lưu -->
+            <div class="col-lg-7">
+                <div th:if="${addresses != null and !addresses.empty}">
+                    <div th:each="addr : ${addresses}" class="card border-0 shadow-sm address-item-card p-4 mb-3"
+                         th:classappend="${addr.isDefault ? ' is-default' : ''}">
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold text-dark fs-6" th:text="${addr.recipientName}">Nguyễn Văn Khách</span>
+                                <span class="badge bg-light text-secondary border small">
+                                    <i class="bi bi-telephone me-1"></i>
+                                    <span th:text="${addr.recipientPhone}">0900000003</span>
+                                </span>
+                            </div>
+                            <span th:if="${addr.isDefault}" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
+                                <i class="bi bi-check-circle-fill me-1"></i> Mặc định
+                            </span>
+                        </div>
+
+                        <p class="text-secondary small mb-3">
+                            <i class="bi bi-geo-alt me-1 text-danger"></i>
+                            <span th:text="|${addr.addressLine}, ${addr.ward}, ${addr.district}, ${addr.province}|">
+                                Khu phố 6, Đại học FPT, P. Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh
+                            </span>
+                        </p>
+
+                        <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3"
+                                    th:data-id="${addr.id}"
+                                    th:data-recipient-name="${addr.recipientName}"
+                                    th:data-recipient-phone="${addr.recipientPhone}"
+                                    th:data-province="${addr.province}"
+                                    th:data-district="${addr.district}"
+                                    th:data-ward="${addr.ward}"
+                                    th:data-address-line="${addr.addressLine}"
+                                    th:data-is-default="${addr.isDefault}"
+                                    onclick="openEditAddressModal(this)">
+                                <i class="bi bi-pencil me-1"></i> Sửa
+                            </button>
+                            <form th:if="${!addr.isDefault}" th:action="@{/customer/addresses/{id}/set-default(id=${addr.id})}" method="post">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                    <i class="bi bi-check-lg me-1"></i> Đặt làm mặc định
+                                </button>
+                            </form>
+                            <form th:action="@{/customer/addresses/{id}/delete(id=${addr.id})}" method="post"
+                                  onsubmit="return confirm('Bạn có chắc chắn muốn xóa địa chỉ giao hàng này?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                                    <i class="bi bi-trash3 me-1"></i> Xóa
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Empty state khi chưa có địa chỉ -->
+                <div th:if="${addresses == null or addresses.empty}" class="card border-0 shadow-sm rounded-4 p-5 text-center bg-white">
+                    <div class="mb-3 text-muted">
+                        <i class="bi bi-geo-alt display-3 opacity-50 text-danger"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark">Bạn chưa lưu địa chỉ nhận hàng nào</h5>
+                    <p class="text-muted small mb-0">Vui lòng điền thông tin bên phải để thêm địa chỉ giao hàng đầu tiên của bạn.</p>
+                </div>
             </div>
-            <div class="col-md-5">
-                <div class="card border-0 shadow-sm rounded-4 p-4">
-                    <h5 class="fw-bold mb-3">Thêm Địa Chỉ Mới</h5>
+
+            <!-- Cột phải: Form Thêm Địa Chỉ Mới -->
+            <div class="col-lg-5">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white sticky-top" style="top: 24px;">
+                    <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
+                        <i class="bi bi-plus-circle-fill text-pet-primary fs-4 me-2"></i>
+                        <h5 class="fw-bold mb-0 text-dark">Thêm Địa Chỉ Mới</h5>
+                    </div>
+
                     <form th:action="@{/customer/addresses/add}" th:object="${addressForm}" method="post">
-                        <div class="mb-2">
-                            <label class="form-label small">Tên người nhận</label>
-                            <input type="text" class="form-control" th:field="*{recipientName}" required>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Tên người nhận <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control" th:field="*{recipientName}" required placeholder="Ví dụ: Nguyễn Văn A">
+                            </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small">Số điện thoại</label>
-                            <input type="text" class="form-control" th:field="*{recipientPhone}" required>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Số điện thoại <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-telephone"></i></span>
+                                <input type="tel" class="form-control" th:field="*{recipientPhone}" required placeholder="Ví dụ: 0901234567">
+                            </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small">Tỉnh / Thành phố</label>
-                            <input type="text" class="form-control" th:field="*{province}" required>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold">Tỉnh / Thành phố <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" th:field="*{province}" required placeholder="TP. Hồ Chí Minh">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold">Quận / Huyện <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" th:field="*{district}" required placeholder="Thủ Đức">
+                            </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small">Quận / Huyện</label>
-                            <input type="text" class="form-control" th:field="*{district}" required>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Phường / Xã <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" th:field="*{ward}" required placeholder="Linh Trung">
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small">Phường / Xã</label>
-                            <input type="text" class="form-control" th:field="*{ward}" required>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Địa chỉ chi tiết <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" th:field="*{addressLine}" required placeholder="Số nhà, tên đường, tòa nhà">
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small">Địa chỉ chi tiết</label>
-                            <input type="text" class="form-control" th:field="*{addressLine}" required>
+
+                        <div class="form-check mb-4">
+                            <input type="checkbox" class="form-check-input" th:field="*{isDefault}" id="checkDefaultAddress">
+                            <label class="form-check-label small" for="checkDefaultAddress">
+                                Đặt làm địa chỉ giao hàng mặc định
+                            </label>
                         </div>
-                        <div class="form-check mb-3">
-                            <input type="checkbox" class="form-check-input" th:field="*{isDefault}">
-                            <label class="form-check-label small">Đặt làm địa chỉ mặc định</label>
-                        </div>
-                        <button type="submit" class="btn btn-pet-primary w-100">Lưu Địa Chỉ</button>
+
+                        <button type="submit" class="btn btn-pet-primary w-100 py-2 fw-semibold rounded-3 shadow-sm">
+                            <i class="bi bi-check2-circle me-1"></i> Lưu Địa Chỉ
+                        </button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL POPUP: CẬP NHẬT ĐỊA CHỈ GIAO HÀNG                          -->
+    <!-- ================================================================= -->
+    <div class="modal fade" id="editAddressModal" tabindex="-1" aria-labelledby="editAddressModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
+                <div class="modal-header bg-pet-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold" id="editAddressModalLabel">
+                        <i class="bi bi-pencil-square me-2"></i> Cập Nhật Địa Chỉ Giao Hàng
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form id="editAddressForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <div class="modal-body p-4">
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Tên người nhận <span class="text-danger">*</span></label>
+                                <input type="text" name="recipientName" id="editRecipientName" class="form-control" required placeholder="Họ và tên">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Số điện thoại <span class="text-danger">*</span></label>
+                                <input type="tel" name="recipientPhone" id="editRecipientPhone" class="form-control" required placeholder="0901234567">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Tỉnh / Thành phố <span class="text-danger">*</span></label>
+                                <input type="text" name="province" id="editProvince" class="form-control" required placeholder="TP. Hồ Chí Minh">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Quận / Huyện <span class="text-danger">*</span></label>
+                                <input type="text" name="district" id="editDistrict" class="form-control" required placeholder="Thủ Đức">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Phường / Xã <span class="text-danger">*</span></label>
+                                <input type="text" name="ward" id="editWard" class="form-control" required placeholder="Linh Trung">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Địa chỉ chi tiết <span class="text-danger">*</span></label>
+                                <input type="text" name="addressLine" id="editAddressLine" class="form-control" required placeholder="Số nhà, tên đường, tòa nhà">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="isDefault" value="true" id="editDefaultCheck">
+                                    <label class="form-check-label small" for="editDefaultCheck">
+                                        Đặt làm địa chỉ giao hàng mặc định
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer bg-light border-0 py-3 px-4">
+                        <button type="button" class="btn btn-outline-secondary px-3 rounded-3" data-bs-dismiss="modal">Hủy bỏ</button>
+                        <button type="submit" class="btn btn-pet-primary px-4 fw-semibold rounded-3">
+                            <i class="bi bi-check2 me-1"></i> Lưu Thay Đổi
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
+
+<th:block layout:fragment="custom-js">
+    <script>
+        function openEditAddressModal(btnOrId, recipientName, recipientPhone, province, district, ward, addressLine, isDefault) {
+            let id, name, phone, prov, dist, w, addr, def;
+            if (btnOrId instanceof HTMLElement) {
+                const d = btnOrId.dataset;
+                id = d.id;
+                name = d.recipientName || '';
+                phone = d.recipientPhone || '';
+                prov = d.province || '';
+                dist = d.district || '';
+                w = d.ward || '';
+                addr = d.addressLine || '';
+                def = (d.isDefault === 'true');
+            } else {
+                id = btnOrId;
+                name = recipientName || '';
+                phone = recipientPhone || '';
+                prov = province || '';
+                dist = district || '';
+                w = ward || '';
+                addr = addressLine || '';
+                def = !!isDefault;
+            }
+
+            document.getElementById('editRecipientName').value = name;
+            document.getElementById('editRecipientPhone').value = phone;
+            document.getElementById('editProvince').value = prov;
+            document.getElementById('editDistrict').value = dist;
+            document.getElementById('editWard').value = w;
+            document.getElementById('editAddressLine').value = addr;
+            document.getElementById('editDefaultCheck').checked = def;
+            document.getElementById('editAddressForm').action = '/customer/addresses/' + id + '/edit';
+            const modal = new bootstrap.Modal(document.getElementById('editAddressModal'));
+            modal.show();
+        }
+    </script>
+</th:block>
 </body>
 </html>

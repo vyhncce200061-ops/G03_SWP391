@@ -15,10 +15,10 @@
     
     <style>
         :root {
-            --pet-primary: #0d9488;
+            --pet-primary: #07766a;
             --pet-primary-dark: #0f766e;
             --pet-accent: #f59e0b;
-            --pet-bg-soft: #f8fafc;
+            --pet-bg-soft: #06350d;
         }
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -47,8 +47,8 @@
         }
         .footer-pet {
             margin-top: auto;
-            background-color: #1e293b;
-            color: #cbd5e1;
+            background-color: #031009;
+            color: #ffffff;
         }
         .cart-badge {
             font-size: 0.75rem;
@@ -56,6 +56,7 @@
             top: -5px;
             right: -8px;
         }
+        .footer-pet .text-muted { color: #cbd5e1 !important; }
     </style>
     <th:block layout:fragment="custom-css"></th:block>
 </head>
@@ -137,9 +138,9 @@
                                     </li>
                                     <li sec:authorize="hasAnyRole('STAFF', 'ADMIN')"><hr class="dropdown-divider"></li>
                                     
-                                    <li><a class="dropdown-item" th:href="@{/customer/profile}"><i class="bi bi-person me-2"></i>Hồ Sơ Cá Nhân</a></li>
-                                    <li><a class="dropdown-item" th:href="@{/customer/orders}"><i class="bi bi-bag-check me-2"></i>Đơn Hàng Của Tôi</a></li>
-                                    <li><a class="dropdown-item" th:href="@{/customer/addresses}"><i class="bi bi-geo-alt me-2"></i>Sổ Địa Chỉ</a></li>
+                                    <li><a class="dropdown-item" th:href="@{/account/profile}"><i class="bi bi-person me-2"></i>Hồ Sơ Cá Nhân</a></li>
+                                    <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/orders}"><i class="bi bi-bag-check me-2"></i>Đơn Hàng Của Tôi</a><a class="dropdown-item" th:href="@{/customer/reviews}">Đánh giá của tôi</a></li>
+                                    <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/addresses}"><i class="bi bi-geo-alt me-2"></i>Sổ Địa Chỉ</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li>
                                         <form th:action="@{/logout}" method="post" class="m-0 p-0">
@@ -189,7 +190,7 @@
                     <h5 class="text-white mb-3 d-flex align-items-center gap-2">
                         <i class="bi bi-heart-pulse-fill text-danger"></i> PetShop SWP391
                     </h5>
-                    <p class="small text-muted">Hệ thống bán lẻ phụ kiện, thức ăn và đồ dùng chăm sóc thú cưng hàng đầu. Cam kết 100% hàng chính hãng, chất lượng cao vì tình yêu thương với thú cưng.</p>
+                    <p class="small text-white">Hệ thống bán lẻ phụ kiện, thức ăn và đồ dùng chăm sóc thú cưng hàng đầu. Cam kết 100% hàng chính hãng, chất lượng cao vì tình yêu thương với thú cưng.</p>
                     <p class="small mb-1"><i class="bi bi-geo-alt me-2"></i>Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh</p>
                     <p class="small mb-1"><i class="bi bi-telephone me-2"></i>Hotline: 1900 1234 (8:00 - 21:00)</p>
                     <p class="small"><i class="bi bi-envelope me-2"></i>Hỗ trợ: support@petshop.vn</p>
@@ -197,16 +198,16 @@
                 <div class="col-lg-2 col-md-6">
                     <h6 class="text-white mb-3">Về Chúng Tôi</h6>
                     <ul class="list-unstyled small text-muted">
-                        <li class="mb-2"><a th:href="@{/about}" class="text-reset text-decoration-none">Giới thiệu</a></li>
-                        <li class="mb-2"><a th:href="@{/contact}" class="text-reset text-decoration-none">Liên hệ</a></li>
+                        <li class="mb-2"><a th:href="@{/about}" class="text-white text-decoration-none">Giới thiệu</a></li>
+                        <li class="mb-2"><a th:href="@{/contact}" class="text-white text-decoration-none">Liên hệ</a></li>
                     </ul>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <h6 class="text-white mb-3">Chính Sách & Hỗ Trợ</h6>
                     <ul class="list-unstyled small text-muted">
-                        <li class="mb-2"><span class="text-reset">Chính sách giao hàng (30.000đ)</span></li>
-                        <li class="mb-2"><span class="text-reset">Hướng dẫn đặt hàng</span></li>
-                        <li class="mb-2"><span class="text-reset">Bảo mật thông tin</span></li>
+                        <li class="mb-2"><span class="text-white">Chính sách giao hàng (30.000đ)</span></li>
+                        <li class="mb-2"><span class="text-white">Hướng dẫn đặt hàng</span></li>
+                        <li class="mb-2"><span class="text-white">Bảo mật thông tin</span></li>
                     </ul>
                 </div>
                 <div class="col-lg-3 col-md-6">
@@ -215,7 +216,7 @@
                         <span class="badge bg-light text-dark p-2 border"><i class="bi bi-cash-coin me-1 text-success"></i> COD</span>
                         <span class="badge bg-light text-dark p-2 border"><i class="bi bi-credit-card me-1 text-primary"></i> VNPay</span>
                     </div>
-                    <small class="text-muted">Đồ án thực hành môn SWP391 - Nhóm SE2003-G03.</small>
+                    <small class="text-white">Đồ án thực hành môn SWP391 - Nhóm SE2003-G03.</small>
                 </div>
             </div>
             <hr class="my-4 border-secondary">

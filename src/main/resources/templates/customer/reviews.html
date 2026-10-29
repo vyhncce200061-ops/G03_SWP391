@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main-layout}">
+<head>
+<title>Đánh giá của tôi</title>
+</head>
+<body>
+<main layout:fragment="content" class="container py-4">
+<div class="card p-4">
+<h1 class="h4">Đánh giá của tôi (Feedback)</h1>
+<a th:href="@{/customer/orders}">Mở đơn hoàn tất để đánh giá sản phẩm</a>
+<p th:if="${reviews.empty}" class="mt-3">Bạn chưa gửi đánh giá nào.</p>
+<article th:each="r : ${reviews.content}" class="border rounded p-3 my-3">
+<h2 class="h6" th:text="${r.orderItem.productNameSnapshot}">
+</h2>
+<p class="small text-muted" th:text="${r.orderItem.order.orderCode + ' · ' + #temporals.format(r.createdAt,'dd/MM/yyyy HH:mm')}">
+</p>
+<p th:text="${r.rating + '/5 sao'}">
+</p>
+<p style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.comment}">
+</p>
+<span class="badge bg-secondary" th:text="${r.status.name() == 'VISIBLE' ? 'Công khai' : 'Đã ẩn khỏi trang sản phẩm'}">
+</span>
+<div th:if="${r.replyText != null}" class="border-start border-3 ps-3 mt-3">
+<strong>Phản hồi từ PetShop</strong>
+<small class="d-block text-muted" th:text="${#temporals.format(r.repliedAt,'dd/MM/yyyy HH:mm')}">
+</small>
+<p style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.replyText}">
+</p>
+</div>
+</article>
+<nav class="d-flex gap-3">
+<a th:if="${reviews.hasPrevious()}" th:href="@{/customer/reviews(page=${reviews.number - 1})}">Trước</a>
+<a th:if="${reviews.hasNext()}" th:href="@{/customer/reviews(page=${reviews.number + 1})}">Sau</a>
+</nav>
+</div>
+</main>
+</body>
+</html>

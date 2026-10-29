@@ -3,6 +3,8 @@ package com.petshop.service;
 import com.petshop.dto.order.CheckoutSubmitDto;
 import com.petshop.entity.Order;
 import com.petshop.entity.enums.OrderStatus;
+import com.petshop.entity.enums.CancelType;
+import java.time.LocalDate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -10,7 +12,9 @@ public interface OrderService {
     Order checkoutOrder(Long customerId, CheckoutSubmitDto request);
 
     Page<Order> getCustomerOrders(Long customerId, OrderStatus status, Pageable pageable);
+    Page<Order> getCustomerOrders(Long customerId, OrderStatus status, LocalDate fromDate, LocalDate toDate, Pageable pageable);
     Order getOrderDetailForCustomer(Long orderId, Long customerId);
+    Order getOrderByCodeForCustomer(String orderCode, Long customerId);
     void customerCancelOrder(Long orderId, Long customerId, String reason);
 
     Page<Order> getOrdersForStaff(OrderStatus status, Pageable pageable);
@@ -21,4 +25,5 @@ public interface OrderService {
     void markCompleted(Long orderId, Long staffId);
     void staffRejectOrder(Long orderId, Long staffId, String rejectReason);
     void cancelExpiredPendingPaymentOrders();
+    void cancelPendingPaymentOrder(Long orderId, CancelType cancelType, String reason);
 }

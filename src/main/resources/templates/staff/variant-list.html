@@ -7,73 +7,70 @@
 </head>
 <body>
 <div layout:fragment="admin-content">
+    <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="fw-bold mb-1">Quản Lý Biến Thể SKU</h4>
-            <p class="text-muted mb-0" th:text="${'Sản phẩm: ' + product.name}"></p>
+            <h4 class="page-title">
+                Quản Lý Biến Thể SKU
+            </h4>
+            <p class="mb-0">
+                <span class="text-muted">Sản phẩm:</span>
+                <span class="fw-bold fs-5 text-pet-primary" th:text="${product.name}">Tên SP</span>
+            </p>
         </div>
-        <a th:href="@{/staff/products}" class="btn btn-outline-secondary">Quay lại sản phẩm</a>
+        <div>
+            <!-- Navigate to create form -->
+            <a th:href="@{/staff/products/{id}/variants/create(id=${product.id})}" class="btn btn-pet-primary">
+                <i class="bi bi-plus-lg me-1"></i>Thêm Biến Thể
+            </a>
+            <a th:href="@{/staff/products}" class="btn btn-outline-secondary ms-2">Quay lại</a>
+        </div>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm rounded-4 p-3">
-                <h5 class="fw-bold mb-3">Danh Sách SKU</h5>
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
-                            <tr>
-                                <th>Mã SKU</th>
-                                <th>Tên biến thể</th>
-                                <th>Giá bán</th>
-                                <th>Tồn kho</th>
-                                <th>Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="v : ${product.variants}">
-                                <td class="fw-semibold" th:text="${v.skuCode}">SKU-001</td>
-                                <td th:text="${v.variantName}">Túi 500g</td>
-                                <td th:text="${#numbers.formatDecimal(v.price, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
-                                <td>
-                                    <span th:class="${v.stockQuantity <= v.lowStockThreshold ? 'badge bg-danger' : 'badge bg-success'}"
-                                          th:text="${v.stockQuantity}">10</span>
-                                </td>
-                                <td><span class="badge bg-secondary" th:text="${v.status}">ACTIVE</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm rounded-4 p-4">
-                <h5 class="fw-bold mb-3">Thêm Biến Thể Mới</h5>
-                <form th:action="@{/staff/products/{id}/variants(id=${product.id})}" th:object="${newVariant}" method="post">
-                    <div class="mb-2">
-                        <label class="form-label small">Mã SKU</label>
-                        <input type="text" class="form-control" th:field="*{skuCode}" required placeholder="RC-POODLE-500G">
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small">Tên biến thể</label>
-                        <input type="text" class="form-control" th:field="*{variantName}" required placeholder="Túi 500g">
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small">Giá bán (VNĐ)</label>
-                        <input type="number" class="form-control" th:field="*{price}" required min="0">
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small">Giá gốc (nếu giảm)</label>
-                        <input type="number" class="form-control" th:field="*{originalPrice}" min="0">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small">Ngưỡng cảnh báo kho</label>
-                        <input type="number" class="form-control" th:field="*{lowStockThreshold}" value="5" min="0">
-                    </div>
-                    <button type="submit" class="btn btn-pet-primary w-100">Thêm Biến Thể</button>
-                </form>
-            </div>
+    <!-- SKU List Table -->
+    <div class="card border-0 shadow-sm rounded-4 p-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                <tr>
+                    <th>Mã SKU</th>
+                    <th>Tên biến thể</th>
+                    <th>Giá bán</th>
+                    <th>Tồn kho</th>
+                    <th>Trạng thái</th>
+                    <th class="text-center">Thao tác</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- Loop through variants -->
+                <tr th:each="v : ${product.variants}">
+                    <td class="fw-semibold" th:text="${v.skuCode}">SKU-001</td>
+                    <td th:text="${v.variantName}">Túi 500g</td>
+                    <td th:text="${#numbers.formatDecimal(v.price, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
+                    <td>
+                        <!-- Low stock warning color -->
+                        <span th:class="${v.stockQuantity <= v.lowStockThreshold ? 'badge bg-danger' : 'badge bg-success'}"
+                              th:text="${v.stockQuantity}">10</span>
+                    </td>
+                    <td>
+                        <!-- Variant Status Badges -->
+                        <span th:if="${v.status.name() == 'ACTIVE'}" class="badge bg-success">ACTIVE</span>
+                        <span th:if="${v.status.name() == 'INACTIVE'}" class="badge bg-warning text-dark">INACTIVE</span>
+                        <span th:if="${v.status.name() == 'DISCONTINUED'}" class="badge bg-secondary">DISCONTINUED</span>
+                    </td>
+                    <td class="text-center">
+                        <!-- Navigate to edit form -->
+                        <a th:href="@{/staff/products/{id}/variants/{vid}/edit(id=${product.id}, vid=${v.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i> Sửa
+                        </a>
+                    </td>
+                </tr>
+                <!-- Empty state -->
+                <tr th:if="${#lists.isEmpty(product.variants)}">
+                    <td colspan="6" class="text-center text-muted py-4">Chưa có biến thể nào.</td>
+                </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

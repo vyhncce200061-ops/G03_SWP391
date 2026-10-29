@@ -18,4 +18,9 @@ public class CartDto {
     private List<CartItemDto> items = new ArrayList<>();
     private BigDecimal subtotal;
     private int totalQuantity;
+    private int selectedQuantity;
+    private int selectedItemCount;
+    private boolean checkoutAllowed;
+    private BigDecimal shippingFee;
+    private BigDecimal totalAmount;
 }

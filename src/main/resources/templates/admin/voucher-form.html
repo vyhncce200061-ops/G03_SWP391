@@ -3,11 +3,11 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/admin-layout}">
 <head>
-    <title th:text="${voucher.id == null ? 'Tạo Voucher Mới' : 'Cập Nhật Voucher'}">Thông Tin Voucher</title>
+    <title th:text="${voucherForm.id == null ? 'Tạo Voucher Mới' : 'Cập Nhật Voucher'}">Thông Tin Voucher</title>
 </head>
 <body>
 <div layout:fragment="admin-header-title">
-    <span>Quản Trị Hệ Thống / <span th:text="${voucher.id == null ? 'Tạo Voucher Mới' : 'Cập Nhật Voucher'}"></span></span>
+    <span>Quản Trị Hệ Thống / <span th:text="${voucherForm.id == null ? 'Tạo Voucher Mới' : 'Cập Nhật Voucher'}"></span></span>
 </div>
 
 <div layout:fragment="admin-content">
@@ -15,7 +15,7 @@
         <div class="col-lg-9">
             <div class="d-flex align-items-center justify-content-between mb-4">
                 <div>
-                    <h4 class="fw-bold mb-1" th:text="${voucher.id == null ? 'Tạo Mã Giảm Giá Mới' : 'Cập Nhật Mã Giảm Giá #' + voucher.code}">Tạo Mã Giảm Giá</h4>
+                    <h4 class="fw-bold mb-1" th:text="${voucherForm.id == null ? 'Tạo Mã Giảm Giá Mới' : 'Cập Nhật Mã Giảm Giá #' + voucherForm.code}">Tạo Mã Giảm Giá</h4>
                     <p class="text-muted small mb-0">Cấu hình thông số chiết khấu, hạn mức và thời gian áp dụng khuyến mãi.</p>
                 </div>
                 <a th:href="@{/admin/vouchers}" class="btn btn-outline-secondary">
@@ -24,20 +24,25 @@
             </div>
 
             <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5">
-                <form th:action="${voucher.id == null ? '/admin/vouchers/create' : '/admin/vouchers/' + voucher.id + '/edit'}"
-                      th:object="${voucher}" method="post">
+                <form th:action="${voucherForm.id == null ? '/admin/vouchers/create' : '/admin/vouchers/' + voucherForm.id + '/edit'}"
+                      th:object="${voucherForm}" method="post">
+                    <input type="hidden" th:field="*{id}">
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Mã Voucher (Code) <span class="text-danger">*</span></label>
                             <input type="text" th:field="*{code}" class="form-control text-uppercase font-monospace fw-bold"
-                                   placeholder="VD: PETWELCOME20" required th:readonly="${voucher.id != null}">
-                            <div class="form-text">Mã viết hoa, không dấu, không khoảng trắng (duy nhất).</div>
+                                   placeholder="VD: PETWELCOME20" th:classappend="${#fields.hasErrors('code')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{code}"></div>
+                            <div class="form-text">Mã viết hoa, không dấu, không khoảng trắng và duy nhất, kể cả mã đã xóa.
+                                <a th:href="@{/admin/vouchers(deleted=true,keyword=${voucherForm.code})}">Phục hồi mã đã xóa</a> để dùng lại.
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Tên Chương Trình Khuyến Mãi <span class="text-danger">*</span></label>
                             <input type="text" th:field="*{title}" class="form-control"
-                                   placeholder="VD: Giảm 20% Cho Khách Mới" required>
+                                   placeholder="VD: Giảm 20% Cho Khách Mới" th:classappend="${#fields.hasErrors('title')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{title}"></div>
                         </div>
                     </div>
 
@@ -50,23 +55,26 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Loại Chiết Khấu <span class="text-danger">*</span></label>
-                            <select th:field="*{discountType}" class="form-select" required>
+                            <select th:field="*{discountType}" class="form-select" th:classappend="${#fields.hasErrors('discountType')} ? 'is-invalid'">
                                 <option value="PERCENT">Giảm Theo Phần Trăm (%)</option>
                                 <option value="FIXED">Giảm Số Tiền Cố Định (VNĐ)</option>
                             </select>
+                            <div class="invalid-feedback" th:errors="*{discountType}"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Giá Trị Giảm <span class="text-danger">*</span></label>
                             <input type="number" step="0.01" th:field="*{discountValue}" class="form-control"
-                                   placeholder="VD: 15 (cho 15%) hoặc 50000 (cho 50k)" required>
+                                   placeholder="VD: 15 (cho 15%) hoặc 50000 (cho 50k)" th:classappend="${#fields.hasErrors('discountValue')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{discountValue}"></div>
                         </div>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Giá Trị Đơn Tối Thiểu (VNĐ)</label>
+                            <label class="form-label fw-semibold">Giá Trị Đơn Tối Thiểu (VNĐ) <span class="text-danger">*</span></label>
                             <input type="number" step="1000" th:field="*{minOrderAmount}" class="form-control"
-                                   placeholder="0 nếu không yêu cầu">
+                                   placeholder="0 nếu không yêu cầu" th:classappend="${#fields.hasErrors('minOrderAmount')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{minOrderAmount}"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Mức Giảm Tối Đa (VNĐ)</label>
@@ -78,22 +86,30 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Thời Gian Bắt Đầu <span class="text-danger">*</span></label>
-                            <input type="datetime-local" th:field="*{startDate}" class="form-control" required>
+                            <input type="datetime-local" th:field="*{startDate}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('startDate')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{startDate}"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Thời Gian Kết Thúc <span class="text-danger">*</span></label>
-                            <input type="datetime-local" th:field="*{endDate}" class="form-control" required>
+                            <input type="datetime-local" th:field="*{endDate}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('endDate')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{endDate}"></div>
                         </div>
                     </div>
 
                     <div class="row mb-4">
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Tổng Số Lượt Dùng Toàn Sàn <span class="text-danger">*</span></label>
-                            <input type="number" th:field="*{totalUsageLimit}" class="form-control" placeholder="VD: 500" required>
+                            <input type="number" th:field="*{totalUsageLimit}" class="form-control" placeholder="VD: 500"
+                                   th:classappend="${#fields.hasErrors('totalUsageLimit')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{totalUsageLimit}"></div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Lượt Dùng / Khách Hàng</label>
-                            <input type="number" th:field="*{perCustomerLimit}" class="form-control" placeholder="Mặc định: 1">
+                            <label class="form-label fw-semibold">Lượt Dùng / Khách Hàng <span class="text-danger">*</span></label>
+                            <input type="number" th:field="*{perCustomerLimit}" class="form-control" placeholder="Mặc định: 1"
+                                   th:classappend="${#fields.hasErrors('perCustomerLimit')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{perCustomerLimit}"></div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Trạng Thái Kích Hoạt</label>

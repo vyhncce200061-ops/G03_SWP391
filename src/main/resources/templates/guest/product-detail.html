@@ -7,35 +7,37 @@
 </head>
 <body>
 <div layout:fragment="content" class="py-5">
+
+
     <div class="container">
         <div class="row g-5">
             <div class="col-md-6 text-center">
                 <img th:if="${product.images != null and !product.images.empty}"
-                     th:src="${product.images[0].imageUrl}"
+                     th:src="${product.images.iterator().next().imageUrl}"
                      src="https://placehold.co/500x400?text=Product"
                      class="img-fluid rounded-4 shadow-sm" alt="Product Image">
                 <img th:if="${product.images == null or product.images.empty}"
-                     src="https://placehold.co/500x400?text=Product"
+                     src="https://placehold.co/500x400?text=PetShop"
                      class="img-fluid rounded-4 shadow-sm" alt="Placeholder">
             </div>
             <div class="col-md-6">
                 <span class="badge bg-secondary mb-2" th:text="${product.petType}">DOG</span>
-                <h2 class="fw-bold" th:text="${product.name}">Tên sản phẩm</h2>
-                <p class="text-muted" th:text="${product.shortDescription}">Mô tả ngắn sản phẩm</p>
+                <h2 class="text-white" th:text="${product.name}">Tên sản phẩm</h2>
+                <p class="text-white" th:text="${product.shortDescription}">Mô tả ngắn sản phẩm</p>
                 <hr>
                 
-                <form th:action="@{/cart/add}" method="post" th:if="${product.variants != null and !product.variants.empty}">
+                <form th:action="@{/cart/add}" method="post" th:if="${!#lists.isEmpty(availableVariants)}">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Chọn Phân Loại:</label>
+                        <label class="form-label text-white">Chọn Phân Loại:</label>
                         <select class="form-select" name="variantId" required>
-                            <option th:each="v : ${product.variants}"
+                            <option th:each="v : ${availableVariants}"
                                     th:value="${v.id}"
-                                    th:text="${v.variantName + ' - ' + #numbers.formatDecimal(v.price, 0, 'COMMA', 0, 'POINT') + ' đ (Kho: ' + v.stockQuantity + ')'}">
+                                    th:text="${v.variantName + ' - ' + #numbers.formatDecimal(v.price, 0, 'POINT', 0, 'COMMA') + ' đ (Kho: ' + v.stockQuantity + ')'}">
                             </option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Số lượng:</label>
+                        <label class="form-label text-white">Số lượng:</label>
                         <input type="number" name="quantity" class="form-control" value="1" min="1" max="100" style="width: 120px;">
                     </div>
                     <button type="submit" class="btn btn-pet-primary btn-lg w-100">
@@ -43,13 +45,22 @@
                     </button>
                 </form>
 
+
                 <div class="mt-4">
-                    <h5 class="fw-bold">Mô tả chi tiết:</h5>
-                    <div th:utext="${product.description}">Nội dung chi tiết sản phẩm...</div>
+                    <h5 class="text-white mb-3">Mô tả chi tiết:</h5>
+
+                    <div class="text-white"
+                         style="white-space: pre-line; line-height: 1.8;"
+                         th:text="${product.description != null and !product.description.isBlank()
+             ? product.description
+             : 'Chưa có mô tả chi tiết cho sản phẩm này.'}">
+                    </div>
                 </div>
+
             </div>
         </div>
     </div>
+<section class="container my-4"><div class="card p-3"><h2 class="h5">Đánh giá từ khách đã mua hàng</h2><p th:if="${reviews.empty}">Chưa có đánh giá công khai.</p><article th:each="r : ${reviews.content}" class="border-bottom py-3"><strong th:text="${r.rating + '/5 sao'}"></strong> <small th:text="${#temporals.format(r.createdAt,'dd/MM/yyyy')}"></small><p style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.comment}"></p><div th:if="${r.replyText != null}" class="border-start border-3 ps-3 mt-3"><strong>Phản hồi từ PetShop</strong><small class="d-block text-muted" th:text="${#temporals.format(r.repliedAt,'dd/MM/yyyy HH:mm')}"></small><p style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.replyText}"></p></div></article><nav class="d-flex gap-3"><a th:if="${reviews.hasPrevious()}" th:href="@{/products/{slug}(slug=${product.slug},reviewPage=${reviews.number-1})}">Trước</a><a th:if="${reviews.hasNext()}" th:href="@{/products/{slug}(slug=${product.slug},reviewPage=${reviews.number+1})}">Sau</a></nav></div></section>
 </div>
 </body>
 </html>

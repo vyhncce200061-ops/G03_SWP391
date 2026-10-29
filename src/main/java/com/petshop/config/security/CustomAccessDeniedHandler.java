@@ -21,6 +21,7 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException, ServletException {
         log.warn("Access denied for URI: {}. Reason: {}", request.getRequestURI(), accessDeniedException.getMessage());
+
         response.sendRedirect(request.getContextPath() + "/error/403");
     }
 }

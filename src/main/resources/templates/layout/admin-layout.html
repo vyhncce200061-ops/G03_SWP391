@@ -16,8 +16,8 @@
     <style>
         :root {
             --sidebar-width: 260px;
-            --portal-dark: #0f172a;
-            --portal-hover: #1e293b;
+            --portal-dark: #0f4940;
+            --portal-hover: #195120;
             --portal-active: #0d9488;
         }
         body {
@@ -119,7 +119,7 @@
             <a th:href="@{/staff/stock-imports}">
                 <i class="bi bi-box-arrow-in-down"></i> Nhập Kho Hàng Hóa
             </a>
-            <a th:href="@{/staff/stock-imports/low-stock}">
+            <a th:href="@{/staff/products/low-stock}">
                 <i class="bi bi-exclamation-diamond text-warning"></i> Cảnh Báo Hết Hàng
             </a>
 
@@ -132,15 +132,21 @@
                 <a th:href="@{/admin/categories}">
                     <i class="bi bi-diagram-3"></i> Quản Lý Danh Mục
                 </a>
+                <a th:href="@{/admin/brands}">
+                    <i class="bi bi-tags"></i> Quản Lý Thương Hiệu
+                </a>
                 <a th:href="@{/admin/vouchers}">
                     <i class="bi bi-ticket-perforated"></i> Khuyến Mãi (Voucher)
                 </a>
+                <a th:href="@{/admin/reviews}"><i class="bi bi-chat-left-text"></i> Quản Lý Đánh Giá</a>
+                <a th:href="@{/admin/reports/product-sales}"><i class="bi bi-bar-chart"></i> Báo Cáo Bán Sản Phẩm</a>
                 <a th:href="@{/admin/reports/revenue}">
                     <i class="bi bi-cash-stack"></i> Báo Cáo Doanh Thu
                 </a>
                 <a th:href="@{/admin/reports/stock}">
                     <i class="bi bi-check2-circle text-success"></i> Đối Chiếu Tồn Kho
                 </a>
+                <a th:href="@{/admin/reports/reviews}"><i class="bi bi-star"></i> Báo Cáo Đánh Giá</a>
             </th:block>
 
             <div class="sidebar-heading mt-2">Liên Kết Nhanh</div>

@@ -6,9 +6,57 @@
 
 body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: #334155;
+    background-color: var(--pet-bg-soft);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .table th {
     font-weight: 600;
+}
+
+/* Page Title Styling */
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #0f172a;
+    border-left: 5px solid var(--accent-color);
+    padding-left: 12px;
+    margin-bottom: 0;
+}
+
+/* Custom text color for PetShop */
+.text-pet-primary {
+    color: #0d9488 !important;
+}
+
+/* Solid Button (For Main Actions like "Add New") */
+.btn-pet-primary {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #ffffff;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-pet-primary:hover {
+    background-color: #0b7a6f; /* Slightly darker teal */
+    border-color: #0b7a6f;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(13, 148, 136, 0.2);
+}
+
+/* Outline Button (For Form Save buttons) */
+.btn-pet-outline {
+    background-color: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-pet-outline:hover {
+    background-color: var(--accent-color);
+    color: #ffffff;
 }

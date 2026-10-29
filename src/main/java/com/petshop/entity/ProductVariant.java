@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
  * Mapped to table dbo.ProductVariants.
  */
 @Entity
+@org.hibernate.annotations.DynamicUpdate
 @Table(name = "ProductVariants")
 @Getter
 @Setter
