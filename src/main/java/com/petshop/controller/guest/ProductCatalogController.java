@@ -12,6 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import com.petshop.entity.Product;
+import com.petshop.entity.Category;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -46,12 +47,14 @@ public class ProductCatalogController {
 
         // Support both current catalog parameters and existing links from Vy's branch.
         if (sortBy == null || sortBy.isBlank()) sortBy = sort;
+        if ("priceAsc".equals(sortBy)) sortBy = "price_asc";
+        if ("priceDesc".equals(sortBy)) sortBy = "price_desc";
         if (priceRange != null && minPrice == null && maxPrice == null) {
             switch (priceRange) {
-                case "under100" -> maxPrice = new java.math.BigDecimal("100000");
+                case "under100" -> maxPrice = new java.math.BigDecimal("99999.99");
                 case "100to300" -> { minPrice = new java.math.BigDecimal("100000"); maxPrice = new java.math.BigDecimal("300000"); }
                 case "300to500" -> { minPrice = new java.math.BigDecimal("300000"); maxPrice = new java.math.BigDecimal("500000"); }
-                case "over500" -> minPrice = new java.math.BigDecimal("500000");
+                case "over500" -> minPrice = new java.math.BigDecimal("500000.01");
                 default -> { }
             }
         }
@@ -139,7 +142,7 @@ public class ProductCatalogController {
 
             // Retrieve products in the matching category.
             ProductFilterDto filter = ProductFilterDto.builder()
-                    .categoryId(category.getId().longValue())
+                    .categoryId(category.getId())
                     .build();
 
             Page<ProductSummaryDto> page =

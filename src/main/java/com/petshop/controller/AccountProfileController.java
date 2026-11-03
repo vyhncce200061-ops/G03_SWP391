@@ -71,6 +71,11 @@ public class AccountProfileController {
             RedirectAttributes redirect) {
         try {
             users.updateAvatar(principal.getId(), file);
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            var details = new CustomUserDetails(users.findById(principal.getId()));
+            var refreshed = new UsernamePasswordAuthenticationToken(details, details.getPassword(), details.getAuthorities());
+            if (auth != null) refreshed.setDetails(auth.getDetails());
+            SecurityContextHolder.getContext().setAuthentication(refreshed);
             redirect.addFlashAttribute("successMessage", "Đã cập nhật ảnh đại diện.");
         } catch (IllegalArgumentException | IllegalStateException exception) {
             redirect.addFlashAttribute("errorMessage", exception.getMessage());

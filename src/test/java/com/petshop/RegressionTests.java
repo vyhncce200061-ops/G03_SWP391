@@ -435,7 +435,11 @@ class RegressionTests {
         assertEquals(0,orders.count());assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
     }
     @Test void stockImportRequiresItemsAndProductVariantStartsAtZero() {
-        assertThrows(IllegalArgumentException.class,()->imports.createStockImport(new StockImport(),List.of(),staff.getId()));
+        var emptyForm = new com.petshop.dto.stock.StockImportFormDto();
+        emptyForm.setSupplierName("");
+        emptyForm.setItems(java.util.List.of());
+        assertThrows(IllegalArgumentException.class,
+                () -> imports.createStockImport(emptyForm, staff.getId()));
         var pv=ProductVariant.builder().skuCode("REG-NEW").variantName("New").price(BigDecimal.TEN).stockQuantity(500).build();
         assertEquals(0,manage.addVariant(product.getId(),pv).getStockQuantity());
     }

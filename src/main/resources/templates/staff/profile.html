@@ -332,7 +332,7 @@
                     <p class="text-muted small m-0 mt-1">Để bảo vệ tài khoản nhân viên, vui lòng dùng mật khẩu mạnh và không chia sẻ cho người khác</p>
                 </div>
 
-                <form th:action="@{/staff/change-password}" method="post">
+                <form th:action="@{${profilePath == '/account/profile' ? '/account/password' : '/staff/change-password'}}" method="post">
                     <div class="row g-3">
                         <div class="col-12">
                             <label for="staffCurrentPassword" class="form-label small fw-semibold">Mật khẩu hiện tại</label>
@@ -379,7 +379,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form th:action="@{/staff/profile}" method="post" enctype="multipart/form-data">
+                <form th:action="@{${profilePath ?: '/staff/profile'}}" method="post" enctype="multipart/form-data">
                     <div class="modal-body p-4">
                         <!-- Avatar -->
                         <div class="mb-4 text-center">

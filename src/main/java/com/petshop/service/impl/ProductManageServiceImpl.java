@@ -34,6 +34,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     private final BrandRepository brandRepository;
     private final ProductImageRepository productImageRepository;
     private final jakarta.validation.Validator validator;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -44,7 +45,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional(readOnly = true)
     public Page<Product> searchProducts(String keyword, Integer categoryId, Pageable pageable) {
-        return productRepository.findAll((root, query, cb) -> {
+        Page<Product> products = productRepository.findAll((root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             if (keyword != null && !keyword.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
@@ -52,6 +53,21 @@ public class ProductManageServiceImpl implements ProductManageService {
             if (categoryId != null) predicates.add(cb.equal(root.get("category").get("id"), categoryId));
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         }, pageable);
+
+        // Force initialization of lazy collections to prevent LazyInitializationException in Thymeleaf
+        products.getContent().forEach(product -> {
+            if (product.getImages() != null) {
+                product.getImages().size();
+            }
+            if (product.getCategory() != null) {
+                product.getCategory().getName();
+            }
+            if (product.getBrand() != null) {
+                product.getBrand().getName();
+            }
+        });
+
+        return products;
     }
 
     @Override
@@ -99,7 +115,9 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Transactional
     public Product updateProduct(Long id, ProductFormDto form, Long staffId) {
         validateForm(form);
-        Product product = findById(id);
+        Product product = productRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm."));
+        entityManager.refresh(product, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
 
         if (!product.getSlug().equals(form.getSlug()) && productRepository.existsBySlug(form.getSlug())) {
             throw new IllegalArgumentException("Slug \"" + form.getSlug() + "\" đã tồn tại.");
@@ -111,7 +129,16 @@ public class ProductManageServiceImpl implements ProductManageService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục"));
         Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId()).orElse(null) : null;
 
+        if (form.getPrimaryImageId() != null && product.getImages().stream().noneMatch(i -> i.getId().equals(form.getPrimaryImageId()))) {
+            throw new IllegalArgumentException("Ảnh chính phải thuộc sản phẩm đang sửa.");
+        }
         mapFormToProduct(form, product, category, brand, staff);
+        if (form.getPrimaryImageId() != null) {
+            // Clear old primary first to respect SQL Server's filtered unique index.
+            product.getImages().forEach(i -> i.setIsPrimary(false));
+            productImageRepository.flush();
+            product.getImages().stream().filter(i -> i.getId().equals(form.getPrimaryImageId())).findFirst().orElseThrow().setIsPrimary(true);
+        }
         Product updatedProduct = productRepository.save(product);
 
         saveImages(form.getImageFiles(), updatedProduct);

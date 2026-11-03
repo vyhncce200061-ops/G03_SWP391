@@ -278,8 +278,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public Page<Order> getOrdersForStaff(OrderStatus status, Pageable pageable) {
-        return status != null ? orderRepository.findByOrderStatusOrderByCreatedAtDesc(status, pageable)
-                : orderRepository.findAll(pageable);
+        return status != null
+                ? orderRepository.findByOrderStatusOrderByCreatedAtDesc(status, pageable)
+                : orderRepository.findAllByOrderByCreatedAtDesc(pageable);
     }
 
     @Override
@@ -296,8 +297,11 @@ public class OrderServiceImpl implements OrderService {
     public void confirmOrder(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.PENDING_CONFIRMATION);
+
+        // VNPay is confirmed by the verified callback. PENDING_CONFIRMATION
+        // remains COD-only as required by the existing SQL constraint.
         if (order.getPaymentMethod() != PaymentMethod.COD || order.getPaymentStatus() != PaymentStatus.UNPAID) {
-            throw new IllegalStateException("Chỉ xác nhận đơn COD chưa thanh toán đang chờ xác nhận.");
+            throw new IllegalStateException("Đơn hàng không đủ điều kiện xác nhận.");
         }
         transitionStatus(order, OrderStatus.CONFIRMED, "Nhân viên xác nhận đơn hàng", requireUser(staffId));
     }
@@ -342,14 +346,18 @@ public class OrderServiceImpl implements OrderService {
         }
         String reason = cancellationReason(rejectReason, null);
         Order order = lockOrder(orderId);
-        requireStatus(order, OrderStatus.PENDING_CONFIRMATION);
-        if (order.getPaymentMethod() != PaymentMethod.COD || order.getPaymentStatus() != PaymentStatus.UNPAID) {
-            throw new IllegalStateException("Chỉ từ chối đơn COD chưa thanh toán đang chờ xác nhận.");
+        boolean validCOD = order.getOrderStatus() == OrderStatus.PENDING_CONFIRMATION
+                && order.getPaymentMethod() == PaymentMethod.COD
+                && order.getPaymentStatus() == PaymentStatus.UNPAID;
+        boolean validVNPay = order.getOrderStatus() == OrderStatus.CONFIRMED
+                && order.getPaymentMethod() == PaymentMethod.VNPAY
+                && order.getPaymentStatus() == PaymentStatus.PAID;
+
+        if (!validCOD && !validVNPay) {
+            throw new IllegalStateException("Đơn hàng không đủ điều kiện từ chối.");
         }
+
         List<PaymentTransaction> transactions = paymentTransactionRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
-        if (hasSuccessfulPayment(transactions)) {
-            throw new IllegalStateException("Không thể từ chối đơn đã thanh toán.");
-        }
         performOrderCancellation(order, CancelType.STAFF_REJECT, reason, requireUser(staffId), transactions);
     }
 
@@ -475,20 +483,37 @@ public class OrderServiceImpl implements OrderService {
 
     private void performOrderCancellation(Order order, CancelType cancelType, String reason,
                                           User actor, List<PaymentTransaction> transactions) {
+        // 1. MUST CHECK: Only allow cancel if order is PENDING_CONFIRMATION or PENDING_PAYMENT.
+        // This applies to all cancel sources (Customer, Staff, System timeout).
+        boolean staffRejectPaid = cancelType == CancelType.STAFF_REJECT
+                && order.getOrderStatus() == OrderStatus.CONFIRMED
+                && order.getPaymentMethod() == PaymentMethod.VNPAY
+                && order.getPaymentStatus() == PaymentStatus.PAID;
         if (order.getOrderStatus() != OrderStatus.PENDING_CONFIRMATION
-                && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
+                && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT && !staffRejectPaid) {
             throw new IllegalStateException("Đơn hàng đã được xử lý, không thể hủy lại.");
         }
-        if (order.getPaymentStatus() == PaymentStatus.PAID || hasSuccessfulPayment(transactions)) {
-            throw new IllegalStateException("Không thể hủy đơn đã thanh toán.");
+        // 2. BLOCK COD PAID: COD is only marked PAID when delivered (COMPLETED).
+        // So this is just a defensive check (though the OrderStatus check above already blocks it).
+        if (order.getPaymentMethod() == PaymentMethod.COD && order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new IllegalStateException("Đơn COD đã thanh toán (đã giao hàng), không thể hủy.");
         }
+
+        // 3. ALLOW VNPay PAID: Staff can cancel if out of stock/bombing, refund handled manually.
+        // 4. ALLOW COD UNPAID: Customer cancels or Staff rejects.
+        // 5. ALLOW VNPay UNPAID: Timeout or Customer cancels before payment.
         OrderStatus previous = order.getOrderStatus();
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setCancelType(cancelType);
         order.setCancelReason(reason);
         order.setCancelledAt(LocalDateTime.now());
         order.setCancelledBy(actor);
-        order.setPaymentStatus(cancelType == CancelType.PAYMENT_FAILED ? PaymentStatus.FAILED : PaymentStatus.CANCELLED);
+
+        // Cancelling fulfilment does not undo a successful bank payment.
+        // Keep PAID and the successful transaction until an actual refund is reconciled.
+        if (order.getPaymentStatus() != PaymentStatus.PAID) {
+            order.setPaymentStatus(cancelType == CancelType.PAYMENT_FAILED ? PaymentStatus.FAILED : PaymentStatus.CANCELLED);
+        }
         orderRepository.save(order);
 
         for (PaymentTransaction transaction : transactions) {
@@ -510,7 +535,7 @@ public class OrderServiceImpl implements OrderService {
             voucherService.releaseVoucher(order.getVoucher().getId());
             voucherService.restoreCustomerVoucher(order.getCustomer().getId(), order.getVoucher().getId());
         }
-        String historyReason = "Hủy đơn: " + reason;
+        String historyReason = "Hủy đơn: " + (staffRejectPaid ? "Đã thu tiền; cần đối chiếu hoàn tiền riêng. " : "") + reason;
         saveHistory(order, previous, OrderStatus.CANCELLED,
                 historyReason.substring(0, Math.min(1000, historyReason.length())), actor);
         log.info("Order {} cancelled with type {}", order.getOrderCode(), cancelType);

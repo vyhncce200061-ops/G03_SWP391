@@ -1,193 +1,147 @@
 <!DOCTYPE html>
-<html lang="vi"
-      xmlns:th="http://www.thymeleaf.org"
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/admin-layout}">
-
 <head>
     <title>Quản Lý Sản Phẩm</title>
 </head>
-
 <body>
-<div layout:fragment="admin-content" class="container-fluid py-4">
-
+<div layout:fragment="admin-content">
+    <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h3 class="fw-bold mb-1">Quản Lý Sản Phẩm</h3>
-            <p class="text-muted mb-0">Thêm, sửa và quản lý trạng thái sản phẩm.</p>
-        </div>
-
-        <a th:href="@{${productBasePath + '/create'}}"
-           class="btn btn-success">
-            <i class="bi bi-plus-circle"></i> Thêm sản phẩm
+        <h4 class="page-title">
+            Quản Lý Sản Phẩm
+        </h4>
+        <a th:href="@{${productBasePath + '/create'}}" class="btn btn-pet-primary">
+            <i class="bi bi-plus-lg me-1"></i>Thêm Sản Phẩm
         </a>
     </div>
 
-    <div th:if="${successMessage}"
-         class="alert alert-success"
-         th:text="${successMessage}"></div>
-
-    <div th:if="${errorMessage}"
-         class="alert alert-danger"
-         th:text="${errorMessage}"></div>
-
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body">
-            <form method="get"
-                  th:action="@{${productBasePath}}"
-                  class="row g-3">
-
-                <div class="col-md-6">
-                    <input type="text"
-                           name="keyword"
-                           class="form-control"
-                           placeholder="Tìm theo tên sản phẩm..."
-                           th:value="${keyword}">
+    <!-- Filter Bar -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <form method="get" th:action="@{${productBasePath}}" class="row g-2 align-items-center">
+                <div class="col-md-5">
+                    <input type="text" name="keyword" class="form-control"
+                           placeholder="Tìm theo tên sản phẩm..." th:value="${keyword}">
                 </div>
-
                 <div class="col-md-4">
                     <select name="categoryId" class="form-select">
                         <option value="">Tất cả danh mục</option>
-                        <option th:each="category : ${categories}"
-                                th:value="${category.id}"
+                        <option th:each="category : ${categories}" th:value="${category.id}"
                                 th:text="${category.name}"
                                 th:selected="${selectedCategoryId != null and selectedCategoryId == category.id}">
                         </option>
                     </select>
                 </div>
-
-                <div class="col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search"></i> Tìm
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-pet-outline w-100">
+                        <i class="bi bi-search me-1"></i> Tìm
                     </button>
-                    <a th:href="@{${productBasePath}}"
-                       class="btn btn-outline-secondary">Xóa lọc</a>
+                    <a th:href="@{${productBasePath}}" class="btn btn-outline-secondary text-nowrap">Xóa lọc</a>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <!-- Product Table -->
+    <div class="card border-0 shadow-sm rounded-4 p-3">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
+                <thead>
                 <tr>
-                    <th>ID</th>
+                    <th class="text-center" style="width: 60px;">Ảnh</th>
+                    <th class="text-center">ID</th>
                     <th>Tên sản phẩm</th>
                     <th>Danh mục</th>
-                    <th>Thương hiệu</th>
-                    <th>Loại thú cưng</th>
-                    <th>Trạng thái</th>
-                    <th style="min-width: 230px;">Thao tác</th>
+                    <th class="text-center">Thú cưng</th>
+                    <th class="text-center">Trạng thái</th>
+                    <th class="text-center">Thao tác</th>
                 </tr>
                 </thead>
-
                 <tbody>
-                <tr th:each="product : ${products.content}">
-                    <td th:text="${product.id}"></td>
+                <tr th:each="p : ${products.content}">
+                    <!-- Display Product Image -->
+                    <td class="align-middle" style="width: 60px;">
+                        <!-- Display primary image. If no image data, show placeholder icon -->
+                        <img th:if="${p.images != null and p.images.size() > 0}"
+                             th:src="@{${p.images[0].imageUrl}}"
+                             class="rounded border fade-in"
+                             style="width: 45px; height: 45px; object-fit: cover;"
+                             alt="Product Image"
+                             onerror="this.style.display='none';">
 
-                    <td>
-                        <div class="fw-semibold" th:text="${product.name}"></div>
-                        <small class="text-muted"
-                               th:text="${product.slug}"></small>
-                    </td>
-
-                    <td th:text="${product.category != null ? product.category.name : '—'}"></td>
-
-                    <td th:text="${product.brand != null ? product.brand.name : '—'}"></td>
-
-                    <td th:text="${product.petType}"></td>
-
-                    <td>
-                        <span class="badge"
-                              th:classappend="${product.status.name() == 'ACTIVE'} ? 'bg-success' :
-                                              (${product.status.name() == 'HIDDEN'} ? 'bg-secondary' : 'bg-warning text-dark')"
-                              th:text="${product.status}">
+                        <!-- Placeholder icon for products with NO image data in DB -->
+                        <span th:if="${p.images == null or p.images.size() == 0}" class="text-muted fs-5">
+                            <i class="bi bi-image"></i>
                         </span>
                     </td>
 
+                    <td class="text-center" th:text="${p.id}">1</td>
                     <td>
-                        <div class="d-flex flex-wrap gap-2">
-                            <a th:href="@{${productBasePath + '/' + product.id + '/edit'}}"
-                               class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-pencil"></i> Sửa
-                            </a>
+                        <div class="fw-semibold" th:text="${p.name}">Tên SP</div>
+                        <div class="small text-muted" th:text="${p.slug}">slug</div>
+                    </td>
+                    <td th:text="${p.category != null ? p.category.name : '-'}">Danh mục</td>
 
-                            <!-- SKU management is shared by Admin and Staff. -->
-                            <a th:href="@{/staff/products/{id}/variants(id=${product.id})}"
-                               class="btn btn-sm btn-outline-info">
-                                <i class="bi bi-box-seam"></i> SKU
-                            </a>
+                    <!-- Pet Type Badges -->
+                    <td class="text-center">
+                        <span th:if="${p.petType.name() == 'DOG'}"
+                              class="badge bg-primary-subtle text-primary-emphasis">
+                            DOG
+                        </span>
+                        <span th:if="${p.petType.name() == 'CAT'}"
+                              class="badge bg-danger-subtle text-danger-emphasis">
+                            CAT
+                        </span>
+                        <span th:if="${p.petType.name() == 'BOTH'}"
+                              class="badge bg-secondary-subtle text-secondary-emphasis">
+                            BOTH
+                        </span>
+                    </td>
 
-                            <form th:if="${product.status.name() == 'ACTIVE'}"
-                                  th:action="@{${productBasePath + '/' + product.id + '/status'}}"
-                                  method="post"
-                                  onsubmit="return confirm('Em có chắc muốn ẩn sản phẩm này không?')">
+                    <!-- Status Badges -->
+                    <td class="text-center">
+                        <span th:if="${p.status.name() == 'ACTIVE'}"
+                              class="badge status-badge bg-success">
+                            Đang bán
+                        </span>
+                        <span th:if="${p.status.name() == 'HIDDEN'}"
+                              class="badge status-badge bg-warning">
+                            Tạm ẩn
+                        </span>
+                        <span th:if="${p.status.name() == 'DISCONTINUED'}"
+                              class="badge status-badge bg-secondary">
+                            Ngừng bán
+                        </span>
+                    </td>
 
-                                <input type="hidden" name="status" value="HIDDEN">
-
-                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-eye-slash"></i> Ẩn
-                                </button>
-                            </form>
-
-                            <form th:if="${product.status.name() == 'HIDDEN'}"
-                                  th:action="@{${productBasePath + '/' + product.id + '/status'}}"
-                                  method="post">
-
-                                <input type="hidden" name="status" value="ACTIVE">
-
-                                <button type="submit" class="btn btn-sm btn-outline-success">
-                                    <i class="bi bi-eye"></i> Hiện
-                                </button>
-                            </form>
-                        </div>
+                    <!-- Actions -->
+                    <td class="text-center">
+                        <a th:href="@{${productBasePath + '/{id}/edit'}(id=${p.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i> Sửa
+                        </a>
+                        <a th:href="@{/staff/products/{id}/variants(id=${p.id})}" class="btn btn-sm btn-pet-outline ms-1">
+                            <i class="bi bi-upc-scan"></i> SKU
+                        </a>
                     </td>
                 </tr>
-
                 <tr th:if="${products == null or products.empty}">
-                    <td colspan="7" class="text-center text-muted py-4">
+                    <td colspan="7" class="text-center py-4 text-muted">
                         Không tìm thấy sản phẩm nào.
                     </td>
                 </tr>
                 </tbody>
             </table>
         </div>
-
-        <div class="card-body"
-             th:if="${products != null and products.totalPages > 1}">
-            <nav>
-                <ul class="pagination justify-content-center mb-0">
-
-                    <li class="page-item"
-                        th:classappend="${products.first} ? 'disabled'">
-                        <a class="page-link"
-                           th:href="@{${productBasePath}(page=${products.number - 1},size=${products.size},keyword=${keyword},categoryId=${selectedCategoryId})}">
-                            Trước
-                        </a>
-                    </li>
-
-                    <li class="page-item"
-                        th:each="i : ${#numbers.sequence(0, products.totalPages - 1)}"
-                        th:classappend="${i == products.number} ? 'active'">
-                        <a class="page-link"
-                           th:href="@{${productBasePath}(page=${i},size=${products.size},keyword=${keyword},categoryId=${selectedCategoryId})}"
-                           th:text="${i + 1}"></a>
-                    </li>
-
-                    <li class="page-item"
-                        th:classappend="${products.last} ? 'disabled'">
-                        <a class="page-link"
-                           th:href="@{${productBasePath}(page=${products.number + 1},size=${products.size},keyword=${keyword},categoryId=${selectedCategoryId})}">
-                            Sau
-                        </a>
-                    </li>
-
-                </ul>
-            </nav>
-        </div>
     </div>
 
+    <!-- Pagination -->
+    <div th:replace="~{fragments/pagination :: pagination(
+        page=${products},
+        url=@{${productBasePath}(keyword=${keyword}, categoryId=${selectedCategoryId})},
+        itemName='sản phẩm')}">
+    </div>
 </div>
 </body>
 </html>

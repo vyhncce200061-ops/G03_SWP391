@@ -211,7 +211,7 @@ class TeamIntegrationTests {
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
             assertTrue(html.contains("action=\"/account/profile\""));
             assertTrue(html.contains("action=\"/account/password\""));
-            assertTrue(html.contains("action=\"/account/profile/avatar\""));
+            assertTrue(html.contains("name=\"avatarFile\""));
             assertFalse(html.contains("action=\"/customer/"));
             assertFalse(html.contains("id=\"tab-orders-pill\""));
             assertFalse(html.contains("id=\"editAddressForm\""));
@@ -422,5 +422,144 @@ class TeamIntegrationTests {
             String publicHtml=mvc.perform(get("/products/"+key)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
             assertTrue(publicHtml.contains(saved.getReplyText()));
         } finally { pool.shutdownNow(); }
+    }
+
+    @Autowired StockImportItemRepository importItems;
+    @Autowired ProductImageRepository productImages;
+    @Autowired PaymentTransactionRepository paymentTransactions;
+
+    private StockImportItem importLine(int quantity) {
+        var receipt=imports.createStockImport(StockImportFormDto.builder().supplierName("Supplier")
+                .items(List.of(StockImportItemDto.builder().variantId(variant.getId()).quantity(quantity).unitCost(BigDecimal.TEN).build())).build(),staff.getId());
+        return importItems.findByStockImportId(receipt.getId()).get(0);
+    }
+    private com.petshop.dto.stock.StockImportEditFormDto editLine(StockImportItem line,int quantity) {
+        return com.petshop.dto.stock.StockImportEditFormDto.builder().itemId(line.getId()).importId(line.getStockImport().getId())
+                .quantity(quantity).unitCost(new BigDecimal("12.25")).build();
+    }
+
+    @Test void editedStockImportKeepsDeltaAndRejectsInvalidOrForeignInput() throws Exception {
+        var line=importLine(3);var form=editLine(line,5);
+        imports.updateImportItem(form,staff.getId());
+        assertEquals(15,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertEquals(5,importItems.findById(line.getId()).orElseThrow().getQuantity());
+        imports.updateImportItem(form,staff.getId());
+        assertEquals(15,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertThrows(IllegalArgumentException.class,()->imports.updateImportItem(form,customer.getId()));
+        form.setImportId(-1L);assertThrows(IllegalArgumentException.class,()->imports.updateImportItem(form,staff.getId()));
+        form.setImportId(line.getStockImport().getId());form.setUnitCost(new BigDecimal("1.001"));
+        assertThrows(IllegalArgumentException.class,()->imports.updateImportItem(form,staff.getId()));
+        form.setUnitCost(BigDecimal.TEN);form.setQuantity(0);assertThrows(IllegalArgumentException.class,()->imports.updateImportItem(form,staff.getId()));
+        form.setQuantity(null);assertThrows(IllegalArgumentException.class,()->imports.updateImportItem(form,staff.getId()));
+        mvc.perform(get("/staff/stock-imports/items/"+line.getId()+"/edit").with(user(new CustomUserDetails(staff)))).andExpect(status().isOk());
+        mvc.perform(post("/staff/stock-imports/items/"+line.getId()+"/edit").with(user(new CustomUserDetails(staff))).with(csrf())
+                .param("importId",line.getStockImport().getId().toString()).param("quantity","").param("unitCost","12"))
+                .andExpect(status().isOk()).andExpect(model().attributeExists("errorMessage","editForm"));
+        mvc.perform(post("/staff/stock-imports/items/"+line.getId()+"/edit").with(user(new CustomUserDetails(customer))).with(csrf()))
+                .andExpect(redirectedUrl("/error/403"));
+        assertEquals(15,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test void concurrentReceiptEditsDoNotDoubleAdjustAndRejectInsufficientStock() throws Exception {
+        var line=importLine(6);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        var gate=new java.util.concurrent.CountDownLatch(1);
+        try {
+            var x=pool.submit(()->{gate.await();imports.updateImportItem(editLine(line,4),staff.getId());return true;});
+            var y=pool.submit(()->{gate.await();imports.updateImportItem(editLine(line,4),admin.getId());return true;});
+            gate.countDown();assertTrue(x.get(15,java.util.concurrent.TimeUnit.SECONDS));assertTrue(y.get(15,java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(14,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+            new TransactionTemplate(transactionManager).executeWithoutResult(tx->assertEquals(1,variants.deductStockAtomic(variant.getId(),13)));
+            assertThrows(IllegalArgumentException.class,()->imports.updateImportItem(editLine(line,1),staff.getId()));
+            assertEquals(1,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+            assertEquals(4,importItems.findById(line.getId()).orElseThrow().getQuantity());
+        } finally {pool.shutdownNow();}
+    }
+
+    @Test void productPrimaryImageSelectionIsOwnedAndPublicDetailsKeepFeedback() throws Exception {
+        var first=productImages.save(ProductImage.builder().product(product).imageUrl("/images/first.png").isPrimary(true).sortOrder(0).build());
+        var second=productImages.save(ProductImage.builder().product(product).imageUrl("/images/second.png").isPrimary(false).sortOrder(1).build());
+        var form=ProductFormDto.fromEntity(productService.findById(product.getId()));
+        assertEquals(first.getId(),form.getPrimaryImageId());form.setPrimaryImageId(second.getId());
+        productService.updateProduct(product.getId(),form,staff.getId());
+        assertFalse(productImages.findById(first.getId()).orElseThrow().getIsPrimary());
+        assertTrue(productImages.findById(second.getId()).orElseThrow().getIsPrimary());
+        assertEquals(second.getId(),ProductFormDto.fromEntity(productService.findById(product.getId())).getPrimaryImageId());
+        form.setPrimaryImageId(Long.MAX_VALUE);assertThrows(IllegalArgumentException.class,()->productService.updateProduct(product.getId(),form,staff.getId()));
+        mvc.perform(get("/staff/products/"+product.getId()+"/edit").with(user(new CustomUserDetails(staff)))).andExpect(status().isOk());
+        mvc.perform(get("/products/"+key)).andExpect(status().isOk()).andExpect(model().attributeExists("reviews","availableVariants"));
+    }
+
+    @Test void catalogSuggestionsAndOldFilterLinksKeepActiveProductRules() throws Exception {
+        mvc.perform(get("/products/suggestions").param("keyword","x")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.products.length()").value(0));
+        mvc.perform(get("/products/suggestions").param("keyword",key)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].id").value(category.getId()))
+                .andExpect(jsonPath("$.products[0].id").value(product.getId()));
+        var old=mvc.perform(get("/products").param("keyword",key).param("sort","priceAsc").param("priceRange","100to300"))
+                .andExpect(status().isOk()).andReturn();
+        var filter=(com.petshop.dto.catalog.ProductFilterDto)old.getModelAndView().getModel().get("filter");
+        assertEquals("price_asc",filter.getSortBy());assertEquals(new BigDecimal("100000"),filter.getMinPrice());
+        var descending=mvc.perform(get("/products").param("sort","priceDesc")).andExpect(status().isOk()).andReturn();
+        assertEquals("price_desc",((com.petshop.dto.catalog.ProductFilterDto)descending.getModelAndView().getModel().get("filter")).getSortBy());
+        var page=(org.springframework.data.domain.Page<?>)old.getModelAndView().getModel().get("productPage");assertEquals(1,page.getTotalElements());
+        productService.deleteProduct(product.getId());
+        mvc.perform(get("/products/suggestions").param("keyword",key)).andExpect(status().isOk()).andExpect(jsonPath("$.products.length()").value(0));
+    }
+
+    @Test void paidVnpayRejectionRestoresStockOnceAndPreservesBankReceipt() throws Exception {
+        var order=purchasedOrder();
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx->{
+            var saved=orderRepository.findById(order.getId()).orElseThrow();saved.setPaymentMethod(PaymentMethod.VNPAY);
+            saved.setPaymentStatus(PaymentStatus.PAID);saved.setOrderStatus(OrderStatus.CONFIRMED);orderRepository.save(saved);
+            paymentTransactions.save(PaymentTransaction.builder().transactionCode("SUCCESS-"+key).order(saved).customer(customer)
+                    .paymentMethod(PaymentMethod.VNPAY).amount(saved.getTotalAmount()).transactionStatus(TransactionStatus.SUCCESS)
+                    .paidAt(java.time.LocalDateTime.now()).build());
+        });
+        mvc.perform(get("/staff/orders/"+order.getId()).with(user(new CustomUserDetails(staff)))).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/reject")));
+        assertThrows(IllegalStateException.class,()->orderService.customerCancelOrder(order.getId(),customer.getId(),"Cancel"));
+        orderService.staffRejectOrder(order.getId(),staff.getId(),"Không thể giao hàng; cần đối chiếu hoàn tiền");
+        var saved=orderRepository.findById(order.getId()).orElseThrow();
+        assertEquals(OrderStatus.CANCELLED,saved.getOrderStatus());assertEquals(PaymentStatus.PAID,saved.getPaymentStatus());
+        assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertEquals(TransactionStatus.SUCCESS,paymentTransactions.findByOrderIdOrderByCreatedAtDesc(order.getId()).get(0).getTransactionStatus());
+        assertThrows(IllegalStateException.class,()->orderService.staffRejectOrder(order.getId(),staff.getId(),"Again"));
+        assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        mvc.perform(get("/staff/orders/"+order.getId()).with(user(new CustomUserDetails(staff)))).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("hệ thống chưa xác nhận hoàn tiền")));
+    }
+
+    @Test void productAndReceiptPaginationRetainsEscapedKeywordAndAdminRoutes() throws Exception {
+        product.setName("A&B " + key);products.save(product);
+        products.save(Product.builder().category(category).createdBy(admin).name("A&B "+key+" extra").slug("extra-"+key).petType(PetType.DOG).build());
+        productImages.save(ProductImage.builder().product(product).imageUrl("/images/visible.png").isPrimary(true).build());
+        for(var role:List.of(staff,admin)) {
+            String base=role==admin ? "/admin/products" : "/staff/products";
+            String html=mvc.perform(get(base).param("size","1").param("keyword","A&B "+key).with(user(new CustomUserDetails(role))))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertTrue(html.contains("A%26B"));assertTrue(html.contains("/images/visible.png"));
+            assertTrue(html.contains(base+"/create"));
+            mvc.perform(get(base).param("size","1").param("page","1").param("keyword","A&B "+key).with(user(new CustomUserDetails(role))))
+                    .andExpect(status().isOk());
+        }
+        importLine(2);importLine(2);
+        mvc.perform(get("/staff/stock-imports").param("size","1").with(user(new CustomUserDetails(staff)))).andExpect(status().isOk());
+    }
+
+    @Test void receiptDecreaseAndCheckoutCannotBothConsumeSameAvailableStock() throws Exception {
+        var line=importLine(6);carts.addItemToCart(customer.getId(),variant.getId(),12);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);var gate=new java.util.concurrent.CountDownLatch(1);
+        try {
+            var edit=pool.submit(()->{gate.await();try{imports.updateImportItem(editLine(line,1),staff.getId());return true;}catch(IllegalArgumentException e){return false;}});
+            var checkout=pool.submit(()->{gate.await();try{orderService.checkoutOrder(customer.getId(),com.petshop.dto.order.CheckoutSubmitDto.builder()
+                    .recipientName("Customer").recipientPhone("0901234567").shippingProvince("HCM").shippingDistrict("Thu Duc")
+                    .shippingWard("Linh Trung").shippingAddressLine("123 Test").paymentMethod(PaymentMethod.COD).build());return true;
+                }catch(IllegalArgumentException|IllegalStateException e){return false;}});
+            gate.countDown();boolean edited=edit.get(15,java.util.concurrent.TimeUnit.SECONDS);
+            assertNotEquals(edited,checkout.get(15,java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(edited ? 11 : 4,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+            assertEquals(edited ? 1 : 6,importItems.findById(line.getId()).orElseThrow().getQuantity());
+        } finally {pool.shutdownNow();}
     }
 }
