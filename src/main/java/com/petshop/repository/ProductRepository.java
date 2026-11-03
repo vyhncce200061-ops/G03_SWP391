@@ -51,4 +51,21 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
             countQuery = "SELECT COUNT(p) FROM Product p WHERE p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED")
     Page<Product> findAllWithDetails(Pageable pageable);
 
+    // Catalog search helpers from the catalog branch.
+    // Search products by name
+    @EntityGraph(attributePaths = {"category", "brand"})
+    Page<Product> findByNameContainingIgnoreCase(
+            String name, Pageable pageable);
+
+    // Filter products by category
+    @EntityGraph(attributePaths = {"category", "brand"})
+    Page<Product> findByCategory_Id(
+            Integer categoryId, Pageable pageable);
+
+    // Search products by name and category
+    @EntityGraph(attributePaths = {"category", "brand"})
+    Page<Product> findByNameContainingIgnoreCaseAndCategory_Id(
+            String name, Integer categoryId, Pageable pageable);
+
+
 }
