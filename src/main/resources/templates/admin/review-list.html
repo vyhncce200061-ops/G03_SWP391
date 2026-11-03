@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title>Kiểm Duyệt Đánh Giá Sản Phẩm</title>
+</head>
+<body>
+<div layout:fragment="admin-header-title">
+    <span>Báo Cáo & Tương Tác / Kiểm Duyệt Đánh Giá</span>
+</div>
+
+<div layout:fragment="admin-content">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h4 class="fw-bold mb-1">
+                <i class="bi bi-chat-square-quote text-primary me-2"></i>Quản Lý Đánh Giá Sản Phẩm (Feedback)
+            </h4>
+            <p class="text-muted small mb-0">Xem và trả lời người mua, kiểm duyệt ẩn/hiện đánh giá công khai.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button onclick="window.print()" class="btn btn-outline-secondary d-flex align-items-center gap-2">
+                <i class="bi bi-printer"></i>
+                <span>In Danh Sách</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase">Tổng Đánh Giá</span>
+                        <div class="rounded-3 p-2 bg-primary-subtle text-primary">
+                            <i class="bi bi-chat-left-text-fill fs-5"></i>
+                        </div>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-1" th:text="${totalCount}">0</h4>
+                    <span class="text-muted small">Tất cả lượt đánh giá từ khách</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase">Đang Hiển Thị</span>
+                        <div class="rounded-3 p-2 bg-success-subtle text-success">
+                            <i class="bi bi-check-circle-fill fs-5"></i>
+                        </div>
+                    </div>
+                    <h4 class="fw-bold text-success mb-1" th:text="${visibleCount}">0</h4>
+                    <span class="text-muted small">Hiển thị ngoài trang sản phẩm</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase">Đang Bị Ẩn</span>
+                        <div class="rounded-3 p-2 bg-warning-subtle text-warning">
+                            <i class="bi bi-eye-slash-fill fs-5"></i>
+                        </div>
+                    </div>
+                    <h4 class="fw-bold text-warning-emphasis mb-1" th:text="${hiddenCount}">0</h4>
+                    <span class="text-muted small">Đã ẩn do vi phạm / spam</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase">Điểm Đánh Giá TB</span>
+                        <div class="rounded-3 p-2 bg-warning-subtle text-warning">
+                            <i class="bi bi-star-fill fs-5"></i>
+                        </div>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-1">
+                        <span th:text="${#numbers.formatDecimal(avgRating, 1, 'POINT', 1, 'POINT')}">5.0</span>
+                        <span class="fs-6 text-warning">★</span>
+                    </h4>
+                    <span class="text-muted small">Mức độ hài lòng chung</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <form th:action="@{/admin/reviews}" method="get" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label small fw-semibold text-secondary">Tìm kiếm từ khóa</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="keyword" th:value="${keyword}" class="form-control bg-light border-start-0"
+                               placeholder="Tên khách hàng, email, tên sản phẩm hoặc bình luận...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-secondary">Số sao đánh giá</label>
+                    <select name="rating" class="form-select bg-light">
+                        <option value="" th:selected="${rating == null}">-- Tất cả mức sao --</option>
+                        <option value="5" th:selected="${rating == 5}">⭐⭐⭐⭐⭐ 5 Sao</option>
+                        <option value="4" th:selected="${rating == 4}">⭐⭐⭐⭐ 4 Sao</option>
+                        <option value="3" th:selected="${rating == 3}">⭐⭐⭐ 3 Sao</option>
+                        <option value="2" th:selected="${rating == 2}">⭐⭐ 2 Sao</option>
+                        <option value="1" th:selected="${rating == 1}">⭐ 1 Sao</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-secondary">Trạng thái</label>
+                    <select name="status" class="form-select bg-light">
+                        <option value="" th:selected="${status == null}">-- Tất cả --</option>
+                        <option value="VISIBLE" th:selected="${status?.name() == 'VISIBLE'}">Đang hiển thị</option>
+                        <option value="HIDDEN" th:selected="${status?.name() == 'HIDDEN'}">Đang bị ẩn</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        <i class="bi bi-funnel me-1"></i> Lọc
+                    </button>
+                    <a th:href="@{/admin/reviews}" class="btn btn-outline-secondary" title="Đặt lại">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Review Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0">Danh Sách Phản Hồi Từ Khách Hàng</h5>
+            <span class="badge bg-secondary-subtle text-secondary" th:text="${reviews.totalElements + ' đánh giá'}">0 đánh giá</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4" style="width: 70px;">ID</th>
+                        <th>Khách Hàng</th>
+                        <th>Sản Phẩm Đã Mua</th>
+                        <th class="text-center" style="width: 140px;">Đánh Giá</th>
+                        <th>Nội Dung Nhận Xét</th>
+                        <th>Thời Gian</th>
+                        <th class="text-center">Trạng Thái</th>
+                        <th class="text-end pe-4">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${reviews.empty}">
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-chat-square-dots display-6 d-block mb-2 text-secondary"></i>
+                            Không tìm thấy đánh giá nào phù hợp với bộ lọc hiện tại.
+                        </td>
+                    </tr>
+                    <tr th:each="r : ${reviews.content}">
+                        <td class="ps-4 fw-semibold text-muted" th:text="'#' + ${r.id}">#1</td>
+                        <td>
+                            <div class="fw-semibold text-dark" th:text="${r.customer.fullName}">Nguyễn Văn Khách</div>
+                            <small class="text-muted" th:text="${r.customer.email}">customer@petshop.vn</small>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark text-truncate" style="max-width: 200px;"
+                                 th:text="${r.orderItem.variant.product.name}">Hạt Royal Canin Poodle Adult</div>
+                            <small class="badge bg-light text-secondary border"
+                                   th:text="${r.orderItem.variant.variantName}">Túi 1.5kg</small>
+                        </td>
+                        <td class="text-center">
+                            <div class="text-warning fs-6">
+                                <span th:each="i : ${#numbers.sequence(1, r.rating)}">★</span>
+                                <span th:if="${r.rating < 5}" th:each="i : ${#numbers.sequence(r.rating + 1, 5)}" class="text-muted opacity-25">★</span>
+                            </div>
+                            <small class="fw-bold text-secondary" th:text="${r.rating + '/5 sao'}">5/5 sao</small>
+                        </td>
+                        <td>
+                            <p class="mb-0 text-dark small fst-italic" th:text="${r.comment != null and !r.comment.isBlank() ? r.comment : '(Không có lời bình luận)'}">
+                                Sản phẩm rất chất lượng, cún nhà mình ăn rất thích!
+                            </p>
+                            <div th:if="${r.replyText != null}" class="border-start border-3 ps-3 mt-3">
+                                <strong class="small">Phản hồi từ PetShop</strong>
+                                <small class="d-block text-muted" th:text="${r.repliedBy.fullName + ' · ' + #temporals.format(r.repliedAt,'dd/MM/yyyy HH:mm')}"></small>
+                                <p class="small mb-0" style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.replyText}"></p>
+                            </div>
+                            <details th:if="${r.replyText == null}" class="mt-2"
+                                     th:open="${replyReviewId != null and replyReviewId == r.id}">
+                                <summary class="text-primary">Trả lời đánh giá</summary>
+                                <form th:action="@{/admin/reviews/{id}/reply(id=${r.id})}" method="post" class="mt-2" style="min-width:240px">
+                                    <input type="hidden" name="keyword" th:value="${keyword}">
+                                    <input type="hidden" name="rating" th:value="${rating}">
+                                    <input type="hidden" name="status" th:value="${status}">
+                                    <input type="hidden" name="page" th:value="${reviews.number}">
+                                    <input type="hidden" name="size" th:value="${reviews.size}">
+                                    <label th:for="${'reply-' + r.id}" class="form-label small">Nội dung trả lời (tối đa 1000 ký tự)</label>
+                                    <textarea th:id="${'reply-' + r.id}" name="replyText" maxlength="1000" rows="3" required class="form-control"
+                                              th:text="${replyReviewId != null and replyReviewId == r.id ? replyDraft : ''}"></textarea>
+                                    <div class="form-text">Mỗi đánh giá chỉ trả lời một lần. Kiểm tra nội dung trước khi gửi.</div>
+                                    <button type="submit" class="btn btn-sm btn-primary mt-2">Gửi trả lời</button>
+                                </form>
+                            </details>
+                        </td>
+                        <td class="small text-muted" th:text="${#temporals.format(r.createdAt, 'dd/MM/yyyy HH:mm')}">
+                            28/09/2026 14:30
+                        </td>
+                        <td class="text-center">
+                            <span th:if="${r.status.name() == 'VISIBLE'}"
+                                  class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+                                <i class="bi bi-check-circle me-1"></i>Hiển Thị
+                            </span>
+                            <span th:if="${r.status.name() == 'HIDDEN'}"
+                                  class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2">
+                                <i class="bi bi-eye-slash me-1"></i>Đã Ẩn
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            <form th:action="@{/admin/reviews/{id}/toggle-status(id=${r.id})}" method="post" class="d-inline">
+                                <input type="hidden" name="keyword" th:value="${keyword}">
+                                <input type="hidden" name="rating" th:value="${rating}">
+                                <input type="hidden" name="status" th:value="${status}">
+                                <input type="hidden" name="page" th:value="${reviews.number}">
+
+                                <button th:if="${r.status.name() == 'VISIBLE'}"
+                                        type="submit"
+                                        class="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"
+                                        title="Ẩn đánh giá khỏi trang sản phẩm">
+                                    <i class="bi bi-eye-slash"></i> Ẩn
+                                </button>
+
+                                <button th:if="${r.status.name() == 'HIDDEN'}"
+                                        type="submit"
+                                        class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
+                                        title="Hiển thị lại đánh giá này">
+                                    <i class="bi bi-eye"></i> Hiện
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div th:if="${reviews.totalPages > 1}" class="card-footer bg-white py-3 border-top d-flex justify-content-between align-items-center">
+            <span class="small text-muted">
+                Trang <strong th:text="${reviews.number + 1}">1</strong> / <strong th:text="${reviews.totalPages}">1</strong>
+            </span>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item" th:classappend="${reviews.first ? 'disabled' : ''}">
+                        <a class="page-link" th:href="@{/admin/reviews(page=${reviews.number - 1}, keyword=${keyword}, rating=${rating}, status=${status})}">Trước</a>
+                    </li>
+                    <li th:each="i : ${#numbers.sequence(0, reviews.totalPages - 1)}"
+                        class="page-item" th:classappend="${i == reviews.number ? 'active' : ''}">
+                        <a class="page-link" th:href="@{/admin/reviews(page=${i}, keyword=${keyword}, rating=${rating}, status=${status})}" th:text="${i + 1}">1</a>
+                    </li>
+                    <li class="page-item" th:classappend="${reviews.last ? 'disabled' : ''}">
+                        <a class="page-link" th:href="@{/admin/reviews(page=${reviews.number + 1}, keyword=${keyword}, rating=${rating}, status=${status})}">Sau</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+</body>
+</html>

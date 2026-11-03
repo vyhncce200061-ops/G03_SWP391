@@ -2,7 +2,6 @@ package com.petshop.dto.catalog;
 
 import com.petshop.entity.enums.PetType;
 import lombok.*;
-
 import java.math.BigDecimal;
 
 @Getter
@@ -23,4 +22,7 @@ public class ProductSummaryDto {
     private Integer totalStock;
     private Double avgRating;
     private Long reviewCount;
+    private String imageUrl;
+    private BigDecimal originalPrice;
+    private Integer discountPercent;
 }

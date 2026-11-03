@@ -7,37 +7,132 @@
 </head>
 <body>
 <div layout:fragment="admin-content">
-    <h4 class="fw-bold mb-4">Danh Sách Đơn Hàng Cần Xử Lý</h4>
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <h4 class="page-title mb-0">
+            Xử Lý Đơn Hàng
+        </h4>
 
+        <!-- Filter Form inline -->
+        <form th:action="@{/staff/orders}" method="get" class="d-flex gap-2 align-items-center">
+            <select class="form-select form-select-sm" name="status" style="min-width: 200px;">
+                <option value="">-- Tất cả trạng thái --</option>
+                <option value="PENDING_CONFIRMATION" th:selected="${currentStatus == 'PENDING_CONFIRMATION'}">Chờ xác nhận</option>
+                <option value="PENDING_PAYMENT" th:selected="${currentStatus == 'PENDING_PAYMENT'}">Chờ thanh toán</option>
+                <option value="CONFIRMED" th:selected="${currentStatus == 'CONFIRMED'}">Đã xác nhận</option>
+                <option value="PREPARING" th:selected="${currentStatus == 'PREPARING'}">Đang chuẩn bị</option>
+                <option value="SHIPPING" th:selected="${currentStatus == 'SHIPPING'}">Đang giao hàng</option>
+                <option value="COMPLETED" th:selected="${currentStatus == 'COMPLETED'}">Hoàn thành</option>
+                <option value="CANCELLED" th:selected="${currentStatus == 'CANCELLED'}">Đã hủy</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-pet-outline px-2.5" title="Lọc">
+                <i class="bi bi-funnel"></i>
+            </button>
+        </form>
+    </div>
+
+    <!-- Orders Table -->
     <div class="card border-0 shadow-sm rounded-4 p-3">
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle mb-0">
                 <thead>
-                    <tr>
-                        <th>Mã đơn</th>
-                        <th>Khách hàng</th>
-                        <th>Tổng tiền</th>
-                        <th>PT Thanh toán</th>
-                        <th>Trạng thái</th>
-                        <th>Thời gian</th>
-                        <th>Thao tác</th>
-                    </tr>
+                <tr>
+                    <th>Mã đơn</th>
+                    <th>Khách hàng</th>
+                    <th>Tổng tiền</th>
+                    <th>PT Thanh toán</th>
+                    <th>Trạng thái</th>
+                    <th>Thời gian</th>
+                    <th class="text-center">Thao tác</th>
+                </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="o : ${orders.content}">
-                        <td class="fw-semibold" th:text="${o.orderCode}">ORD-001</td>
-                        <td th:text="${o.recipientName}">Khách hàng</td>
-                        <td class="text-danger fw-bold" th:text="${#numbers.formatDecimal(o.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
-                        <td><span class="badge bg-secondary" th:text="${o.paymentMethod}">COD</span></td>
-                        <td><span class="badge bg-primary" th:text="${o.orderStatus}">CONFIRMED</span></td>
-                        <td th:text="${#temporals.format(o.createdAt, 'dd/MM/yyyy HH:mm')}">Thời gian</td>
-                        <td>
-                            <a th:href="@{/staff/orders/{id}(id=${o.id})}" class="btn btn-sm btn-outline-primary">Chi Tiết</a>
-                        </td>
-                    </tr>
+                <tr th:each="o : ${orders.content}">
+                    <!-- Order Code -->
+                    <td class="fw-bold text-dark" th:text="${o.orderCode}">ORD-001</td>
+
+                    <!-- Customer Info: Name & Phone -->
+                    <td>
+                        <div class="fw-semibold" th:text="${o.recipientName}">Khách hàng</div>
+                        <div class="small text-muted" th:text="${o.recipientPhone}">0900000003</div>
+                    </td>
+
+                    <!-- Total Amount -->
+                    <td class="text-danger fw-bold" th:text="${#numbers.formatDecimal(o.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
+
+                    <!-- Payment Method & Payment Status -->
+                    <td>
+                        <div class="fw-semibold" th:text="${o.paymentMethod.name() == 'COD' ? 'COD' : 'VNPay'}">COD</div>
+                        <div class="mt-1">
+                            <span th:if="${o.paymentStatus.name() == 'PAID'}" class="small text-success fw-semibold">
+                                <i class="bi bi-check-circle-fill"></i> Đã thanh toán
+                            </span>
+                            <span th:if="${o.paymentStatus.name() == 'UNPAID'}" class="small text-warning fw-semibold">
+                                <i class="bi bi-clock-fill"></i> Chưa thanh toán
+                            </span>
+                        </div>
+                    </td>
+
+                    <!-- Order Status -->
+                    <td>
+                        <span th:if="${o.orderStatus.name() == 'PENDING_CONFIRMATION'}"
+                              class="badge status-badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                            Chờ xác nhận
+                        </span>
+                        <span th:if="${o.orderStatus.name() == 'PENDING_PAYMENT'}"
+                              class="badge status-badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Chờ thanh toán</span>
+                        <span th:if="${o.orderStatus.name() == 'CONFIRMED'}"
+                              class="badge status-badge bg-info-subtle text-info-emphasis border border-info-subtle">
+                            Đã xác nhận
+                        </span>
+                        <span th:if="${o.orderStatus.name() == 'PREPARING'}"
+                              class="badge status-badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">
+                            Đang chuẩn bị
+                        </span>
+                        <span th:if="${o.orderStatus.name() == 'SHIPPING'}"
+                              class="badge status-badge badge-purple-subtle">
+                            Đang giao
+                        </span>
+                        <span th:if="${o.orderStatus.name() == 'COMPLETED'}"
+                              class="badge status-badge bg-success-subtle text-success-emphasis border border-success-subtle">
+                            Hoàn thành
+                        </span>
+                        <span th:if="${o.orderStatus.name() == 'CANCELLED'}"
+                              class="badge status-badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
+                            Đã hủy
+                        </span>
+                    </td>
+
+                    <!-- Date -->
+                    <td>
+                        <div class="small" th:text="${#temporals.format(o.createdAt, 'HH:mm')}">12:05</div>
+                        <div class="small text-muted" th:text="${#temporals.format(o.createdAt, 'dd/MM/yyyy')}">25/10/2026</div>
+                    </td>
+
+                    <!-- Actions -->
+                    <td class="text-center">
+                        <a th:href="@{/staff/orders/{id}(id=${o.id})}" class="btn btn-sm btn-pet-primary">
+                            Xử lý
+                        </a>
+                    </td>
+                </tr>
+                <!-- Empty State -->
+                <tr th:if="${#lists.isEmpty(orders.content)}">
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+                        Không có đơn hàng nào.
+                    </td>
+                </tr>
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Pagination -->
+    <div th:replace="~{fragments/pagination :: pagination(
+        page=${orders},
+        url=@{/staff/orders(status=${currentStatus})},
+        itemName='đơn hàng')}">
     </div>
 </div>
 </body>

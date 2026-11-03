@@ -1,0 +1,85 @@
+package com.petshop.controller;
+
+import com.petshop.config.security.CustomUserDetails;
+import com.petshop.controller.customer.CustomerProfileController;
+import com.petshop.controller.staff.StaffProfileController;
+import com.petshop.dto.auth.ProfileUpdateRequestDto;
+import com.petshop.entity.User;
+import com.petshop.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+@Controller
+@RequestMapping("/account/profile")
+@RequiredArgsConstructor
+public class AccountProfileController {
+    private final UserService users;
+    private final CustomerProfileController customerProfileController;
+    private final StaffProfileController staffProfileController;
+
+    @ModelAttribute("passwordForm")
+    public com.petshop.dto.auth.PasswordChangeRequestDto passwordForm() {
+        return new com.petshop.dto.auth.PasswordChangeRequestDto();
+    }
+
+    @GetMapping
+    public String profile(@AuthenticationPrincipal CustomUserDetails principal, Model model) {
+        if ("CUSTOMER".equals(principal.getRoleCode())) return "redirect:/customer/profile";
+        model.addAttribute("profilePath", "/account/profile");
+        if ("STAFF".equals(principal.getRoleCode()) || "ADMIN".equals(principal.getRoleCode())) {
+            return staffProfileController.viewProfile(principal, model);
+        }
+        return customerProfileController.viewProfile(principal, "info", model);
+    }
+
+    @PostMapping
+    public String update(@AuthenticationPrincipal CustomUserDetails principal,
+            @Valid @ModelAttribute ProfileUpdateRequestDto form, BindingResult errors, Model model,
+            @RequestParam(value = "avatarFile", required = false) org.springframework.web.multipart.MultipartFile avatarFile,
+            RedirectAttributes redirect) {
+        if (errors.hasErrors()) return profile(principal, model);
+        try {
+            users.updateProfile(principal.getId(), form);
+            if (avatarFile != null && !avatarFile.isEmpty()) users.updateAvatar(principal.getId(), avatarFile);
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof CustomUserDetails) {
+                User updated = users.findById(principal.getId());
+                CustomUserDetails newDetails = new CustomUserDetails(updated);
+                var newAuth = new UsernamePasswordAuthenticationToken(
+                        newDetails, newDetails.getPassword(), newDetails.getAuthorities());
+                newAuth.setDetails(auth.getDetails());
+                SecurityContextHolder.getContext().setAuthentication(newAuth);
+            }
+            redirect.addFlashAttribute("successMessage", "Đã cập nhật hồ sơ.");
+        } catch (IllegalArgumentException e) {
+            redirect.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/account/profile";
+    }
+
+    @PostMapping("/avatar")
+    public String avatar(@AuthenticationPrincipal CustomUserDetails principal,
+            @RequestParam("avatarFile") org.springframework.web.multipart.MultipartFile file,
+            RedirectAttributes redirect) {
+        try {
+            users.updateAvatar(principal.getId(), file);
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            var details = new CustomUserDetails(users.findById(principal.getId()));
+            var refreshed = new UsernamePasswordAuthenticationToken(details, details.getPassword(), details.getAuthorities());
+            if (auth != null) refreshed.setDetails(auth.getDetails());
+            SecurityContextHolder.getContext().setAuthentication(refreshed);
+            redirect.addFlashAttribute("successMessage", "Đã cập nhật ảnh đại diện.");
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            redirect.addFlashAttribute("errorMessage", exception.getMessage());
+        }
+        return "redirect:/account/profile";
+    }
+}

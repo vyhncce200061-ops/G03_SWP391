@@ -26,7 +26,7 @@ public class OrderProcessController {
                              @RequestParam(defaultValue = "0") int page,
                              @RequestParam(defaultValue = "10") int size,
                              Model model) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
         Page<Order> orders = orderService.getOrdersForStaff(status, pageable);
 
         model.addAttribute("orders", orders);
@@ -45,8 +45,12 @@ public class OrderProcessController {
     public String confirmOrder(@AuthenticationPrincipal CustomUserDetails userDetails,
                                @PathVariable Long id,
                                RedirectAttributes redirectAttributes) {
+        try {
         orderService.confirmOrder(id, userDetails.getId());
         redirectAttributes.addFlashAttribute("successMessage", "Đã xác nhận đơn hàng thành công!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -54,8 +58,12 @@ public class OrderProcessController {
     public String markPreparing(@AuthenticationPrincipal CustomUserDetails userDetails,
                                 @PathVariable Long id,
                                 RedirectAttributes redirectAttributes) {
+        try {
         orderService.markPreparing(id, userDetails.getId());
         redirectAttributes.addFlashAttribute("successMessage", "Đã chuyển đơn hàng sang trạng thái đóng gói!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -63,8 +71,12 @@ public class OrderProcessController {
     public String markShipping(@AuthenticationPrincipal CustomUserDetails userDetails,
                                @PathVariable Long id,
                                RedirectAttributes redirectAttributes) {
+        try {
         orderService.markShipping(id, userDetails.getId());
         redirectAttributes.addFlashAttribute("successMessage", "Đã bàn giao đơn hàng cho đơn vị vận chuyển!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -72,8 +84,12 @@ public class OrderProcessController {
     public String markCompleted(@AuthenticationPrincipal CustomUserDetails userDetails,
                                 @PathVariable Long id,
                                 RedirectAttributes redirectAttributes) {
+        try {
         orderService.markCompleted(id, userDetails.getId());
         redirectAttributes.addFlashAttribute("successMessage", "Đã hoàn tất đơn hàng và thu tiền COD thành công!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -85,7 +101,7 @@ public class OrderProcessController {
         try {
             orderService.staffRejectOrder(id, userDetails.getId(), reason);
             redirectAttributes.addFlashAttribute("successMessage", "Đã từ chối đơn hàng và hoàn tồn kho!");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/staff/orders/" + id;

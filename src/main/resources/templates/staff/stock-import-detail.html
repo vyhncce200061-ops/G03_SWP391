@@ -7,35 +7,72 @@
 </head>
 <body>
 <div layout:fragment="admin-content">
+    <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="fw-bold mb-1">Phiếu Nhập <span th:text="${stockImport.importCode}">IMP-001</span></h4>
+            <h4 class="page-title">
+                Phiếu Nhập <span class="text-pet-primary" th:text="${stockImport.importCode}">IMP-001</span>
+            </h4>
             <span class="text-muted small" th:text="${'Ngày nhập: ' + #temporals.format(stockImport.importedAt, 'dd/MM/yyyy HH:mm')}"></span>
         </div>
-        <a th:href="@{/staff/stock-imports}" class="btn btn-outline-secondary">Quay lại danh sách</a>
+        <a th:href="@{/staff/stock-imports}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
+        </a>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
-        <h5 class="fw-bold mb-3">Danh Sách Mặt Hàng</h5>
-        <div class="table-responsive">
-            <table class="table align-middle">
-                <thead>
+    <!-- Import Information Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <span class="text-muted small d-block">Nhà cung cấp</span>
+                    <strong class="fs-6" th:text="${stockImport.supplierName != null ? stockImport.supplierName : 'Chưa cập nhật'}">NCC</strong>
+                </div>
+                <div class="col-md-4">
+                    <span class="text-muted small d-block">Người tạo phiếu</span>
+                    <strong class="fs-6" th:text="${stockImport.createdBy.fullName}">Tên NV</strong>
+                </div>
+                <div class="col-md-4">
+                    <span class="text-muted small d-block">Ghi chú</span>
+                    <span class="fst-italic text-secondary" th:text="${stockImport.note != null and !stockImport.note.isEmpty() ? stockImport.note : 'Không có ghi chú'}">Ghi chú...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items Table Card -->
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+            <h5 class="fw-bold mb-0">Danh Sách Mặt Hàng</h5>
+        </div>
+        <div class="card-body p-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
                     <tr>
                         <th>Sản phẩm</th>
                         <th>Mã SKU</th>
-                        <th>Số lượng</th>
-                        <th>Giá nhập</th>
+                        <th class="text-center">Số lượng</th>
+                        <th class="text-end">Giá nhập</th>
+                        <th class="text-center">Thao tác</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                    <tbody>
                     <tr th:each="item : ${stockImport.items}">
                         <td class="fw-semibold" th:text="${item.variant.product.name + ' (' + item.variant.variantName + ')'}">SP</td>
                         <td th:text="${item.variant.skuCode}">SKU</td>
-                        <td th:text="${item.quantity}">10</td>
-                        <td th:text="${#numbers.formatDecimal(item.unitCost, 0, 'COMMA', 0, 'POINT') + ' đ'}">50.000 đ</td>
+                        <td class="text-center" th:text="${item.quantity}">10</td>
+                        <td class="text-end" th:text="${#numbers.formatDecimal(item.unitCost, 0, 'COMMA', 0, 'POINT') + ' đ'}">50.000 đ</td>
+                        <td class="text-center">
+                            <a th:href="@{/staff/stock-imports/items/{itemId}/edit(itemId=${item.id})}"
+                               class="btn btn-sm btn-pet-outline">
+                                <i class="bi bi-pencil"></i> Sửa
+                            </a>
+                        </td>
                     </tr>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

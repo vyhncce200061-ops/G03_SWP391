@@ -6,9 +6,148 @@
 
 body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: #334155;
+    background-color: var(--pet-bg-soft);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .table th {
     font-weight: 600;
+}
+
+/* Page Title Styling */
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #0f172a;
+    border-left: 5px solid var(--accent-color);
+    padding-left: 12px;
+    margin-bottom: 0;
+}
+
+/* Custom text color for PetShop */
+.text-pet-primary {
+    color: #0d9488 !important;
+}
+
+/* Solid Button (For Main Actions like "Add New") */
+.btn-pet-primary {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #ffffff;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-pet-primary:hover {
+    background-color: #0b7a6f; /* Slightly darker teal */
+    border-color: #0b7a6f;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(13, 148, 136, 0.2);
+}
+
+/* Outline Button (For Form Save buttons) */
+.btn-pet-outline {
+    background-color: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-pet-outline:hover {
+    background-color: var(--accent-color);
+    color: #ffffff;
+}
+
+/* Custom Purple Badge for Shipping Status */
+.badge-purple-subtle {
+    background-color: #f3e8ff !important; /* Nền tím pastel */
+    color: #581c87 !important;            /* Chữ tím xỉn (độ đậm tương đương text-*-emphasis) */
+    border: 1px solid #d8b4fe !important; /* Viền tím nhạt */
+}
+
+/* Custom style for Order Status Badges */
+.status-badge {
+    font-size: 14px !important;
+    padding: 6px 10px !important;
+    font-weight: 700 !important;
+}
+
+/* Larger variant for detail pages */
+.status-badge-lg {
+    font-size: 16px !important;
+    padding: 8px 14px !important;
+}
+
+/* =========================================
+   Custom Gray Pagination
+   ========================================= */
+.custom-pagination .page-link {
+    color: #6c757d; /* Text color: Gray */
+    border-color: #dee2e6;
+    font-size: 0.875rem; /* Slightly smaller for admin UI */
+}
+
+.custom-pagination .page-link:hover {
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.custom-pagination .page-item.active .page-link {
+    background-color: #6c757d; /* Active background: Dark Gray */
+    border-color: #6c757d;
+    color: #ffffff;
+}
+
+.custom-pagination .page-item.disabled .page-link {
+    color: #adb5bd; /* Disabled text: Light Gray */
+    background-color: #ffffff;
+}
+
+/* =========================================
+   Dashboard Stat Cards
+   ========================================= */
+.stat-card {
+    border-left-width: 4px !important;
+    border-left-style: solid !important;
+    border-radius: 1rem !important; /* Bo góc mềm mại */
+}
+
+/* Custom colors for the left border */
+.stat-card-warning { border-left-color: #ffc107 !important; }
+.stat-card-danger { border-left-color: #dc3545 !important; }
+.stat-card-primary { border-left-color: #0d9488 !important; } /* Màu teal của PetShop */
+
+/* Icon container */
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+/* Specific icon backgrounds */
+.stat-icon-warning { background-color: #fff3cd; color: #664d03; }
+.stat-icon-danger { background-color: #f8d7da; color: #842029; }
+.stat-icon-primary { background-color: rgba(13, 148, 136, 0.1); color: #0d9488; }
+
+/* Typography for stat cards */
+.stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.5px;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0;
 }

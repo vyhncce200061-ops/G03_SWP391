@@ -1,5 +1,6 @@
 package com.petshop.dto.cart;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -19,6 +20,9 @@ public class CartItemDto {
     private BigDecimal unitPrice;
     private Integer quantity;
     private Integer maxStock;
+    @JsonProperty("isSelected")
     private Boolean isSelected;
     private BigDecimal lineTotal;
+    private boolean available;
+    private String availabilityMessage;
 }

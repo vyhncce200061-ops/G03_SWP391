@@ -8,10 +8,12 @@
 <body>
 <div layout:fragment="content" class="py-5">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <a th:href="@{/customer/orders}" class="btn btn-link px-0 mb-3">Quay lại đơn hàng của tôi</a>
+        <div class="d-flex justify-content-between align-items-center mb-2">
             <h3 class="fw-bold mb-0">Đơn Hàng <span th:text="${order.orderCode}">ORD-XXXX</span></h3>
-            <span class="badge bg-primary fs-6" th:text="${order.orderStatus}">CONFIRMED</span>
+            <span class="badge bg-primary fs-6" th:text="${orderStatusLabels[order.orderStatus.name()]}">Đã xác nhận</span>
         </div>
+        <p class="text-muted mb-4" th:text="${'Đặt lúc: ' + #temporals.format(order.createdAt, 'dd/MM/yyyy HH:mm')}"></p>
 
         <div class="row g-4">
             <div class="col-lg-8">
@@ -21,13 +23,37 @@
                         <li th:each="item : ${order.items}" class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <div>
                                 <h6 class="mb-0 fw-bold" th:text="${item.productNameSnapshot}">Tên SP</h6>
+                                <a th:if="${order.orderStatus.name() == 'COMPLETED' and order.paymentStatus.name() == 'PAID'}" th:href="@{/customer/reviews/create(orderItemId=${item.id})}" class="d-block">Đánh giá sản phẩm</a>
                                 <small class="text-muted" th:text="${item.variantNameSnapshot + ' | SKU: ' + item.skuCodeSnapshot}"></small>
                             </div>
                             <div class="text-end">
-                                <span th:text="${item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                                <span th:text="${item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + 'đ'}"></span>
+                                <strong class="d-block" th:text="${#numbers.formatDecimal(item.unitPrice * item.quantity, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
                             </div>
                         </li>
                     </ul>
+                </div>
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                    <h5 class="fw-bold mb-3">Lịch Sử Trạng Thái</h5>
+                    <p class="small text-muted">Theo dõi tiến trình xử lý đơn hàng tại cửa hàng.</p>
+                    <ol th:if="${!#lists.isEmpty(statusHistory)}" class="list-group list-group-numbered list-group-flush">
+                        <li th:each="history : ${statusHistory}" class="list-group-item px-0">
+                            <span th:if="${history.oldStatus != null}"
+                                  th:text="${orderStatusLabels[history.oldStatus.name()] + ' → '}"></span>
+                            <strong th:text="${orderStatusLabels[history.newStatus.name()]}"></strong>
+                            <small class="d-block text-muted"
+                                   th:text="${history.changedAt == null ? 'Chưa ghi nhận thời gian' : #temporals.format(history.changedAt, 'dd/MM/yyyy HH:mm')}"></small>
+                            <small class="d-block text-muted"
+                                   th:text="${history.changedBy == null ? 'Hệ thống' : (history.changedBy.id == currentCustomerId ? 'Bạn' : 'Nhân viên cửa hàng')}"></small>
+                        </li>
+                    </ol>
+                    <p th:if="${#lists.isEmpty(statusHistory)}" class="text-muted mb-0">Chưa có lịch sử trạng thái.</p>
+                </div>
+                <div th:if="${order.cancelledAt != null or order.cancelReason != null}" class="alert alert-secondary">
+                    <h6 class="fw-bold">Thông tin hủy đơn</h6>
+                    <p th:if="${order.cancelledAt != null}" class="mb-1"
+                       th:text="${'Thời gian: ' + #temporals.format(order.cancelledAt, 'dd/MM/yyyy HH:mm')}"></p>
+                    <p th:if="${order.cancelReason != null}" class="mb-0" th:text="${'Lý do: ' + order.cancelReason}"></p>
                 </div>
             </div>
 
@@ -36,27 +62,33 @@
                     <h5 class="fw-bold mb-3">Thông Tin Giao Hàng</h5>
                     <p class="mb-1"><strong th:text="${order.recipientName}"></strong> | <span th:text="${order.recipientPhone}"></span></p>
                     <p class="small text-muted" th:text="${order.shippingAddressLine + ', ' + order.shippingWard + ', ' + order.shippingDistrict + ', ' + order.shippingProvince}"></p>
+                    <p th:if="${!#strings.isEmpty(order.customerNote)}" class="small" th:text="${'Ghi chú: ' + order.customerNote}"></p>
                     <hr>
+                    <p class="mb-1">Phương thức: <strong th:text="${order.paymentMethod}"></strong></p>
+                    <p class="mb-3">Thanh toán: <strong th:text="${paymentStatusLabels[order.paymentStatus.name()]}"></strong></p>
                     <div class="d-flex justify-content-between mb-1">
                         <span>Tạm tính:</span>
-                        <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                        <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}"></span>
                     </div>
                     <div class="d-flex justify-content-between mb-1">
                         <span>Giảm giá:</span>
-                        <span th:text="${'-' + #numbers.formatDecimal(order.discountAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                        <span th:text="${'-' + #numbers.formatDecimal(order.discountAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}"></span>
                     </div>
+                    <p th:if="${!#strings.isEmpty(order.voucherCodeSnapshot)}" class="small text-muted"
+                       th:text="${'Mã giảm giá đã dùng: ' + order.voucherCodeSnapshot}"></p>
                     <div class="d-flex justify-content-between mb-2">
                         <span>Phí ship:</span>
-                        <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                        <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'COMMA', 0, 'POINT') + 'đ'}"></span>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3">
                         <strong>Tổng cộng:</strong>
-                        <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
+                        <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}"></strong>
                     </div>
 
-                    <form th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION' or order.orderStatus.name() == 'PENDING_PAYMENT'}"
-                          th:action="@{/customer/orders/{id}/cancel(id=${order.id})}" method="post">
+                    <form th:if="${canCancel}" th:action="@{/customer/orders/{id}/cancel(id=${order.id})}" method="post">
+                        <label for="cancelReason" class="form-label">Lý do hủy đơn (không bắt buộc)</label>
+                        <textarea id="cancelReason" name="reason" maxlength="1000" rows="2" class="form-control mb-2"></textarea>
                         <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Bạn có chắc chắn muốn hủy đơn hàng này?');">Hủy Đơn Hàng</button>
                     </form>
                 </div>

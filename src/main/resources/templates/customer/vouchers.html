@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Ví Voucher Khuyến Mãi</title>
+</head>
+<body>
+<div layout:fragment="content" class="container py-4">
+    <div class="row">
+        <!-- Sidebar Navigation -->
+        <div class="col-lg-3 mb-4">
+            <div class="card border-0 shadow-sm rounded-4 p-3">
+                <div class="list-group list-group-flush">
+                    <a th:href="@{/customer/profile}" class="list-group-item list-group-item-action border-0 py-3 rounded-3 text-secondary">
+                        <i class="bi bi-person me-2"></i> Hồ Sơ Của Tôi
+                    </a>
+                    <a th:href="@{/customer/addresses}" class="list-group-item list-group-item-action border-0 py-3 rounded-3 text-secondary">
+                        <i class="bi bi-geo-alt me-2"></i> Sổ Địa Chỉ
+                    </a>
+                    <a th:href="@{/orders}" class="list-group-item list-group-item-action border-0 py-3 rounded-3 text-secondary">
+                        <i class="bi bi-bag-check me-2"></i> Đơn Mua Hàng
+                    </a>
+                    <a th:href="@{/customer/vouchers}" class="list-group-item list-group-item-action border-0 py-3 rounded-3 fw-bold active text-white" style="background-color: var(--pet-primary);">
+                        <i class="bi bi-ticket-perforated me-2"></i> Ví Voucher
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Messages -->
+            <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <span th:text="${successMessage}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span th:text="${errorMessage}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Tab Navigation -->
+            <ul class="nav nav-pills mb-4" id="voucherTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active rounded-pill px-4" id="wallet-tab" data-bs-toggle="tab" data-bs-target="#wallet-pane" type="button" role="tab">
+                        <i class="bi bi-wallet2 me-1"></i> Ví Của Tôi (<span th:text="${#lists.size(walletVouchers)}">0</span>)
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link rounded-pill px-4 ms-2" id="public-tab" data-bs-toggle="tab" data-bs-target="#public-pane" type="button" role="tab">
+                        <i class="bi bi-gift me-1"></i> Mã Ưu Đãi Mới (<span th:text="${#lists.size(publicVouchers)}">0</span>)
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="voucherTabContent">
+                <!-- Tab 1: My Wallet -->
+                <div class="tab-pane fade show active" id="wallet-pane" role="tabpanel">
+                    <div th:if="${walletVouchers.empty}" class="text-center py-5 bg-white rounded-4 shadow-sm p-4">
+                        <i class="bi bi-ticket-perforated display-3 text-muted mb-3 d-block"></i>
+                        <h5 class="fw-bold text-secondary">Ví voucher hiện đang trống</h5>
+                        <p class="text-muted small">Hãy chuyển sang tab "Mã Ưu Đãi Mới" để thu thập các mã giảm giá hấp dẫn nhé!</p>
+                    </div>
+
+                    <div class="row g-3">
+                        <div th:each="item : ${walletVouchers}" class="col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100 p-3 position-relative"
+                                 th:classappend="${item.remainingUses == 0 ? 'bg-light opacity-75' : 'bg-white'}">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge font-monospace fs-6"
+                                          th:classappend="${item.remainingUses == 0 ? 'bg-secondary' : 'bg-danger'}"
+                                          th:text="${item.voucher.code}">CODE</span>
+                                    <span th:if="${item.remainingUses == 0}" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                        Hết lượt sử dụng
+                                    </span>
+                                    <span th:unless="${item.remainingUses == 0}" class="badge bg-success-subtle text-success border border-success-subtle">
+                                        <span th:text="${'Còn ' + item.remainingUses + ' lượt'}">Còn lượt</span>
+                                    </span>
+                                </div>
+                                <h6 class="fw-bold mb-1 text-dark" th:text="${item.voucher.title}">Tiêu đề</h6>
+                                <p class="text-muted small mb-2" th:text="${item.voucher.description}">Mô tả</p>
+
+                                <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        HSD: <span th:text="${#temporals.format(item.voucher.endDate, 'dd/MM/yyyy')}">31/12/2026</span>
+                                    </small>
+                                    <form th:action="@{/customer/vouchers/delete/{id}(id=${item.id})}" method="post" class="d-inline"
+                                          onsubmit="return confirm('Bạn có muốn gỡ bỏ voucher này khỏi ví?');">
+                                        <button type="submit" class="btn btn-sm btn-link text-danger p-0 text-decoration-none">
+                                            <i class="bi bi-trash"></i> Gỡ bỏ
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Public Vouchers to Collect -->
+                <div class="tab-pane fade" id="public-pane" role="tabpanel">
+                    <div th:if="${publicVouchers.empty}" class="text-center py-5 bg-white rounded-4 shadow-sm p-4">
+                        <i class="bi bi-inbox display-3 text-muted mb-3 d-block"></i>
+                        <h5 class="fw-bold text-secondary">Hiện chưa có voucher công khai mới</h5>
+                    </div>
+
+                    <div class="row g-3">
+                        <div th:each="v : ${publicVouchers}" class="col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge bg-primary font-monospace fs-6" th:text="${v.code}">CODE</span>
+                                    <span class="text-danger fw-bold">
+                                        <span th:if="${v.discountType.name() == 'PERCENT'}" th:text="'-' + ${v.discountValue} + '%'">-10%</span>
+                                        <span th:if="${v.discountType.name() == 'FIXED'}" th:text="'-' + ${#numbers.formatDecimal(v.discountValue, 0, 'POINT', 0, 'COMMA')} + ' đ'">-50k</span>
+                                    </span>
+                                </div>
+                                <h6 class="fw-bold mb-1 text-dark" th:text="${v.title}">Tiêu đề</h6>
+                                <p class="text-muted small mb-2" th:text="${v.description}">Mô tả</p>
+
+                                <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        Đơn tối thiểu: <span th:text="${#numbers.formatDecimal(v.minOrderAmount, 0, 'POINT', 0, 'COMMA')} + ' đ'">100k</span>
+                                    </small>
+                                    <div th:if="${savedVoucherIds.contains(v.id)}">
+                                        <button class="btn btn-sm btn-secondary disabled rounded-pill px-3" disabled>
+                                            <i class="bi bi-check2"></i> Đã trong ví
+                                        </button>
+                                    </div>
+                                    <div th:unless="${savedVoucherIds.contains(v.id)}">
+                                        <form th:action="@{/customer/vouchers/save/{id}(id=${v.id})}" method="post">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold">
+                                                <i class="bi bi-bookmark-plus me-1"></i> Lưu Vào Ví
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
