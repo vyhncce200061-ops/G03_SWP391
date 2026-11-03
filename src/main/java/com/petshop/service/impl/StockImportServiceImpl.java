@@ -35,6 +35,7 @@ public class StockImportServiceImpl implements StockImportService {
     @Override
     @Transactional
     public StockImport createStockImport(com.petshop.dto.stock.StockImportFormDto form, Long staffId) {
+        if (form == null) throw new IllegalArgumentException("Phiếu nhập không hợp lệ.");
         var violations = validator.validate(form);
         if (!violations.isEmpty()) throw new IllegalArgumentException(violations.iterator().next().getMessage());
         var items = form.getItems().stream().map(line -> StockImportItem.builder()
@@ -60,6 +61,9 @@ public class StockImportServiceImpl implements StockImportService {
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại: " + staffId));
 
+        if (!"ACTIVE".equals(staff.getStatus()) || !java.util.Set.of("ADMIN", "STAFF").contains(staff.getRole().getCode())) {
+            throw new IllegalArgumentException("Tài khoản không có quyền nhập kho.");
+        }
         if (stockImport.getImportCode() == null || stockImport.getImportCode().isBlank()) {
             stockImport.setImportCode("IMP-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "-" + java.util.UUID.randomUUID().toString().substring(0, 8));
         }
@@ -102,5 +106,48 @@ public class StockImportServiceImpl implements StockImportService {
     @Transactional(readOnly = true)
     public List<ProductVariant> getLowStockVariants() {
         return variantRepository.findLowStockVariants();
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public StockImportItem getImportItemById(Long itemId) {
+        var item = stockImportItemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mặt hàng trong phiếu nhập."));
+        item.getVariant().getProduct().getName();
+        item.getStockImport().getImportCode();
+        return item;
+    }
+
+    @Override
+    @Transactional
+    public void updateImportItem(com.petshop.dto.stock.StockImportEditFormDto form, Long staffId) {
+        if (form == null || form.getItemId() == null || !validator.validate(form).isEmpty()) {
+            throw new IllegalArgumentException("Số lượng (1–10.000), đơn giá và phiếu nhập phải hợp lệ.");
+        }
+        var staff = userRepository.findById(staffId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên."));
+        if (!"ACTIVE".equals(staff.getStatus()) || !java.util.Set.of("STAFF", "ADMIN").contains(staff.getRole().getCode())) {
+            throw new IllegalArgumentException("Tài khoản không có quyền nhập kho.");
+        }
+        var item = stockImportItemRepository.findByIdForUpdate(form.getItemId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mặt hàng trong phiếu nhập."));
+        entityManager.refresh(item, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (!item.getStockImport().getId().equals(form.getImportId())) {
+            throw new IllegalArgumentException("Mặt hàng không thuộc phiếu nhập đã chọn.");
+        }
+        var variant = variantRepository.findByIdForUpdate(item.getVariant().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy SKU nhập kho."));
+        entityManager.refresh(variant, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        int delta = form.getQuantity() - item.getQuantity();
+        long remaining = (long) variant.getStockQuantity() + delta;
+        if (remaining < 0 || remaining > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Không thể sửa số lượng: tồn kho không đủ để giảm hoặc vượt giới hạn.");
+        }
+        if (delta != 0) {
+            if (variantRepository.restoreStock(variant.getId(), delta) != 1) throw new IllegalStateException("Chưa cập nhật được tồn kho.");
+            entityManager.refresh(variant);
+        }
+        item.setQuantity(form.getQuantity());
+        item.setUnitCost(form.getUnitCost());
+        stockImportItemRepository.saveAndFlush(item);
     }
 }

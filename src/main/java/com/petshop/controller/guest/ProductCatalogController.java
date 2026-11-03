@@ -12,6 +12,15 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import com.petshop.entity.Product;
+import com.petshop.entity.Category;
+
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 @Controller
 @RequiredArgsConstructor
@@ -28,12 +37,27 @@ public class ProductCatalogController {
             @RequestParam(required = false) Integer brandId,
             @RequestParam(required = false) String petType,
             @RequestParam(required = false) String sortBy,
+            @RequestParam(name="sort", required = false) String sort,
+            @RequestParam(required = false) String priceRange,
             @RequestParam(required = false) java.math.BigDecimal minPrice,
             @RequestParam(required = false) java.math.BigDecimal maxPrice,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             Model model) {
 
+        // Support both current catalog parameters and existing links from Vy's branch.
+        if (sortBy == null || sortBy.isBlank()) sortBy = sort;
+        if ("priceAsc".equals(sortBy)) sortBy = "price_asc";
+        if ("priceDesc".equals(sortBy)) sortBy = "price_desc";
+        if (priceRange != null && minPrice == null && maxPrice == null) {
+            switch (priceRange) {
+                case "under100" -> maxPrice = new java.math.BigDecimal("99999.99");
+                case "100to300" -> { minPrice = new java.math.BigDecimal("100000"); maxPrice = new java.math.BigDecimal("300000"); }
+                case "300to500" -> { minPrice = new java.math.BigDecimal("300000"); maxPrice = new java.math.BigDecimal("500000"); }
+                case "over500" -> minPrice = new java.math.BigDecimal("500000.01");
+                default -> { }
+            }
+        }
         PetType petTypeEnum = null;
         if (petType != null && !petType.trim().isEmpty()) {
             try {
@@ -73,6 +97,110 @@ public class ProductCatalogController {
         return "guest/product-list";
     }
 
+
+    /**
+     * Suggest matching categories and products while searching.
+     *
+     * @param keyword the search keyword
+     * @return matching categories and products
+     */
+    @GetMapping("/products/suggestions")
+    @ResponseBody
+    public Map<String, Object> suggestProducts(
+            @RequestParam(required = false) String keyword) {
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        List<Map<String, Object>> categorySuggestions =
+                new ArrayList<>();
+        List<ProductSummaryDto> productSuggestions =
+                new ArrayList<>();
+
+        if (keyword == null || keyword.trim().length() < 2) {
+            result.put("categories", categorySuggestions);
+            result.put("products", productSuggestions);
+            return result;
+        }
+
+        String search = normalizeText(keyword);
+
+        // Find matching categories from the database.
+        List<Category> allCategories =
+                catalogService.getAllCategories();
+
+        for (Category category : allCategories) {
+            if (category.getName() == null
+                    || !normalizeText(category.getName())
+                    .contains(search)) {
+                continue;
+            }
+
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", category.getId());
+            item.put("name", category.getName());
+            item.put("code", category.getCode());
+            categorySuggestions.add(item);
+
+            // Retrieve products in the matching category.
+            ProductFilterDto filter = ProductFilterDto.builder()
+                    .categoryId(category.getId())
+                    .build();
+
+            Page<ProductSummaryDto> page =
+                    catalogService.searchAndFilterProducts(
+                            filter, PageRequest.of(0, 5)
+                    );
+
+            productSuggestions.addAll(page.getContent());
+
+            if (productSuggestions.size() >= 5) {
+                break;
+            }
+        }
+
+        // If no category matches, search by product keyword.
+        if (categorySuggestions.isEmpty()) {
+            ProductFilterDto filter = ProductFilterDto.builder()
+                    .keyword(keyword.trim())
+                    .build();
+
+            productSuggestions.addAll(
+                    catalogService.searchAndFilterProducts(
+                            filter, PageRequest.of(0, 5)
+                    ).getContent()
+            );
+        }
+
+        // Return no more than five products.
+        if (productSuggestions.size() > 5) {
+            productSuggestions = new ArrayList<>(
+                    productSuggestions.subList(0, 5)
+            );
+        }
+
+        result.put("categories", categorySuggestions);
+        result.put("products", productSuggestions);
+
+        return result;
+    }
+
+    /**
+     * Normalize Vietnamese text for case- and accent-insensitive matching.
+     *
+     * @param value the input text
+     * @return normalized text
+     */
+    private String normalizeText(String value) {
+        String normalized = Normalizer.normalize(
+                value.toLowerCase(Locale.ROOT),
+                Normalizer.Form.NFD
+        );
+
+        return Pattern.compile("\\p{M}+")
+                .matcher(normalized)
+                .replaceAll("")
+                .replace('đ', 'd')
+                .trim();
+    }
 
     @GetMapping("/products/{slug}")
     public String productDetail(@PathVariable String slug, @RequestParam(defaultValue="0") int reviewPage, Model model) {

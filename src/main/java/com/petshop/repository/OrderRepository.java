@@ -19,6 +19,8 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     @Override
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer"})
     Page<Order> findAll(org.springframework.data.jpa.domain.Specification<Order> spec, Pageable pageable);
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer"})
+    Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
     Optional<Order> findByOrderCode(String orderCode);
 
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id IN :ids")

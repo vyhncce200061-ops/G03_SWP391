@@ -1,8 +1,10 @@
 package com.petshop.controller.staff;
 
 import com.petshop.config.security.CustomUserDetails;
+import com.petshop.dto.stock.StockImportEditFormDto;
 import com.petshop.dto.stock.StockImportFormDto;
 import com.petshop.entity.StockImport;
+import com.petshop.entity.StockImportItem;
 import com.petshop.repository.ProductVariantRepository;
 import com.petshop.service.StockImportService;
 import jakarta.validation.Valid;
@@ -61,7 +63,6 @@ public class StockImportController {
                              Model model,
                              RedirectAttributes redirectAttributes) {
 
-        // If validation fails → return to view
         if (bindingResult.hasErrors()) {
             model.addAttribute("variants", variantRepository.findAllActiveWithProduct());
             model.addAttribute("importCode",
@@ -81,6 +82,49 @@ public class StockImportController {
             model.addAttribute("errorMessage", e.getMessage());
             return "staff/stock-import-form";
         }
+    }
+
+    // ============ EDIT ITEM FORM ============
+    @GetMapping("/items/{itemId}/edit")
+    public String editImportItemForm(@PathVariable Long itemId, Model model) {
+        StockImportItem item = stockImportService.getImportItemById(itemId);
+
+        StockImportEditFormDto form = StockImportEditFormDto.builder()
+                .itemId(item.getId())
+                .importId(item.getStockImport().getId())
+                .quantity(item.getQuantity())
+                .unitCost(item.getUnitCost())
+                .build();
+
+        model.addAttribute("editForm", form);
+        model.addAttribute("item", item);
+        return "staff/stock-import-item-edit";
+    }
+
+    // ============ UPDATE IMPORT ITEM ============
+    @PostMapping("/items/{itemId}/edit")
+    public String updateImportItem(@PathVariable Long itemId,
+                                   @AuthenticationPrincipal CustomUserDetails actor,
+                                   @Valid @ModelAttribute("editForm") StockImportEditFormDto form,
+                                   BindingResult errors, Model model,
+                                   RedirectAttributes redirectAttributes) {
+        StockImportItem item = stockImportService.getImportItemById(itemId);
+        form.setItemId(itemId);
+        if (errors.hasErrors()) {
+            model.addAttribute("item", item);
+            model.addAttribute("errorMessage", errors.getAllErrors().get(0).getDefaultMessage());
+            return "staff/stock-import-item-edit";
+        }
+        try {
+            stockImportService.updateImportItem(form, actor.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật mặt hàng thành công!");
+        } catch (IllegalArgumentException e) {
+            form.setImportId(item.getStockImport().getId());
+            model.addAttribute("item", item);
+            model.addAttribute("errorMessage", e.getMessage());
+            return "staff/stock-import-item-edit";
+        }
+        return "redirect:/staff/stock-imports/" + item.getStockImport().getId();
     }
 
     // ============ DETAIL ============

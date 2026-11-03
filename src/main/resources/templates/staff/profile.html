@@ -332,7 +332,7 @@
                     <p class="text-muted small m-0 mt-1">Để bảo vệ tài khoản nhân viên, vui lòng dùng mật khẩu mạnh và không chia sẻ cho người khác</p>
                 </div>
 
-                <form th:action="@{/staff/change-password}" method="post">
+                <form th:action="@{${profilePath == '/account/profile' ? '/account/password' : '/staff/change-password'}}" method="post">
                     <div class="row g-3">
                         <div class="col-12">
                             <label for="staffCurrentPassword" class="form-label small fw-semibold">Mật khẩu hiện tại</label>
@@ -379,7 +379,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form th:action="@{/staff/profile}" method="post" enctype="multipart/form-data">
+                <form th:action="@{${profilePath ?: '/staff/profile'}}" method="post" enctype="multipart/form-data">
                     <div class="modal-body p-4">
                         <!-- Avatar -->
                         <div class="mb-4 text-center">
@@ -401,7 +401,7 @@
                                     <i class="bi bi-camera me-1" style="color: #0d9488;"></i> Đổi ảnh đại diện
                                 </label>
                                 <input type="file" id="staffAvatarFile" name="avatarFile"
-                                       accept="image/png, image/jpeg, image/jpg, image/webp"
+                                       accept="image/png, image/jpeg, image/gif"
                                        class="d-none"
                                        onchange="previewStaffAvatar(this)">
                                 <div id="staffAvatarFileName" class="small text-muted mt-1"></div>

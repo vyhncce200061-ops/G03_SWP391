@@ -13,7 +13,7 @@
             Sản Phẩm
         </h4>
         <a th:href="@{${productBasePath}}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Quay lại
+            <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
         </a>
     </div>
 
@@ -24,9 +24,16 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 p-4">
-        <!-- IMPORTANT: Must have enctype for file upload -->
-        <form th:action="${productForm.id != null ? productBasePath + '/' + productForm.id + '/edit' : productBasePath + '/create'}"
+    <div class="card border-0 shadow-sm rounded-4 p-4 position-relative">
+        <!-- Loading Overlay (Hidden by default) -->
+        <div id="loadingOverlay" class="position-absolute top-0 start-0 w-100 h-100 d-none justify-content-center align-items-center bg-white bg-opacity-75 rounded-4" style="z-index: 1050;">
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+                <p class="mt-3 fw-semibold text-muted">Đang tải ảnh và lưu dữ liệu...</p>
+            </div>
+        </div>
+
+        <form id="productForm" th:action="@{${productForm.id != null ? productBasePath + '/' + productForm.id + '/edit' : productBasePath + '/create'}}"
               th:object="${productForm}" method="post" enctype="multipart/form-data">
 
             <div class="row g-4">
@@ -105,21 +112,35 @@
 
                         <!-- Display existing images if editing -->
                         <div th:if="${productForm.id != null and !productForm.existingImageUrls.isEmpty()}">
-                            <p class="small text-muted mb-2">Ảnh hiện tại:</p>
-                            <div class="d-flex flex-wrap gap-2 mb-3">
-                                <img th:each="imgUrl : ${productForm.existingImageUrls}"
-                                     th:src="@{${imgUrl}}"
-                                     class="img-thumbnail rounded shadow-sm"
-                                     style="width: 80px; height: 80px; object-fit: cover;">
+                            <p class="small text-muted mb-2 fw-semibold">Ảnh hiện tại (Chọn ảnh đại diện):</p>
+                            <div class="d-flex flex-wrap gap-3 mb-4">
+                                <div th:each="imgUrl, stat : ${productForm.existingImageUrls}" class="text-center position-relative">
+                                    <img th:src="@{${imgUrl}}" class="img-thumbnail rounded shadow-sm fade-in"
+                                         style="width: 85px; height: 85px; object-fit: cover;">
+                                    <!-- Radio button to select primary image -->
+                                    <div class="form-check d-flex justify-content-center mt-2">
+                                        <input class="form-check-input" type="radio" th:field="*{primaryImageId}"
+                                               th:value="${productForm.existingImageIds[stat.index]}"
+                                               style="transform: scale(1.2); cursor: pointer;">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- File input for new images -->
-                        <label class="form-label small fw-semibold" th:text="${productForm.id != null ? 'Tải thêm ảnh mới:' : 'Tải ảnh lên:'}">Tải ảnh lên:</label>
-                        <input class="form-control" type="file" th:field="*{imageFiles}" accept=".jpg, .jpeg, .png" multiple>
-                        <small class="text-muted mt-2 d-block" style="font-size: 0.75rem; line-height: 1.4;">
-                            <i class="bi bi-info-circle me-1"></i> Giữ phím <kbd>Ctrl</kbd> (Windows) hoặc <kbd>Cmd</kbd> (Mac) để chọn nhiều ảnh. Chỉ nhận file .jpg, .png.
+                        <label class="form-label small fw-semibold text-muted mb-2" th:text="${productForm.id != null ? 'Tải thêm ảnh mới:' : 'Tải ảnh lên:'}">Tải ảnh lên:</label>
+                        <div class="input-group mb-2">
+                            <label class="input-group-text bg-white border-end-0" for="imageInput"><i class="bi bi-folder2-open"></i></label>
+                            <input class="form-control border-start-0 ps-0" type="file" id="imageInput" name="imageFiles" accept=".jpg, .jpeg, .png" multiple>
+                        </div>
+
+                        <small class="text-muted d-block mb-3" style="font-size: 0.75rem;">
+                            <i class="bi bi-info-circle me-1"></i> Chỉ nhận file định dạng .JPG, .JPEG, .PNG.
                         </small>
+
+                        <!-- Container for JS preview -->
+                        <p class="small text-muted mb-2 fw-semibold d-none" id="previewLabel">Ảnh xem trước:</p>
+                        <div id="previewContainer" class="d-flex flex-wrap gap-3"></div>
                     </div>
                 </div>
             </div>
@@ -132,6 +153,8 @@
             </div>
         </form>
     </div>
+    <!-- External JS file for image preview and loading state -->
+    <script th:src="@{/js/product-form.js}"></script>
 </div>
 </body>
 </html>
