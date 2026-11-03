@@ -20,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -66,6 +65,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public User confirmRegistration(String token) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("Liên kết xác nhận không hợp lệ hoặc đã hết hạn. Vui lòng đăng ký lại.");
+        }
         io.jsonwebtoken.Claims claims;
         try {
             claims = registrationTokens.parseRegistrationToken(token);
@@ -134,10 +136,13 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void initiatePasswordReset(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập địa chỉ email.");
+        }
         resetMailer.requireConfigured();
         log.info("Initiating password reset for email: {}", email);
         userRepository.findByEmail(email.trim().toLowerCase()).filter(user -> "ACTIVE".equals(user.getStatus())).ifPresent(user -> {
-                accountAccessService.sendLink(user.getId(), false);
+            accountAccessService.sendLink(user.getId(), false);
             log.info("Sent password reset instructions for user ID {}", user.getId());
         });
     }
