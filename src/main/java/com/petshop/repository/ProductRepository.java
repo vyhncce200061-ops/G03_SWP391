@@ -47,7 +47,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Query(value = "SELECT p FROM Product p " +
             "LEFT JOIN FETCH p.category " +
             "LEFT JOIN FETCH p.brand " +
-            "WHERE p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED",
+            "LEFT JOIN FETCH p.images img " +
+            "WHERE p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED " +
+            "ORDER BY p.id ASC",
             countQuery = "SELECT COUNT(p) FROM Product p WHERE p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED")
     Page<Product> findAllWithDetails(Pageable pageable);
 

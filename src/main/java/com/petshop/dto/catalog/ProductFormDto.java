@@ -54,17 +54,22 @@ public class ProductFormDto {
     @NotNull(message = "Vui lòng chọn trạng thái")
     private ProductStatus status;
 
-    @Builder.Default
     private Boolean isFeatured = false;
 
     // FIELDS FOR IMAGE UPLOAD
-
     /** List of uploaded image files from the form */
     private List<MultipartFile> imageFiles;
 
     /** List of existing image URLs (used when loading edit form) */
     @Builder.Default
     private List<String> existingImageUrls = new ArrayList<>();
+
+    /** List of existing image IDs (parallel to existingImageUrls) */
+    @Builder.Default
+    private List<Long> existingImageIds = new ArrayList<>();
+
+    /** ID of the existing image chosen as primary (used when editing) */
+    private Long primaryImageId;
 
     /**
      * Map Entity to DTO (when loading edit form).
@@ -84,10 +89,13 @@ public class ProductFormDto {
                 .isFeatured(product.getIsFeatured())
                 .build();
 
-        // Map existing image URLs to DTO for displaying on the edit form
+        // Map existing image URLs and IDs to DTO for displaying on the edit form
         if (product.getImages() != null) {
             dto.setExistingImageUrls(product.getImages().stream()
                     .map(ProductImage::getImageUrl)
+                    .toList());
+            dto.setExistingImageIds(product.getImages().stream()
+                    .map(ProductImage::getId)
                     .toList());
         }
 

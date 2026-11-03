@@ -1,8 +1,10 @@
 package com.petshop.controller.staff;
 
 import com.petshop.config.security.CustomUserDetails;
+import com.petshop.dto.stock.StockImportEditFormDto;
 import com.petshop.dto.stock.StockImportFormDto;
 import com.petshop.entity.StockImport;
+import com.petshop.entity.StockImportItem;
 import com.petshop.repository.ProductVariantRepository;
 import com.petshop.service.StockImportService;
 import jakarta.validation.Valid;
@@ -61,7 +63,6 @@ public class StockImportController {
                              Model model,
                              RedirectAttributes redirectAttributes) {
 
-        // If validation fails → return to view
         if (bindingResult.hasErrors()) {
             model.addAttribute("variants", variantRepository.findAllActiveWithProduct());
             model.addAttribute("importCode",
@@ -81,6 +82,38 @@ public class StockImportController {
             model.addAttribute("errorMessage", e.getMessage());
             return "staff/stock-import-form";
         }
+    }
+
+    // ============ EDIT ITEM FORM ============
+    @GetMapping("/items/{itemId}/edit")
+    public String editImportItemForm(@PathVariable Long itemId, Model model) {
+        StockImportItem item = stockImportService.getImportItemById(itemId);
+
+        StockImportEditFormDto form = StockImportEditFormDto.builder()
+                .itemId(item.getId())
+                .importId(item.getStockImport().getId())
+                .quantity(item.getQuantity())
+                .unitCost(item.getUnitCost())
+                .build();
+
+        model.addAttribute("editForm", form);
+        model.addAttribute("item", item);
+        return "staff/stock-import-item-edit";
+    }
+
+    // ============ UPDATE IMPORT ITEM ============
+    @PostMapping("/items/{itemId}/edit")
+    public String updateImportItem(@PathVariable Long itemId,
+                                   @ModelAttribute StockImportEditFormDto form,
+                                   RedirectAttributes redirectAttributes) {
+        try {
+            form.setItemId(itemId);
+            stockImportService.updateImportItem(form);
+            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật mặt hàng thành công!");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/staff/stock-imports/" + form.getImportId();
     }
 
     // ============ DETAIL ============

@@ -44,7 +44,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional(readOnly = true)
     public Page<Product> searchProducts(String keyword, Integer categoryId, Pageable pageable) {
-        return productRepository.findAll((root, query, cb) -> {
+        Page<Product> products = productRepository.findAll((root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             if (keyword != null && !keyword.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
@@ -52,6 +52,21 @@ public class ProductManageServiceImpl implements ProductManageService {
             if (categoryId != null) predicates.add(cb.equal(root.get("category").get("id"), categoryId));
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         }, pageable);
+
+        // Force initialization of lazy collections to prevent LazyInitializationException in Thymeleaf
+        products.getContent().forEach(product -> {
+            if (product.getImages() != null) {
+                product.getImages().size();
+            }
+            if (product.getCategory() != null) {
+                product.getCategory().getName();
+            }
+            if (product.getBrand() != null) {
+                product.getBrand().getName();
+            }
+        });
+
+        return products;
     }
 
     @Override

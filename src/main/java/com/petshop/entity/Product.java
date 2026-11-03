@@ -7,9 +7,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Product catalog root entity.
@@ -75,12 +73,13 @@ public class Product {
     private User updatedBy;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("isPrimary DESC, id ASC")
     @Builder.Default
-    private Set<ProductImage> images = new LinkedHashSet<>();
+    private List<ProductImage> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
     @Builder.Default
-    private Set<ProductVariant> variants = new LinkedHashSet<>();
+    private List<ProductVariant> variants = new ArrayList<>();
 
     @Column(name = "CreatedAt", nullable = false, updatable = false)
     private LocalDateTime createdAt;

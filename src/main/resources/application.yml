@@ -100,6 +100,7 @@ spring:
     resources:
       static-locations:
         - classpath:/static/
+        - file:src/main/resources/static/
         - classpath:/static/css/
         - classpath:/static/js/
         - classpath:/static/images/

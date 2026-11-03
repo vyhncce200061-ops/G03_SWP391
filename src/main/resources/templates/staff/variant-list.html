@@ -23,7 +23,8 @@
             <a th:href="@{/staff/products/{id}/variants/create(id=${product.id})}" class="btn btn-pet-primary">
                 <i class="bi bi-plus-lg me-1"></i>Thêm Biến Thể
             </a>
-            <a th:href="@{/staff/products}" class="btn btn-outline-secondary ms-2">Quay lại</a>
+            <a th:href="@{/staff/products}" class="btn btn-outline-secondary ms-2">
+                <i class="bi bi-arrow-left me-1"></i>Quay lại</a>
         </div>
     </div>
 
@@ -36,8 +37,8 @@
                     <th>Mã SKU</th>
                     <th>Tên biến thể</th>
                     <th>Giá bán</th>
-                    <th>Tồn kho</th>
-                    <th>Trạng thái</th>
+                    <th class="text-center">Tồn kho</th>
+                    <th class="text-center">Trạng thái</th>
                     <th class="text-center">Thao tác</th>
                 </tr>
                 </thead>
@@ -47,16 +48,36 @@
                     <td class="fw-semibold" th:text="${v.skuCode}">SKU-001</td>
                     <td th:text="${v.variantName}">Túi 500g</td>
                     <td th:text="${#numbers.formatDecimal(v.price, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
-                    <td>
-                        <!-- Low stock warning color -->
-                        <span th:class="${v.stockQuantity <= v.lowStockThreshold ? 'badge bg-danger' : 'badge bg-success'}"
+                    <td class="text-center">
+                        <!-- In Stock: Quantity > Low Stock Threshold -->
+                        <span th:if="${v.stockQuantity > v.lowStockThreshold}"
+                              class="badge bg-success-subtle text-success-emphasis fs-6"
                               th:text="${v.stockQuantity}">10</span>
+
+                        <!-- Low Stock: Quantity <= Threshold and > 0 -->
+                        <span th:if="${v.stockQuantity > 0 and v.stockQuantity <= v.lowStockThreshold}"
+                              class="badge bg-warning-subtle text-warning-emphasis fs-6"
+                              th:text="${v.stockQuantity}">2</span>
+
+                        <!-- Out of Stock: Quantity == 0 -->
+                        <span th:if="${v.stockQuantity == 0}"
+                              class="badge bg-danger-subtle text-danger-emphasis fs-6"
+                              th:text="${v.stockQuantity}">0</span>
                     </td>
-                    <td>
+                    <td class="text-center">
                         <!-- Variant Status Badges -->
-                        <span th:if="${v.status.name() == 'ACTIVE'}" class="badge bg-success">ACTIVE</span>
-                        <span th:if="${v.status.name() == 'INACTIVE'}" class="badge bg-warning text-dark">INACTIVE</span>
-                        <span th:if="${v.status.name() == 'DISCONTINUED'}" class="badge bg-secondary">DISCONTINUED</span>
+                        <span th:if="${v.status.name() == 'ACTIVE'}"
+                              class="badge status-badge bg-success">
+                            Đang bán
+                        </span>
+                        <span th:if="${v.status.name() == 'INACTIVE'}"
+                              class="badge status-badge bg-warning">
+                            Tạm ngưng
+                        </span>
+                        <span th:if="${v.status.name() == 'DISCONTINUED'}"
+                              class="badge status-badge bg-secondary">
+                            Ngừng bán
+                        </span>
                     </td>
                     <td class="text-center">
                         <!-- Navigate to edit form -->

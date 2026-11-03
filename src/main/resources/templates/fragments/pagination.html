@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Reusable Pagination Fragment for Staff Pages -->
+<div th:fragment="pagination(page, url)"
+     th:if="${page != null and page.totalPages > 1}"
+     class="d-flex justify-content-between align-items-center mt-4 px-2 flex-wrap gap-2">
+
+    <!-- Left side: Current page info with dynamic item name -->
+    <div class="text-muted small mb-3 mb-md-0">
+        Trang <strong th:text="${page.number + 1}"></strong> / <strong th:text="${page.totalPages}"></strong>
+        (Tổng <strong th:text="${page.totalElements}"></strong> <span th:text="${itemName}"></span>)
+    </div>
+
+    <!-- Right side: Pagination buttons -->
+    <nav>
+        <ul class="pagination pagination-sm custom-pagination mb-0">
+
+            <!-- Previous page button -->
+            <li class="page-item" th:classappend="${page.first} ? 'disabled'">
+                <a class="page-link" th:href="@{${url}(page=${page.number - 1}, size=${page.size})}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+
+            <!-- Page numbers -->
+            <li class="page-item"
+                th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
+                th:classappend="${i == page.number} ? 'active'">
+                <a class="page-link"
+                   th:href="@{${url}(page=${i}, size=${page.size})}"
+                   th:text="${i + 1}">
+                </a>
+            </li>
+
+            <!-- Next page button -->
+            <li class="page-item" th:classappend="${page.last} ? 'disabled'">
+                <a class="page-link" th:href="@{${url}(page=${page.number + 1}, size=${page.size})}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</div>
+
+</body>
+</html>
