@@ -160,22 +160,28 @@
         </nav>
     </header>
 
-    <!-- 2. Toast & Alert Notification Container -->
-    <div class="container mt-3" id="alertContainer">
-        <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="bi bi-check-circle-fill me-2"></i>
-            <span th:text="${successMessage}">Thao tác thành công!</span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    <!-- 2. Floating Notification Overlay (Xổ xuống từ trên đỉnh, không chiếm không gian layout, tự thu lên) -->
+    <div id="alertContainer" class="floating-alert-container">
+        <div th:if="${successMessage}" class="floating-alert floating-alert-success auto-dismiss" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+                <span th:text="${successMessage}">Thao tác thành công!</span>
+            </div>
+            <button type="button" class="btn-close ms-2" onclick="dismissFloatingAlert(this.closest('.floating-alert'))" aria-label="Close"></button>
         </div>
-        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            <span th:text="${errorMessage}">Đã xảy ra lỗi!</span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div th:if="${errorMessage}" class="floating-alert floating-alert-danger auto-dismiss" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                <span th:text="${errorMessage}">Đã xảy ra lỗi!</span>
+            </div>
+            <button type="button" class="btn-close ms-2" onclick="dismissFloatingAlert(this.closest('.floating-alert'))" aria-label="Close"></button>
         </div>
-        <div th:if="${infoMessage}" class="alert alert-info alert-dismissible fade show" role="alert">
-            <i class="bi bi-info-circle-fill me-2"></i>
-            <span th:text="${infoMessage}">Thông báo hệ thống.</span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div th:if="${infoMessage}" class="floating-alert floating-alert-info auto-dismiss" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                <span th:text="${infoMessage}">Thông báo hệ thống.</span>
+            </div>
+            <button type="button" class="btn-close ms-2" onclick="dismissFloatingAlert(this.closest('.floating-alert'))" aria-label="Close"></button>
         </div>
     </div>
 
@@ -232,6 +238,8 @@
     <!-- Bootstrap 5.3 CDN Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- Auto-dismiss temporary notifications (.alert.auto-dismiss) -->
+    <script th:replace="~{layout/auto-dismiss :: script}"></script>
     <th:block layout:fragment="custom-js"></th:block>
 </body>
 </html>

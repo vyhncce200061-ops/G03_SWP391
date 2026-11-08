@@ -18,26 +18,19 @@
                     </div>
 
                     <!-- Spring Security Error Alert -->
-                    <div th:if="${param.error}" class="alert alert-danger py-2 small" role="alert">
+                    <div th:if="${param.error}" class="alert alert-danger py-2 small auto-dismiss" role="alert">
                         Email, số điện thoại hoặc mật khẩu không chính xác, hoặc tài khoản đã bị khóa.
                     </div>
-                    <div th:if="${param.expired}" class="alert alert-warning py-2 small" role="alert">
+                    <div th:if="${param.expired}" class="alert alert-warning py-2 small auto-dismiss" role="alert">
                         Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.
-                    </div>
-                    <div th:if="${errorMessage}" class="alert alert-danger py-2 small" role="alert">
-                        <i class="bi bi-exclamation-circle-fill me-1"></i>
-                        <span th:text="${errorMessage}"></span>
-                    </div>
-                    <div th:if="${successMessage}" class="alert alert-success py-2 small" role="alert">
-                        <span th:text="${successMessage}"></span>
                     </div>
 
                     <!-- Logout Success Alert -->
-                    <div th:if="${param.passwordChanged}" class="alert alert-success py-2 small" role="alert">
+                    <div th:if="${param.passwordChanged}" class="alert alert-success py-2 small auto-dismiss" role="alert">
                         <i class="bi bi-check-circle-fill me-1"></i>
                         Đổi mật khẩu thành công. Vui lòng đăng nhập lại với mật khẩu mới.
                     </div>
-                    <div th:if="${param.logout}" class="alert alert-success py-2 small" role="alert">
+                    <div th:if="${param.logout}" class="alert alert-success py-2 small auto-dismiss" role="alert">
                         <i class="bi bi-check-circle-fill me-1"></i>
                         Bạn đã đăng xuất an toàn.
                     </div>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+    Floating Dropdown Notification Component (Overlay - zero layout space, drop down then slide up)
+-->
+<script th:fragment="script">
+(function () {
+    // 1. Inject Styles for Floating Alert Overlay
+    var style = document.createElement('style');
+    style.id = 'floating-alert-styles';
+    style.textContent = `
+        #alertContainer, .floating-alert-container {
+            position: fixed !important;
+            top: 24px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            z-index: 999999 !important;
+            width: auto !important;
+            max-width: 90vw !important;
+            min-width: 320px !important;
+            pointer-events: none !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 10px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .floating-alert {
+            pointer-events: auto !important;
+            min-width: 320px !important;
+            max-width: 620px !important;
+            padding: 12px 22px !important;
+            border-radius: 50rem !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.16), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 16px !important;
+            font-size: 0.925rem !important;
+            font-weight: 500 !important;
+            border: 1px solid transparent !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            animation: alertSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+            margin-bottom: 0 !important;
+        }
+
+        .floating-alert-success, .alert-success.floating-alert {
+            background-color: #ecfdf5 !important;
+            color: #065f46 !important;
+            border-color: #a7f3d0 !important;
+        }
+
+        .floating-alert-danger, .alert-danger.floating-alert {
+            background-color: #fef2f2 !important;
+            color: #991b1b !important;
+            border-color: #fecaca !important;
+        }
+
+        .floating-alert-info, .alert-info.floating-alert {
+            background-color: #eff6ff !important;
+            color: #1e40af !important;
+            border-color: #bfdbfe !important;
+        }
+
+        .floating-alert-warning, .alert-warning.floating-alert {
+            background-color: #fffbeb !important;
+            color: #92400e !important;
+            border-color: #fde68a !important;
+        }
+
+        .floating-alert.retracting {
+            animation: alertSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+        }
+
+        @keyframes alertSlideDown {
+            0% {
+                opacity: 0;
+                transform: translateY(-80px) scale(0.92);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes alertSlideUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                max-height: 120px;
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-80px) scale(0.92);
+                max-height: 0;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+                margin-top: -10px !important;
+            }
+        }
+    `;
+    if (!document.getElementById('floating-alert-styles')) {
+        document.head.appendChild(style);
+    }
+
+    // 2. Dismiss logic with retract animation
+    window.dismissFloatingAlert = function (el) {
+        if (!el || el.classList.contains('retracting')) return;
+        el.classList.add('retracting');
+        setTimeout(function () {
+            el.remove();
+        }, 390);
+    };
+
+    // 3. On DOM Ready: wire up alerts
+    document.addEventListener('DOMContentLoaded', function () {
+        var container = document.getElementById('alertContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'alertContainer';
+            container.className = 'floating-alert-container';
+            document.body.appendChild(container);
+        } else {
+            container.classList.add('floating-alert-container');
+        }
+
+        // Lift any inline .auto-dismiss alerts into the floating container so they do not take up space
+        document.querySelectorAll('.auto-dismiss').forEach(function (el) {
+            if (el.parentElement !== container) {
+                el.classList.add('floating-alert');
+                if (el.classList.contains('alert-danger')) el.classList.add('floating-alert-danger');
+                else if (el.classList.contains('alert-success')) el.classList.add('floating-alert-success');
+                else if (el.classList.contains('alert-warning')) el.classList.add('floating-alert-warning');
+                else el.classList.add('floating-alert-info');
+
+                if (!el.querySelector('.btn-close')) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn-close ms-2';
+                    btn.setAttribute('aria-label', 'Close');
+                    btn.onclick = function () { window.dismissFloatingAlert(el); };
+                    el.appendChild(btn);
+                }
+                container.appendChild(el);
+            }
+        });
+
+        // Auto retract each floating alert after 4.5 seconds
+        container.querySelectorAll('.floating-alert').forEach(function (el) {
+            setTimeout(function () {
+                window.dismissFloatingAlert(el);
+            }, 4500);
+        });
+
+        // Strip login query parameters so refresh does not resurrect notifications
+        if (window.location.pathname === '/login' && window.history && window.history.replaceState) {
+            var url = new URL(window.location.href);
+            var changed = false;
+            ['error', 'expired', 'logout', 'passwordChanged'].forEach(function (flag) {
+                if (url.searchParams.has(flag)) { url.searchParams.delete(flag); changed = true; }
+            });
+            if (changed) {
+                window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+            }
+        }
+    });
+})();
+</script>
+</body>
+</html>

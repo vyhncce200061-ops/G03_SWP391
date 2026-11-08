@@ -20,6 +20,10 @@ server:
 spring:
   application:
     name: petshop-app
+  # Always load local secrets (SMTP...) even if the IDE overrides spring.profiles.active.
+  # File is gitignored; "optional:" keeps startup working when it does not exist.
+  config:
+    import: optional:classpath:application-local.yml
   mail:
     host: ${SMTP_HOST:${MAIL_HOST:}}
     port: ${SMTP_PORT:587}
