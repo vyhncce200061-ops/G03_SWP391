@@ -298,9 +298,12 @@ public class OrderServiceImpl implements OrderService {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.PENDING_CONFIRMATION);
 
-        // VNPay is confirmed by the verified callback. PENDING_CONFIRMATION
-        // remains COD-only as required by the existing SQL constraint.
-        if (order.getPaymentMethod() != PaymentMethod.COD || order.getPaymentStatus() != PaymentStatus.UNPAID) {
+        boolean validCOD = order.getPaymentMethod() == PaymentMethod.COD
+                && order.getPaymentStatus() == PaymentStatus.UNPAID;
+        boolean validVNPay = order.getPaymentMethod() == PaymentMethod.VNPAY
+                && order.getPaymentStatus() == PaymentStatus.PAID;
+
+        if (!validCOD && !validVNPay) {
             throw new IllegalStateException("Đơn hàng không đủ điều kiện xác nhận.");
         }
         transitionStatus(order, OrderStatus.CONFIRMED, "Nhân viên xác nhận đơn hàng", requireUser(staffId));

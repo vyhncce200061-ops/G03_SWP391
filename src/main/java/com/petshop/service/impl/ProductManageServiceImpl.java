@@ -222,22 +222,27 @@ public class ProductManageServiceImpl implements ProductManageService {
             File dir = new File(uploadDir);
             if (!dir.exists()) dir.mkdirs();
 
-            // If product has no images yet, the first uploaded image becomes primary
             boolean isFirstImage = product.getImages().isEmpty();
 
             for (MultipartFile file : files) {
                 if (file.isEmpty()) continue;
 
+                List<String> allowedTypes = java.util.Arrays.asList("image/jpeg", "image/png", "image/gif");
                 if (file.getSize() > 5L * 1024 * 1024 || file.getContentType() == null
-                        || !java.util.Set.of("image/jpeg", "image/png", "image/gif").contains(file.getContentType())) {
+                        || !allowedTypes.contains(file.getContentType())) {
                     throw new IllegalArgumentException("Ảnh sản phẩm cần là JPG, PNG hoặc GIF, tối đa 5 MB.");
                 }
-                java.awt.image.BufferedImage decoded;
-                try (var input = file.getInputStream()) { decoded = javax.imageio.ImageIO.read(input); }
-                if (decoded == null) throw new IllegalArgumentException("Nội dung tệp không phải hình ảnh hợp lệ.");
-                String newFileName = UUID.randomUUID() + ".png";
+
+                String originalFileName = file.getOriginalFilename();
+                String fileExtension = ".png";
+                if (originalFileName != null && originalFileName.contains(".")) {
+                    fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
+                }
+
+                String newFileName = UUID.randomUUID() + fileExtension;
                 Path path = Paths.get(uploadDir + newFileName);
-                if (!javax.imageio.ImageIO.write(decoded, "png", path.toFile())) throw new IllegalStateException("Không thể lưu ảnh sản phẩm.");
+
+                Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
 
                 ProductImage image = new ProductImage();
                 image.setProduct(product);
@@ -246,7 +251,7 @@ public class ProductManageServiceImpl implements ProductManageService {
                 image.setIsPrimary(isFirstImage);
 
                 productImageRepository.save(image);
-                product.getImages().add(image); // Update the in-memory list
+                product.getImages().add(image);
 
                 isFirstImage = false;
             }
