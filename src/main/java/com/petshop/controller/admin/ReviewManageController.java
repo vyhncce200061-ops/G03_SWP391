@@ -28,7 +28,7 @@ public class ReviewManageController {
                               @RequestParam(defaultValue = "0") int page,
                               @RequestParam(defaultValue = "10") int size,
                               Model model) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
+        Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
         Page<Review> reviewPage = reviewService.searchReviews(keyword, rating, status, pageable);
 
         model.addAttribute("reviews", reviewPage);
@@ -51,18 +51,22 @@ public class ReviewManageController {
                                @RequestParam(required = false) Integer rating,
                                @RequestParam(required = false) ReviewStatus status,
                                @RequestParam(defaultValue = "0") int page,
+                               @RequestParam(defaultValue = "10") int size,
                                RedirectAttributes redirectAttributes) {
         try {
             Review review = reviewService.toggleReviewStatus(id);
             String statusText = (review.getStatus() == ReviewStatus.VISIBLE) ? "HIỂN THỊ CÔNG KHAI" : "ẨN KHỎI CỬA HÀNG";
             redirectAttributes.addFlashAttribute("successMessage",
                     "Đã chuyển trạng thái đánh giá #" + id + " sang: " + statusText);
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         } catch (Exception e) {
-            log.error("Error toggling review status for id {}: {}", id, e.getMessage());
-            redirectAttributes.addFlashAttribute("errorMessage", "Lỗi: " + e.getMessage());
+            log.error("Unable to change visibility of review {}", id, e);
+            redirectAttributes.addFlashAttribute("errorMessage", "Chưa thể cập nhật trạng thái đánh giá. Vui lòng tải lại danh sách để kiểm tra trước khi thử lại.");
         }
 
         redirectAttributes.addAttribute("page", Math.max(0, page));
+        redirectAttributes.addAttribute("size", Math.max(1, Math.min(100, size)));
         if (keyword != null && !keyword.isBlank()) redirectAttributes.addAttribute("keyword", keyword.trim());
         if (rating != null) redirectAttributes.addAttribute("rating", rating);
         if (status != null) redirectAttributes.addAttribute("status", status.name());

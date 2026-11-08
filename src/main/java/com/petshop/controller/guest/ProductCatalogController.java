@@ -212,7 +212,7 @@ public class ProductCatalogController {
         }
 
         model.addAttribute("product", product);
-        model.addAttribute("reviews", reviews.publicReviews(product.getId(), PageRequest.of(Math.max(0, reviewPage),10)));
+        model.addAttribute("reviews", reviews.publicReviews(product.getId(), com.petshop.util.PageRequests.bounded(reviewPage,10)));
         model.addAttribute("availableVariants", product.getVariants().stream()
                 .filter(v -> v.getStatus() == com.petshop.entity.enums.ProductVariantStatus.ACTIVE && v.getStockQuantity() > 0)
                 .toList());

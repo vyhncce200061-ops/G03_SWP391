@@ -23,6 +23,12 @@ public class UserManageController {
 
     private final UserService userService;
 
+    @InitBinder("userForm")
+    public void bindForm(org.springframework.web.bind.WebDataBinder binder) {
+        // The path identifies the edited record; ignore a client-supplied form ID.
+        binder.setDisallowedFields("id");
+    }
+
     @GetMapping
     public String listUsers(@RequestParam(required = false) String keyword,
                             @RequestParam(required = false) String role,
@@ -30,7 +36,7 @@ public class UserManageController {
                             @RequestParam(defaultValue = "0") int page,
                             @RequestParam(defaultValue = "10") int size,
                             Model model) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
+        Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
         Page<User> users = userService.getAllUsers(keyword, role, status, pageable);
 
         model.addAttribute("users", users);
@@ -102,6 +108,7 @@ public class UserManageController {
                              BindingResult bindingResult,
                              RedirectAttributes redirectAttributes,
                              Model model) {
+        userForm.setId(id);
         if (bindingResult.hasErrors()) {
             model.addAttribute("targetUser", userService.findById(id));
             return "admin/user-edit";

@@ -179,7 +179,7 @@ public class ReportController {
     public String reviewReport(@RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate endDate, Model model) {
         if (endDate==null) endDate=LocalDate.now();
-        if (startDate==null) startDate=endDate.minusDays(29);
+        if (startDate==null) startDate=defaultStart(endDate);
         LocalDate[] range = checkedRange(startDate,endDate,model);startDate=range[0];endDate=range[1];
         model.addAttribute("startDate",startDate); model.addAttribute("endDate",endDate);
         model.addAttribute("reviewStats",reportService.reviewsByProduct(startDate.atStartOfDay(),endDate.plusDays(1).atStartOfDay()));
@@ -191,12 +191,19 @@ public class ReportController {
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(defaultValue="0") int page, Model model) {
         if (endDate == null) endDate=LocalDate.now();
-        if (startDate == null) startDate=endDate.minusDays(29);
+        if (startDate == null) startDate=defaultStart(endDate);
         LocalDate[] range=checkedRange(startDate,endDate,model);
         model.addAttribute("startDate",range[0]);model.addAttribute("endDate",range[1]);
         model.addAttribute("sales",reportService.productSales(range[0].atStartOfDay(),range[1].plusDays(1).atStartOfDay(),
-                org.springframework.data.domain.PageRequest.of(Math.max(0,page),20)));
+                com.petshop.util.PageRequests.bounded(page,20)));
         return "admin/report-product-sales";
+    }
+
+    private LocalDate defaultStart(LocalDate end) {
+        // Validate an out-of-range end date before subtracting days: LocalDate.MIN
+        // can otherwise overflow before checkedRange can display its normal error.
+        return end.getYear() < 1 || end.getYear() > 9999
+                ? LocalDate.now().minusDays(29) : end.minusDays(29);
     }
 
     private LocalDate[] checkedRange(LocalDate start, LocalDate end, Model model) {
