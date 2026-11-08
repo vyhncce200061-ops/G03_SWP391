@@ -346,15 +346,14 @@ public class OrderServiceImpl implements OrderService {
         }
         String reason = cancellationReason(rejectReason, null);
         Order order = lockOrder(orderId);
+
+        // CHỈ cho phép từ chối đơn COD chưa thanh toán
         boolean validCOD = order.getOrderStatus() == OrderStatus.PENDING_CONFIRMATION
                 && order.getPaymentMethod() == PaymentMethod.COD
                 && order.getPaymentStatus() == PaymentStatus.UNPAID;
-        boolean validVNPay = order.getOrderStatus() == OrderStatus.CONFIRMED
-                && order.getPaymentMethod() == PaymentMethod.VNPAY
-                && order.getPaymentStatus() == PaymentStatus.PAID;
 
-        if (!validCOD && !validVNPay) {
-            throw new IllegalStateException("Đơn hàng không đủ điều kiện từ chối.");
+        if (!validCOD) {
+            throw new IllegalStateException("Chỉ được phép từ chối đơn COD chưa thanh toán đang chờ xác nhận.");
         }
 
         List<PaymentTransaction> transactions = paymentTransactionRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
@@ -423,7 +422,13 @@ public class OrderServiceImpl implements OrderService {
         }
         User actor = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại."));
-        if (!"ACTIVE".equals(actor.getStatus()) || !java.util.Set.of("ADMIN","STAFF").contains(actor.getRole().getCode())) throw new IllegalArgumentException("Tài khoản không có quyền xử lý đơn hàng.");
+
+        String role = actor.getRole().getCode();
+        boolean isAdminOrStaff = "ADMIN".equals(role) || "STAFF".equals(role);
+
+        if (!"ACTIVE".equals(actor.getStatus()) || !isAdminOrStaff) {
+            throw new IllegalArgumentException("Tài khoản không có quyền xử lý đơn hàng.");
+        }
         return actor;
     }
 
@@ -483,25 +488,17 @@ public class OrderServiceImpl implements OrderService {
 
     private void performOrderCancellation(Order order, CancelType cancelType, String reason,
                                           User actor, List<PaymentTransaction> transactions) {
-        // 1. MUST CHECK: Only allow cancel if order is PENDING_CONFIRMATION or PENDING_PAYMENT.
-        // This applies to all cancel sources (Customer, Staff, System timeout).
-        boolean staffRejectPaid = cancelType == CancelType.STAFF_REJECT
-                && order.getOrderStatus() == OrderStatus.CONFIRMED
-                && order.getPaymentMethod() == PaymentMethod.VNPAY
-                && order.getPaymentStatus() == PaymentStatus.PAID;
+        // 1. Chỉ cho phép hủy khi đơn đang Chờ xác nhận hoặc Chờ thanh toán
         if (order.getOrderStatus() != OrderStatus.PENDING_CONFIRMATION
-                && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT && !staffRejectPaid) {
+                && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new IllegalStateException("Đơn hàng đã được xử lý, không thể hủy lại.");
         }
-        // 2. BLOCK COD PAID: COD is only marked PAID when delivered (COMPLETED).
-        // So this is just a defensive check (though the OrderStatus check above already blocks it).
-        if (order.getPaymentMethod() == PaymentMethod.COD && order.getPaymentStatus() == PaymentStatus.PAID) {
-            throw new IllegalStateException("Đơn COD đã thanh toán (đã giao hàng), không thể hủy.");
+
+        // 2. CHẶN TUYỆT ĐỐI: Không cho phép hủy đơn nếu đã thanh toán (áp dụng cho cả VNPay và COD)
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new IllegalStateException("Đơn hàng đã thanh toán, không thể hủy.");
         }
 
-        // 3. ALLOW VNPay PAID: Staff can cancel if out of stock/bombing, refund handled manually.
-        // 4. ALLOW COD UNPAID: Customer cancels or Staff rejects.
-        // 5. ALLOW VNPay UNPAID: Timeout or Customer cancels before payment.
         OrderStatus previous = order.getOrderStatus();
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setCancelType(cancelType);
@@ -509,11 +506,8 @@ public class OrderServiceImpl implements OrderService {
         order.setCancelledAt(LocalDateTime.now());
         order.setCancelledBy(actor);
 
-        // Cancelling fulfilment does not undo a successful bank payment.
-        // Keep PAID and the successful transaction until an actual refund is reconciled.
-        if (order.getPaymentStatus() != PaymentStatus.PAID) {
-            order.setPaymentStatus(cancelType == CancelType.PAYMENT_FAILED ? PaymentStatus.FAILED : PaymentStatus.CANCELLED);
-        }
+        // Cập nhật trạng thái thanh toán (đoạn này giờ chỉ áp dụng cho đơn chưa thanh toán)
+        order.setPaymentStatus(cancelType == CancelType.PAYMENT_FAILED ? PaymentStatus.FAILED : PaymentStatus.CANCELLED);
         orderRepository.save(order);
 
         for (PaymentTransaction transaction : transactions) {
@@ -535,7 +529,7 @@ public class OrderServiceImpl implements OrderService {
             voucherService.releaseVoucher(order.getVoucher().getId());
             voucherService.restoreCustomerVoucher(order.getCustomer().getId(), order.getVoucher().getId());
         }
-        String historyReason = "Hủy đơn: " + (staffRejectPaid ? "Đã thu tiền; cần đối chiếu hoàn tiền riêng. " : "") + reason;
+        String historyReason = "Hủy đơn: " + reason;
         saveHistory(order, previous, OrderStatus.CANCELLED,
                 historyReason.substring(0, Math.min(1000, historyReason.length())), actor);
         log.info("Order {} cancelled with type {}", order.getOrderCode(), cancelType);
