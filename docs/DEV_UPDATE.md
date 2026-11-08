@@ -1,5 +1,7 @@
 # Bản gộp dev
 
+Phần danh mục mới của Vy được kiểm tra tiếp trong [CATALOG_UPDATE.md](CATALOG_UPDATE.md). Các mục dưới mô tả đợt gộp wishlist/Staff trước đó.
+
 Các nhánh cũ đã có trong lịch sử `dev` được giữ nguyên. Bản này gộp hai phần còn thiếu: `fix/order-service-logic` của Hà (đến `cc161f9`, gồm commit sản phẩm/đơn hàng vừa bổ sung) và `feature/wishlist-my_vourcher` của Hân, trên nền bản Authentication mới nhất của Bảo (`28f4bd3`). Không sửa lịch sử các nhánh thành viên hoặc nhánh main.
 
 ## Nghiệp vụ giữ từ code thành viên

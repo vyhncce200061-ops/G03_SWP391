@@ -105,7 +105,7 @@
                             <!-- GIỮ SỐ SẢN PHẨM MỖI TRANG -->
                             <input type="hidden"
                                    name="size"
-                                   value="12">
+                                   th:value="${productPage.size}">
 
                             <div class="row g-2 align-items-end">
 
@@ -415,7 +415,7 @@
                                 <p class="fw-bold text-danger mb-3"
                                    th:if="${product.minPrice != null}"
                                    th:text="${#numbers.formatDecimal(
-                                       product.minPrice, 0, 'COMMA', 0, 'POINT'
+                                       product.minPrice, 0, 'POINT', 0, 'COMMA'
                                    )} + ' đ'">
                                     150.000 đ
                                 </p>
@@ -464,6 +464,8 @@
                                    brandId=${filter.brandId},
                                    petType=${selectedPetType},
                                    priceRange=${selectedPriceRange},
+                                   minPrice=${filter.minPrice},
+                                   maxPrice=${filter.maxPrice},
                                    sortBy=${selectedSort}
                                )}">
 
@@ -489,6 +491,8 @@
                                    brandId=${filter.brandId},
                                    petType=${selectedPetType},
                                    priceRange=${selectedPriceRange},
+                                   minPrice=${filter.minPrice},
+                                   maxPrice=${filter.maxPrice},
                                    sortBy=${selectedSort}
                                )}"
                                th:text="${pageNumber + 1}">
@@ -511,6 +515,8 @@
                                    brandId=${filter.brandId},
                                    petType=${selectedPetType},
                                    priceRange=${selectedPriceRange},
+                                   minPrice=${filter.minPrice},
+                                   maxPrice=${filter.maxPrice},
                                    sortBy=${selectedSort}
                                )}">
 
