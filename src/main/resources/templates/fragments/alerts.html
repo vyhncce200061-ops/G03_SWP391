@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"><body>
+<div th:fragment="alerts" id="alertContainer" class="floating-alert-container" aria-live="polite" aria-atomic="false">
+    <div th:if="${successMessage}" class="floating-alert floating-alert-success auto-dismiss" role="status">
+        <div class="d-flex align-items-center"><i class="bi bi-check-circle-fill me-2" aria-hidden="true"></i><span th:text="${successMessage}"></span></div>
+        <button type="button" class="btn-close" aria-label="Đóng thông báo" onclick="dismissFloatingAlert(this.closest('.floating-alert'))"></button>
+    </div>
+    <div th:if="${errorMessage}" class="floating-alert floating-alert-danger auto-dismiss" role="alert">
+        <div class="d-flex align-items-center"><i class="bi bi-exclamation-circle-fill me-2" aria-hidden="true"></i><span th:text="${errorMessage}"></span></div>
+        <button type="button" class="btn-close" aria-label="Đóng thông báo" onclick="dismissFloatingAlert(this.closest('.floating-alert'))"></button>
+    </div>
+    <div th:if="${infoMessage}" class="floating-alert floating-alert-info auto-dismiss" role="status">
+        <div class="d-flex align-items-center"><i class="bi bi-info-circle-fill me-2" aria-hidden="true"></i><span th:text="${infoMessage}"></span></div>
+        <button type="button" class="btn-close" aria-label="Đóng thông báo" onclick="dismissFloatingAlert(this.closest('.floating-alert'))"></button>
+    </div>
+    <div th:if="${warningMessage}" class="floating-alert floating-alert-warning auto-dismiss" role="alert">
+        <div class="d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i><span th:text="${warningMessage}"></span></div>
+        <button type="button" class="btn-close" aria-label="Đóng thông báo" onclick="dismissFloatingAlert(this.closest('.floating-alert'))"></button>
+    </div>
+</div>
+</body></html>

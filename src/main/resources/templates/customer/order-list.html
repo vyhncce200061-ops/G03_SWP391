@@ -45,7 +45,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <span>Tổng tiền: </span>
-                        <strong class="text-danger" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}">100.000đ</strong>
+                        <strong class="text-danger" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}">100.000đ</strong>
                         <span class="badge bg-secondary ms-2" th:text="${order.paymentMethod}">COD</span>
                         <span class="small text-muted ms-2" th:text="${paymentStatusLabels[order.paymentStatus.name()]}">Chưa thanh toán</span>
                     </div>

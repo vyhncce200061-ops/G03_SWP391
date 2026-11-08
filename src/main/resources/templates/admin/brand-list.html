@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout/main-layout}">
+      layout:decorate="~{layout/admin-layout}">
 
 <head>
     <title>Quản lý thương hiệu</title>
@@ -13,16 +13,16 @@
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="text-white">Quản lý thương hiệu</h2>
+            <h2 class="text-body">Quản lý thương hiệu</h2>
         </div>
-        <a th:href="@{/admin/dashboard}" class="btn btn-outline-light">
+        <a th:href="@{/admin/dashboard}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Trang quản trị
         </a>
     </div>
 
     <!-- Create brand -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-success text-white">
+        <div class="card-header text-body">
             <i class="bi bi-plus-circle me-2"></i>Thêm thương hiệu
         </div>
 

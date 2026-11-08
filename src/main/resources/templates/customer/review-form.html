@@ -4,7 +4,7 @@
 <title>Đánh giá sản phẩm</title>
 </head>
 <body>
-<main layout:fragment="content" class="container py-4">
+<div layout:fragment="content" class="container py-4">
 <div class="card p-4 mx-auto" style="max-width:680px">
 <h1 class="h4">Đánh giá sản phẩm đã mua</h1>
 <p th:text="${item.productNameSnapshot + ' — ' + item.variantNameSnapshot}">
@@ -28,6 +28,6 @@
 <button class="btn btn-primary">Gửi đánh giá</button> <a th:href="@{/customer/reviews}" class="btn btn-outline-secondary">Quay lại</a>
 </form>
 </div>
-</main>
+</div>
 </body>
 </html>

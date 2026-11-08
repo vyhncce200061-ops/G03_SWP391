@@ -572,7 +572,7 @@
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="fw-bold text-dark small"
-                                                        th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">120.000
+                                                        th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + ' đ'}">120.000
                                                         đ</span>
                                                 </div>
                                             </div>
@@ -586,7 +586,7 @@
                                                     th:text="${order.paymentMethod}">COD</span>
                                                 <span class="small text-muted">Tổng thanh toán:</span>
                                                 <span class="fw-bold text-danger fs-6"
-                                                    th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}">
+                                                    th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}">
                                                     420.000 đ
                                                 </span>
                                             </div>

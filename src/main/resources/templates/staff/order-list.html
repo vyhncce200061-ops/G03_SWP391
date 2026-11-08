@@ -58,7 +58,7 @@
                     </td>
 
                     <!-- Total Amount -->
-                    <td class="text-danger fw-bold" th:text="${#numbers.formatDecimal(o.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
+                    <td class="text-danger fw-bold" th:text="${#numbers.formatDecimal(o.totalAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}">100.000 đ</td>
 
                     <!-- Payment Method & Payment Status -->
                     <td>

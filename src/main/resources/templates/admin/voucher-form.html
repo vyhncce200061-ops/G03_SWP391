@@ -27,7 +27,7 @@
                 <form th:action="${voucherForm.id == null ? '/admin/vouchers/create' : '/admin/vouchers/' + voucherForm.id + '/edit'}"
                       th:object="${voucherForm}" method="post">
                     <input type="hidden" th:field="*{id}">
-                    
+
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Mã Voucher (Code) <span class="text-danger">*</span></label>

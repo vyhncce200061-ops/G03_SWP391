@@ -82,7 +82,7 @@
                                     <div class="small text-muted mt-1" th:text="${order.recipientName}">Tên khách</div>
                                 </div>
                                 <div class="text-end">
-                                    <div class="fw-bold text-danger mb-1" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</div>
+                                    <div class="fw-bold text-danger mb-1" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}">100.000 đ</div>
                                     <a th:href="@{/staff/orders/{id}(id=${order.id})}" class="btn btn-sm btn-pet-primary">Xử lý ngay</a>
                                 </div>
                             </li>

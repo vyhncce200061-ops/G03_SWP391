@@ -6,20 +6,20 @@
     <title th:text="${product.name}">Chi Tiết Sản Phẩm</title>
 </head>
 <body>
-<div layout:fragment="content" class="py-5">
+<div layout:fragment="content" class="detail-screen py-5">
 
 
     <div class="container">
         <div class="row g-5">
-            <div class="col-md-6 text-center">
-                <img th:src="${product.displayImageUrl}" th:alt="${product.name}" class="img-fluid rounded-4 shadow-sm">
+            <div class="col-md-6 text-center product-image-panel">
+                <img th:data-fallback-src="@{/images/product-placeholder.svg}" th:src="${product.displayImageUrl}" th:alt="${product.name}" class="img-fluid rounded-4 shadow-sm">
             </div>
             <div class="col-md-6">
                 <span class="badge bg-secondary mb-2" th:text="${product.petType}">DOG</span>
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div class="flex-grow-1" style="min-width: 0; overflow-wrap: anywhere;">
-                        <h2 class="text-white" th:text="${product.name}">Tên sản phẩm</h2>
-                        <p class="text-white" th:text="${product.shortDescription}">Mô tả ngắn sản phẩm</p>
+                        <h2 class="text-body" th:text="${product.name}">Tên sản phẩm</h2>
+                        <p class="text-body" th:text="${product.shortDescription}">Mô tả ngắn sản phẩm</p>
                     </div>
                     <form id="wishlistForm" th:action="@{/customer/wishlist/add/{id}(id=${product.id})}"
                           th:attr="data-remove-url=@{/customer/wishlist/remove/{id}(id=${product.id})}" method="post"
@@ -36,7 +36,7 @@
 
                 <form th:action="@{/cart/add}" method="post" th:if="${!#lists.isEmpty(availableVariants)}">
                     <div class="mb-3">
-                        <label class="form-label text-white">Chọn Phân Loại:</label>
+                        <label class="form-label text-body">Chọn Phân Loại:</label>
                         <select class="form-select" name="variantId" required>
                             <option th:each="v : ${availableVariants}"
                                     th:value="${v.id}"
@@ -45,7 +45,7 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-white">Số lượng:</label>
+                        <label class="form-label text-body">Số lượng:</label>
                         <input type="number" name="quantity" class="form-control" value="1" min="1" max="100"
                                style="width: 120px;">
                     </div>
@@ -56,9 +56,9 @@
 
 
                 <div class="mt-4">
-                    <h5 class="text-white mb-3">Mô tả chi tiết:</h5>
+                    <h5 class="text-body mb-3">Mô tả chi tiết:</h5>
 
-                    <div class="text-white"
+                    <div class="text-body"
                          style="white-space: pre-line; line-height: 1.8;"
                          th:text="${product.description != null and !product.description.isBlank()
              ? product.description

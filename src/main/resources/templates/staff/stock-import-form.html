@@ -12,11 +12,7 @@
     </h4>
 
     <!-- Global error -->
-    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show">
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-        <span th:text="${errorMessage}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+
 
     <div class="card border-0 shadow-sm rounded-4 p-4">
         <form th:action="@{/staff/stock-imports/create}" th:object="${stockImportForm}" method="post">

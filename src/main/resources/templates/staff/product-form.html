@@ -108,7 +108,7 @@
                             <p class="small text-muted mb-2 fw-semibold">Ảnh hiện tại (Chọn ảnh đại diện):</p>
                             <div class="d-flex flex-wrap gap-3 mb-4">
                                 <div th:each="imgUrl, stat : ${productForm.existingImageUrls}" class="text-center position-relative">
-                                    <img th:src="@{${imgUrl}}" class="img-thumbnail rounded shadow-sm fade-in"
+                                    <img th:data-fallback-src="@{/images/product-placeholder.svg}" th:src="@{${imgUrl}}" class="img-thumbnail rounded shadow-sm fade-in"
                                          style="width: 85px; height: 85px; object-fit: cover;">
                                     <!-- Radio button to select primary image -->
                                     <div class="form-check d-flex justify-content-center mt-2">
