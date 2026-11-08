@@ -1,9 +1,13 @@
+
 package com.petshop.controller.guest;
 
 import com.petshop.dto.catalog.ProductFilterDto;
 import com.petshop.dto.catalog.ProductSummaryDto;
+import com.petshop.entity.Category;
+import com.petshop.entity.Product;
 import com.petshop.entity.enums.PetType;
 import com.petshop.service.CatalogService;
+import com.petshop.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -11,9 +15,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import com.petshop.entity.Product;
-import com.petshop.entity.Category;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
+import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,9 +32,14 @@ import java.util.regex.Pattern;
 public class ProductCatalogController {
 
     private final CatalogService catalogService;
+<<<<<<< Updated upstream
     private final com.petshop.service.ReviewService reviews;
     private final com.petshop.service.WishlistService wishlistService;
+=======
+    private final ReviewService reviews;
+>>>>>>> Stashed changes
 
+    // Hiển thị danh sách sản phẩm và xử lý các bộ lọc
     @GetMapping("/products")
     public String listProducts(
             @RequestParam(required = false) String keyword,
@@ -38,34 +48,74 @@ public class ProductCatalogController {
             @RequestParam(required = false) Integer brandId,
             @RequestParam(required = false) String petType,
             @RequestParam(required = false) String sortBy,
-            @RequestParam(name="sort", required = false) String sort,
+            @RequestParam(name = "sort", required = false) String sort,
             @RequestParam(required = false) String priceRange,
-            @RequestParam(required = false) java.math.BigDecimal minPrice,
-            @RequestParam(required = false) java.math.BigDecimal maxPrice,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             Model model) {
 
-        // Support both current catalog parameters and existing links from Vy's branch.
-        if (sortBy == null || sortBy.isBlank()) sortBy = sort;
-        if ("priceAsc".equals(sortBy)) sortBy = "price_asc";
-        if ("priceDesc".equals(sortBy)) sortBy = "price_desc";
-        if (priceRange != null && minPrice == null && maxPrice == null) {
-            switch (priceRange) {
-                case "under100" -> maxPrice = new java.math.BigDecimal("99999.99");
-                case "100to300" -> { minPrice = new java.math.BigDecimal("100000"); maxPrice = new java.math.BigDecimal("300000"); }
-                case "300to500" -> { minPrice = new java.math.BigDecimal("300000"); maxPrice = new java.math.BigDecimal("500000"); }
-                case "over500" -> minPrice = new java.math.BigDecimal("500000.01");
-                default -> { }
-            }
-        }
-        PetType petTypeEnum = null;
-        if (petType != null && !petType.trim().isEmpty()) {
-            try {
-                petTypeEnum = PetType.valueOf(petType.trim().toUpperCase());
-            } catch (IllegalArgumentException ignored) {}
+        // Hỗ trợ cả tên tham số sắp xếp cũ và mới
+        if (sortBy == null || sortBy.isBlank()) {
+            sortBy = sort;
         }
 
+        if ("priceAsc".equals(sortBy)) {
+            sortBy = "price_asc";
+        }
+
+        if ("priceDesc".equals(sortBy)) {
+            sortBy = "price_desc";
+        }
+
+        // Xử lý khoảng giá theo đơn vị tiền Việt Nam (VNĐ)
+        if (priceRange != null && !priceRange.isBlank()
+                && minPrice == null && maxPrice == null) {
+
+            switch (priceRange) {
+
+                case "under100" -> {
+                    minPrice = null;
+                    maxPrice = new BigDecimal("99999.99");
+                }
+
+                case "100to300" -> {
+                    minPrice = new BigDecimal("100000");
+                    maxPrice = new BigDecimal("300000");
+                }
+
+                case "300to500" -> {
+                    minPrice = new BigDecimal("300000");
+                    maxPrice = new BigDecimal("500000");
+                }
+
+                case "over500" -> {
+                    minPrice = new BigDecimal("500000.01");
+                    maxPrice = null;
+                }
+
+                default -> {
+                    minPrice = null;
+                    maxPrice = null;
+                }
+            }
+        }
+
+        // Chuyển loại thú cưng thành kiểu dữ liệu PetType
+        PetType petTypeEnum = null;
+
+        if (petType != null && !petType.trim().isEmpty()) {
+            try {
+                petTypeEnum = PetType.valueOf(
+                        petType.trim().toUpperCase(Locale.ROOT)
+                );
+            } catch (IllegalArgumentException ignored) {
+                petTypeEnum = null;
+            }
+        }
+
+        // Tạo điều kiện lọc sản phẩm
         ProductFilterDto filter = ProductFilterDto.builder()
                 .keyword(keyword)
                 .categoryCode(categoryCode)
@@ -77,45 +127,68 @@ public class ProductCatalogController {
                 .sortBy(sortBy)
                 .build();
 
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
-        Page<ProductSummaryDto> productPage = catalogService.searchAndFilterProducts(filter, pageable);
+        // Thiết lập phân trang
+        Pageable pageable = PageRequest.of(
+                Math.max(0, page),
+                Math.max(1, Math.min(100, size))
+        );
 
+        // Lấy danh sách sản phẩm theo điều kiện lọc
+        Page<ProductSummaryDto> productPage =
+                catalogService.searchAndFilterProducts(filter, pageable);
+
+        // Gửi dữ liệu sang giao diện
         model.addAttribute("productPage", productPage);
         model.addAttribute("filter", filter);
         model.addAttribute("categories", catalogService.getAllCategories());
         model.addAttribute("brands", catalogService.getAllBrands());
+
         model.addAttribute("keyword", keyword != null ? keyword : "");
-        model.addAttribute("selectedCategory", categoryCode != null ? categoryCode : "");
+        model.addAttribute("selectedCategory",
+                categoryCode != null ? categoryCode : "");
+
+        // Xác định danh mục đang được chọn
         Integer selectedId = categoryId;
+
         if (selectedId == null && categoryCode != null) {
-            selectedId = catalogService.getAllCategories().stream().filter(c -> categoryCode.equals(c.getCode()))
-                    .map(com.petshop.entity.Category::getId).findFirst().orElse(null);
+            selectedId = catalogService.getAllCategories()
+                    .stream()
+                    .filter(c -> categoryCode.equals(c.getCode()))
+                    .map(Category::getId)
+                    .findFirst()
+                    .orElse(null);
         }
+
         model.addAttribute("selectedCategoryId", selectedId);
-        model.addAttribute("selectedPetType", petType != null ? petType : "");
-        model.addAttribute("selectedSort", sortBy != null ? sortBy : "newest");
+
+        // Giữ lại các lựa chọn bộ lọc
+        model.addAttribute("selectedPetType",
+                petType != null ? petType : "");
+
+        model.addAttribute("selectedSort",
+                sortBy != null ? sortBy : "newest");
+
+        model.addAttribute("selectedPriceRange",
+                priceRange != null ? priceRange : "");
 
         return "guest/product-list";
     }
 
-
-    /**
-     * Suggest matching categories and products while searching.
-     *
-     * @param keyword the search keyword
-     * @return matching categories and products
-     */
+    // Gợi ý danh mục và sản phẩm khi người dùng tìm kiếm
     @GetMapping("/products/suggestions")
     @ResponseBody
     public Map<String, Object> suggestProducts(
             @RequestParam(required = false) String keyword) {
 
         Map<String, Object> result = new LinkedHashMap<>();
+
         List<Map<String, Object>> categorySuggestions =
                 new ArrayList<>();
+
         List<ProductSummaryDto> productSuggestions =
                 new ArrayList<>();
 
+        // Không tìm kiếm khi từ khóa có ít hơn hai ký tự
         if (keyword == null || keyword.trim().length() < 2) {
             result.put("categories", categorySuggestions);
             result.put("products", productSuggestions);
@@ -124,54 +197,60 @@ public class ProductCatalogController {
 
         String search = normalizeText(keyword);
 
-        // Find matching categories from the database.
+        // Lấy danh sách danh mục
         List<Category> allCategories =
                 catalogService.getAllCategories();
 
         for (Category category : allCategories) {
+
             if (category.getName() == null
-                    || !normalizeText(category.getName())
-                    .contains(search)) {
+                    || !normalizeText(category.getName()).contains(search)) {
                 continue;
             }
 
+            // Tạo thông tin danh mục gợi ý
             Map<String, Object> item = new LinkedHashMap<>();
+
             item.put("id", category.getId());
             item.put("name", category.getName());
             item.put("code", category.getCode());
+
             categorySuggestions.add(item);
 
-            // Retrieve products in the matching category.
+            // Lấy các sản phẩm thuộc danh mục phù hợp
             ProductFilterDto filter = ProductFilterDto.builder()
                     .categoryId(category.getId())
                     .build();
 
-            Page<ProductSummaryDto> page =
+            Page<ProductSummaryDto> productPage =
                     catalogService.searchAndFilterProducts(
-                            filter, PageRequest.of(0, 5)
+                            filter,
+                            PageRequest.of(0, 5)
                     );
 
-            productSuggestions.addAll(page.getContent());
+            productSuggestions.addAll(productPage.getContent());
 
             if (productSuggestions.size() >= 5) {
                 break;
             }
         }
 
-        // If no category matches, search by product keyword.
+        // Nếu không có danh mục phù hợp thì tìm theo tên sản phẩm
         if (categorySuggestions.isEmpty()) {
+
             ProductFilterDto filter = ProductFilterDto.builder()
                     .keyword(keyword.trim())
                     .build();
 
             productSuggestions.addAll(
                     catalogService.searchAndFilterProducts(
-                            filter, PageRequest.of(0, 5)
+                            filter,
+                            PageRequest.of(0, 5)
                     ).getContent()
             );
         }
 
-        // Return no more than five products.
+        // Giới hạn tối đa năm sản phẩm gợi ý
         if (productSuggestions.size() > 5) {
             productSuggestions = new ArrayList<>(
                     productSuggestions.subList(0, 5)
@@ -184,13 +263,9 @@ public class ProductCatalogController {
         return result;
     }
 
-    /**
-     * Normalize Vietnamese text for case- and accent-insensitive matching.
-     *
-     * @param value the input text
-     * @return normalized text
-     */
+    // Chuẩn hóa tiếng Việt để tìm kiếm không phân biệt dấu và chữ hoa
     private String normalizeText(String value) {
+
         String normalized = Normalizer.normalize(
                 value.toLowerCase(Locale.ROOT),
                 Normalizer.Form.NFD
@@ -203,18 +278,32 @@ public class ProductCatalogController {
                 .trim();
     }
 
+    // Hiển thị chi tiết sản phẩm và danh sách đánh giá
     @GetMapping("/products/{slug}")
+<<<<<<< Updated upstream
     public String productDetail(@PathVariable String slug, @RequestParam(defaultValue="0") int reviewPage, Model model,
             @org.springframework.security.core.annotation.AuthenticationPrincipal
             com.petshop.config.security.CustomUserDetails principal) {
+=======
+    public String productDetail(
+            @PathVariable String slug,
+            @RequestParam(defaultValue = "0") int reviewPage,
+            Model model) {
+
+>>>>>>> Stashed changes
         Product product;
+
         try {
             product = catalogService.getProductBySlug(slug);
         } catch (IllegalArgumentException ex) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm.");
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy sản phẩm."
+            );
         }
 
         model.addAttribute("product", product);
+<<<<<<< Updated upstream
         model.addAttribute("reviews", reviews.publicReviews(product.getId(), com.petshop.util.PageRequests.bounded(reviewPage,10)));
         model.addAttribute("wishlisted", principal != null && "CUSTOMER".equals(principal.getRoleCode())
                 && wishlistService.contains(principal.getId(), product.getId()));
@@ -222,11 +311,41 @@ public class ProductCatalogController {
                 .filter(v -> v.getStatus() == com.petshop.entity.enums.ProductVariantStatus.ACTIVE && v.getStockQuantity() > 0)
                 .toList());
         model.addAttribute("relatedProducts", catalogService.getFeaturedProducts(4));
+=======
+
+        // Lấy danh sách đánh giá công khai
+        model.addAttribute(
+                "reviews",
+                reviews.publicReviews(
+                        product.getId(),
+                        PageRequest.of(Math.max(0, reviewPage), 10)
+                )
+        );
+
+        // Chỉ hiển thị biến thể đang hoạt động và còn hàng
+        model.addAttribute(
+                "availableVariants",
+                product.getVariants()
+                        .stream()
+                        .filter(v ->
+                                v.getStatus()
+                                        == com.petshop.entity.enums.ProductVariantStatus.ACTIVE
+                                        && v.getStockQuantity() > 0
+                        )
+                        .toList()
+        );
+
+        // Lấy bốn sản phẩm nổi bật để gợi ý
+        model.addAttribute(
+                "relatedProducts",
+                catalogService.getFeaturedProducts(4)
+        );
+>>>>>>> Stashed changes
 
         return "guest/product-detail";
     }
 
-
+    // Chuyển nhanh đến danh sách sản phẩm theo danh mục
     @GetMapping("/categories/{code}")
     public String categoryShortcut(@PathVariable String code) {
         return "redirect:/products?categoryCode=" + code;
