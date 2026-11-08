@@ -598,6 +598,83 @@ class TeamIntegrationTests {
         mvc.perform(get("/staff/stock-imports").param("size","1").with(user(new CustomUserDetails(staff)))).andExpect(status().isOk());
     }
 
+    @Autowired VoucherRepository journeyVouchers;
+    @Autowired ReportService journeyReports;
+
+    @Test void productPurchaseControlsMatchExistingRolesAndEmptyStockIsExplained() throws Exception {
+        for(var operator:List.of(admin,staff)){
+            String html=mvc.perform(get("/products/"+key).with(user(new CustomUserDetails(operator))))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertFalse(html.contains("id=\"wishlistForm\""));assertFalse(html.contains("action=\"/cart/add\""));
+        }
+        String buyer=mvc.perform(get("/products/"+key).with(user(new CustomUserDetails(customer))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(buyer.contains("id=\"wishlistForm\""));assertTrue(buyer.contains("action=\"/cart/add\""));
+        variant.setStockQuantity(0);variants.save(variant);
+        String soldOut=mvc.perform(get("/products/"+key)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(soldOut.contains("Hiện chưa có phân loại còn hàng"));assertFalse(soldOut.contains("action=\"/cart/add\""));
+    }
+
+    @Test void fullCodJourneyKeepsReceiptVoucherStockFeedbackAndReportsAligned() throws Exception {
+        variant.setStockQuantity(0);variants.save(variant);
+        importLine(10);
+        var voucher=journeyVouchers.save(Voucher.builder().code("JOURNEY"+key.replace("-","").toUpperCase(java.util.Locale.ROOT))
+                .title("Journey voucher").discountType(DiscountType.FIXED).discountValue(new BigDecimal("50000"))
+                .startDate(java.time.LocalDateTime.now().minusDays(1)).endDate(java.time.LocalDateTime.now().plusDays(1))
+                .totalUsageLimit(10).perCustomerLimit(1).build());
+        var buyer=user(new CustomUserDetails(customer));
+        var employee=user(new CustomUserDetails(staff));
+        var manager=user(new CustomUserDetails(admin));
+        mvc.perform(post("/cart/add").with(buyer).with(csrf()).param("variantId",variant.getId().toString()).param("quantity","2"))
+                .andExpect(status().is3xxRedirection());
+        mvc.perform(get("/checkout").with(buyer)).andExpect(status().isOk());
+        String success=mvc.perform(post("/checkout/place-order").with(buyer).with(csrf())
+                        .param("recipientName","Nguyễn Văn Demo").param("recipientPhone","0901234567")
+                        .param("shippingProvince","Hồ Chí Minh").param("shippingDistrict","Thủ Đức")
+                        .param("shippingWard","Linh Trung").param("shippingAddressLine","123 Đường số 1")
+                        .param("paymentMethod","COD").param("voucherCode",voucher.getCode()))
+                .andExpect(status().is3xxRedirection()).andReturn().getResponse().getRedirectedUrl();
+        assertNotNull(success);assertTrue(success.startsWith("/checkout/success/"));
+        var order=orderService.getOrderByCodeForCustomer(success.substring(success.lastIndexOf('/')+1),customer.getId());
+        assertEquals(0,new BigDecimal("380000").compareTo(order.getTotalAmount()));
+        assertFalse(order.getStockDeducted());assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertEquals(0,carts.getCartForUser(customer.getId()).getTotalQuantity());
+        mvc.perform(get(success).with(buyer)).andExpect(status().isOk());
+        mvc.perform(get("/customer/orders/"+order.getId()).with(buyer)).andExpect(status().isOk());
+        var item=orderItems.findByOrderId(order.getId()).get(0);
+        mvc.perform(post("/customer/reviews/create").with(buyer).with(csrf()).param("orderItemId",item.getId().toString())
+                        .param("rating","5").param("comment","Sản phẩm đúng mô tả và giao hàng tốt"))
+                .andExpect(flash().attributeExists("errorMessage"));
+        for(String action:List.of("confirm","prepare","ship","complete")){
+            mvc.perform(post("/staff/orders/"+order.getId()+"/"+action).with(employee).with(csrf()))
+                    .andExpect(flash().attributeExists("successMessage"));
+            assertEquals(8,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        }
+        var completed=orderRepository.findById(order.getId()).orElseThrow();
+        assertEquals(OrderStatus.COMPLETED,completed.getOrderStatus());assertEquals(PaymentStatus.PAID,completed.getPaymentStatus());
+        assertNotNull(completed.getCompletedAt());
+        mvc.perform(post("/staff/orders/"+order.getId()+"/complete").with(employee).with(csrf()))
+                .andExpect(flash().attributeExists("errorMessage"));
+        mvc.perform(post("/customer/reviews/create").with(buyer).with(csrf()).param("orderItemId",item.getId().toString())
+                        .param("rating","5").param("comment","Sản phẩm đúng mô tả và giao hàng tốt"))
+                .andExpect(flash().attributeExists("successMessage"));
+        var review=reviewRepository.findAll().stream().filter(r->r.getOrderItem().getId().equals(item.getId())).findFirst().orElseThrow();
+        mvc.perform(post("/admin/reviews/"+review.getId()+"/reply").with(manager).with(csrf()).param("replyText","Cảm ơn bạn đã mua hàng tại cửa hàng"))
+                .andExpect(flash().attributeExists("successMessage"));
+        assertTrue(mvc.perform(get("/products/"+key)).andReturn().getResponse().getContentAsString().contains("Cảm ơn bạn đã mua hàng"));
+        mvc.perform(post("/admin/reviews/"+review.getId()+"/toggle-status").with(manager).with(csrf()))
+                .andExpect(flash().attributeExists("successMessage"));
+        assertFalse(mvc.perform(get("/products/"+key)).andReturn().getResponse().getContentAsString().contains("Cảm ơn bạn đã mua hàng"));
+        assertTrue(mvc.perform(get("/customer/reviews").with(buyer)).andReturn().getResponse().getContentAsString().contains("Cảm ơn bạn đã mua hàng"));
+        var now=java.time.LocalDate.now();
+        Object[] sold=journeyReports.productSales(now.atStartOfDay(),now.plusDays(1).atStartOfDay(),PageRequest.of(0,100))
+                .stream().filter(r->((Number)r[1]).longValue()==product.getId()).findFirst().orElseThrow();
+        assertEquals(2L,((Number)sold[2]).longValue());assertEquals(0,new BigDecimal("400000").compareTo(new BigDecimal(sold[3].toString())));
+        var stock=journeyReports.stockReconciliation().stream().filter(r->r.getSku().equals(variant.getSkuCode())).findFirst().orElseThrow();
+        assertEquals(0,stock.getDifference());assertEquals(8,stock.getCurrentStock());
+        assertEquals(1,journeyVouchers.findById(voucher.getId()).orElseThrow().getUsedCount());
+    }
+
     @Test void receiptDecreaseAndConfirmationCannotBothConsumeSameAvailableStock() throws Exception {
         var line=importLine(6);carts.addItemToCart(customer.getId(),variant.getId(),12);
         var order=orderService.checkoutOrder(customer.getId(),com.petshop.dto.order.CheckoutSubmitDto.builder()
