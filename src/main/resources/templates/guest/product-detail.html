@@ -21,7 +21,7 @@
                         <h2 class="text-body" th:text="${product.name}">Tên sản phẩm</h2>
                         <p class="text-body" th:text="${product.shortDescription}">Mô tả ngắn sản phẩm</p>
                     </div>
-                    <form id="wishlistForm" th:action="@{/customer/wishlist/add/{id}(id=${product.id})}"
+                    <form th:if="${!#authorization.expression('hasAnyRole(''ADMIN'',''STAFF'')')}" id="wishlistForm" th:action="@{/customer/wishlist/add/{id}(id=${product.id})}"
                           th:attr="data-remove-url=@{/customer/wishlist/remove/{id}(id=${product.id})}" method="post"
                           class="flex-shrink-0">
                         <button type="submit" class="btn btn-link text-danger text-decoration-none p-2 fs-4"
@@ -34,10 +34,10 @@
                 </div>
                 <hr>
 
-                <form th:action="@{/cart/add}" method="post" th:if="${!#lists.isEmpty(availableVariants)}">
+                <form th:action="@{/cart/add}" method="post" th:if="${!#lists.isEmpty(availableVariants) and !#authorization.expression('hasAnyRole(''ADMIN'',''STAFF'')')}">
                     <div class="mb-3">
-                        <label class="form-label text-body">Chọn Phân Loại:</label>
-                        <select class="form-select" name="variantId" required>
+                        <label for="productVariant" class="form-label text-body">Chọn Phân Loại:</label>
+                        <select id="productVariant" class="form-select" name="variantId" required>
                             <option th:each="v : ${availableVariants}"
                                     th:value="${v.id}"
                                     th:text="${v.variantName + ' - ' + #numbers.formatDecimal(v.price, 0, 'POINT', 0, 'COMMA') + ' đ (Kho: ' + v.stockQuantity + ')'}">
@@ -45,14 +45,15 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-body">Số lượng:</label>
-                        <input type="number" name="quantity" class="form-control" value="1" min="1" max="100"
+                        <label for="productQuantity" class="form-label text-body">Số lượng:</label>
+                        <input id="productQuantity" type="number" name="quantity" class="form-control" value="1" min="1" max="100"
                                style="width: 120px;">
                     </div>
                     <button type="submit" class="btn btn-pet-primary btn-lg w-100">
                         <i class="bi bi-cart-plus me-2"></i>Thêm Vào Giỏ Hàng
                     </button>
                 </form>
+                <p th:if="${#lists.isEmpty(availableVariants)}" class="alert alert-light border" role="status">Hiện chưa có phân loại còn hàng cho sản phẩm này.</p>
 
 
                 <div class="mt-4">

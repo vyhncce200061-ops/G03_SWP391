@@ -97,7 +97,7 @@
                                  th:src="${product.primaryImageUrl}"
                                  th:alt="${product.name}"
                                  class="card-img-top"
-                                 style="height: 200px; object-fit: cover;">
+                                 loading="lazy" style="height: 220px; object-fit: contain; padding: 18px; background: #fff;">
 
                             <div th:unless="${product.primaryImageUrl != null and !#strings.isEmpty(product.primaryImageUrl)}"
                                  class="d-flex align-items-center justify-content-center bg-light"

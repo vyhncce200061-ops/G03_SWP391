@@ -1,0 +1,538 @@
+[
+  {
+    "key": "rc-poodle",
+    "slug": "hat-royal-canin-poodle-adult",
+    "name": "Hạt Royal Canin Poodle Adult",
+    "brand": "Royal Canin",
+    "category": "THUC-AN-HAT",
+    "pet": "DOG",
+    "short": "Thức ăn hạt cho chó Poodle trưởng thành trên 10 tháng tuổi.",
+    "description": "Royal Canin Poodle Adult dành cho chó Poodle trưởng thành. Sản phẩm dạng hạt, có lựa chọn túi 500 g và 1,5 kg.",
+    "variants": [],
+    "featured": true,
+    "existing": true,
+    "source": "https://www.royalcanin.com/vn/dogs/products/retail-products/poodle-adult-3057",
+    "imageSource": "https://marspetcareaprimocdn.petcare.global/1fd32d8e-c2fb-4280-bfc1-b24900075f52/1fd32d8e-c2fb-4280-bfc1-b24900075f52_DownloadAsJpg.jpg?w=640&width=640&auto=webp&format=jpg&optimize=medium",
+    "usage": "Dùng theo hướng dẫn trên bao bì; luôn có nước sạch. Bảo quản nơi khô ráo, đóng kín sau khi mở.",
+    "image": "/images/products/hat-royal-canin-poodle-adult.jpg",
+    "imageSha256": "41f97a443e753ffd5b50f808707b4c357d215a5663566a182e0e2869d3fa039d",
+    "imageSize": [
+      640,
+      905
+    ]
+  },
+  {
+    "key": "whiskas-mackerel",
+    "slug": "pate-whiskas-ca-thu",
+    "name": "Pate Whiskas vị cá thu",
+    "brand": "Whiskas",
+    "category": "THUC-AN-UOT",
+    "pet": "CAT",
+    "short": "Thức ăn ướt Whiskas vị cá thu cho mèo trưởng thành, gói 85 g.",
+    "description": "Thức ăn ướt Whiskas Mackerel dạng túi 85 g. Có thể chọn gói đơn hoặc thùng 24 gói; bảo quản theo thông tin trên bao bì.",
+    "variants": [],
+    "featured": true,
+    "existing": true,
+    "source": "https://genshai.com.vn/products/8853301550031",
+    "imageSource": "https://product.hstatic.net/200000352097/product/8853301550031_17-06-2020_0e0cc248673c4407b141b7c42593b432_grande.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/pate-whiskas-ca-thu.jpg",
+    "imageSha256": "222fbf1e7095126286c7c3aa90ad1bacee81dfb3d49ffdd3bea77c466e5c2ca4",
+    "imageSize": [
+      600,
+      600
+    ]
+  },
+  {
+    "key": "rc-mini-adult",
+    "slug": "royal-canin-mini-adult",
+    "name": "Hạt Royal Canin Mini Adult",
+    "brand": "Royal Canin",
+    "category": "THUC-AN-HAT",
+    "pet": "DOG",
+    "short": "Thức ăn hạt cho chó trưởng thành giống nhỏ, trên 10 tháng tuổi.",
+    "description": "Dành cho chó trưởng thành thuộc giống nhỏ, cân nặng tối đa 10 kg. Chọn đúng quy cách túi khi đặt hàng.",
+    "variants": [
+      {
+        "sku": "RC-MINI-ADULT-800G",
+        "label": "Túi 800 g",
+        "price": 195000,
+        "quantity": 20,
+        "cost": 136500
+      },
+      {
+        "sku": "RC-MINI-ADULT-2KG",
+        "label": "Túi 2 kg",
+        "price": 425000,
+        "quantity": 12,
+        "cost": 297500
+      }
+    ],
+    "featured": true,
+    "existing": false,
+    "source": "https://www.royalcanin.com/si/dogs/products/retail-products/mini-adult-3001",
+    "imageSource": "https://marspetcareaprimocdn.petcare.global/b58b1dc8-f69b-401a-9068-b3f600e032af/b58b1dc8-f69b-401a-9068-b3f600e032af_DownloadAsJpg.jpg?w=640&width=640&auto=webp&format=jpg&optimize=medium",
+    "usage": "Dùng theo hướng dẫn trên bao bì; luôn có nước sạch. Bảo quản nơi khô ráo, đóng kín sau khi mở.",
+    "image": "/images/products/royal-canin-mini-adult.jpg",
+    "imageSha256": "106266adc2ce864ff9c6ef730816e4e5070c7db074061e11853573fc7134d4e5",
+    "imageSize": [
+      640,
+      645
+    ]
+  },
+  {
+    "key": "rc-mini-puppy",
+    "slug": "royal-canin-mini-puppy",
+    "name": "Hạt Royal Canin Mini Puppy",
+    "brand": "Royal Canin",
+    "category": "THUC-AN-HAT",
+    "pet": "DOG",
+    "short": "Thức ăn hạt cho chó con giống nhỏ từ 2 đến 10 tháng tuổi.",
+    "description": "Dành cho chó con có cân nặng trưởng thành dưới 10 kg. Có quy cách 800 g và 2 kg.",
+    "variants": [
+      {
+        "sku": "RC-MINI-PUPPY-800G",
+        "label": "Túi 800 g",
+        "price": 220000,
+        "quantity": 18,
+        "cost": 154000
+      },
+      {
+        "sku": "RC-MINI-PUPPY-2KG",
+        "label": "Túi 2 kg",
+        "price": 495000,
+        "quantity": 10,
+        "cost": 346500
+      }
+    ],
+    "featured": true,
+    "existing": false,
+    "source": "https://www.royalcanin.com/vn/dogs/products/retail-products/mini-puppy-3000",
+    "imageSource": "https://marspetcareaprimocdn.petcare.global/c2698e01-24b8-4434-b780-b2490009a85b/c2698e01-24b8-4434-b780-b2490009a85b_DownloadAsJpg.jpg?w=640&width=640&auto=webp&format=jpg&optimize=medium",
+    "usage": "Dùng theo hướng dẫn trên bao bì; luôn có nước sạch. Bảo quản nơi khô ráo, đóng kín sau khi mở.",
+    "image": "/images/products/royal-canin-mini-puppy.jpg",
+    "imageSha256": "ccbac0c4b54100c6083c8d201d6e3d8f1bbc968b1946261942ee8906bc72409c",
+    "imageSize": [
+      640,
+      905
+    ]
+  },
+  {
+    "key": "rc-kitten",
+    "slug": "royal-canin-kitten",
+    "name": "Hạt Royal Canin Kitten",
+    "brand": "Royal Canin",
+    "category": "THUC-AN-HAT",
+    "pet": "CAT",
+    "short": "Thức ăn hạt cho mèo con trong giai đoạn tăng trưởng đến 12 tháng tuổi.",
+    "description": "Royal Canin Kitten là thức ăn dạng hạt dành cho mèo con. Chọn túi 400 g hoặc 2 kg theo nhu cầu sử dụng.",
+    "variants": [
+      {
+        "sku": "RC-KITTEN-400G",
+        "label": "Túi 400 g",
+        "price": 145000,
+        "quantity": 24,
+        "cost": 101500
+      },
+      {
+        "sku": "RC-KITTEN-2KG",
+        "label": "Túi 2 kg",
+        "price": 615000,
+        "quantity": 12,
+        "cost": 430500
+      }
+    ],
+    "featured": true,
+    "existing": false,
+    "source": "https://www.royalcanin.com/vn/cats/products/retail-products/kitten-2522",
+    "imageSource": "https://marspetcareaprimocdn.petcare.global/fa1241ac-7528-4e00-b045-b2490009a695/fa1241ac-7528-4e00-b045-b2490009a695_DownloadAsJpg.jpg?w=640&width=640&auto=webp&format=jpg&optimize=medium",
+    "usage": "Dùng theo hướng dẫn trên bao bì; luôn có nước sạch. Bảo quản nơi khô ráo, đóng kín sau khi mở.",
+    "image": "/images/products/royal-canin-kitten.jpg",
+    "imageSha256": "9244b87857343a8bf683ab627e65eb95001eba80aef6c3274d77a9533ce5f7b4",
+    "imageSize": [
+      640,
+      905
+    ]
+  },
+  {
+    "key": "rc-indoor",
+    "slug": "royal-canin-indoor-27",
+    "name": "Hạt Royal Canin Indoor 27",
+    "brand": "Royal Canin",
+    "category": "THUC-AN-HAT",
+    "pet": "CAT",
+    "short": "Thức ăn hạt cho mèo trưởng thành từ 1 đến 7 tuổi sống trong nhà.",
+    "description": "Dành cho mèo nuôi trong nhà, ít vận động. Có quy cách túi 400 g và 2 kg.",
+    "variants": [
+      {
+        "sku": "RC-INDOOR-400G",
+        "label": "Túi 400 g",
+        "price": 135000,
+        "quantity": 20,
+        "cost": 94500
+      },
+      {
+        "sku": "RC-INDOOR-2KG",
+        "label": "Túi 2 kg",
+        "price": 545000,
+        "quantity": 10,
+        "cost": 381500
+      }
+    ],
+    "featured": true,
+    "existing": false,
+    "source": "https://www.royalcanin.com/vn/cats/products/retail-products/indoor-27-2529",
+    "imageSource": "https://marspetcareaprimocdn.petcare.global/6e85bfb2-2a80-4d09-800d-b3aa00a4ebfc/6e85bfb2-2a80-4d09-800d-b3aa00a4ebfc_DownloadAsJpg.jpg?w=640&width=640&auto=webp&format=jpg&optimize=medium",
+    "usage": "Dùng theo hướng dẫn trên bao bì; luôn có nước sạch. Bảo quản nơi khô ráo, đóng kín sau khi mở.",
+    "image": "/images/products/royal-canin-indoor-27.jpg",
+    "imageSha256": "dcb064389d8e82792a698ccd7ad0ffe56c1536e74b6b2818ccff4c25417dba9e",
+    "imageSize": [
+      640,
+      905
+    ]
+  },
+  {
+    "key": "rc-fit",
+    "slug": "royal-canin-fit-32",
+    "name": "Hạt Royal Canin Fit 32",
+    "brand": "Royal Canin",
+    "category": "THUC-AN-HAT",
+    "pet": "CAT",
+    "short": "Thức ăn hạt cho mèo trưởng thành có mức vận động vừa phải.",
+    "description": "Dành cho mèo trưởng thành trên 1 tuổi, có vận động hoặc tiếp cận không gian ngoài trời. Quy cách túi 2 kg và 4 kg.",
+    "variants": [
+      {
+        "sku": "RC-FIT-2KG",
+        "label": "Túi 2 kg",
+        "price": 445000,
+        "quantity": 15,
+        "cost": 311500
+      },
+      {
+        "sku": "RC-FIT-4KG",
+        "label": "Túi 4 kg",
+        "price": 825000,
+        "quantity": 8,
+        "cost": 577500
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.royalcanin.com/uk/cats/products/retail-products/fit-32-2520",
+    "imageSource": "https://marspetcareaprimocdn.petcare.global/d00b96be-3063-4140-ac03-b378009a2c3a/d00b96be-3063-4140-ac03-b378009a2c3a_DownloadAsJpg.jpg?w=640&width=640&auto=webp&format=jpg&optimize=medium",
+    "usage": "Dùng theo hướng dẫn trên bao bì; luôn có nước sạch. Bảo quản nơi khô ráo, đóng kín sau khi mở.",
+    "image": "/images/products/royal-canin-fit-32.jpg",
+    "imageSha256": "187b1f6bfb28d5de1549db92cab5695475cbab09a7bd497e476b9fae7c985932",
+    "imageSize": [
+      640,
+      905
+    ]
+  },
+  {
+    "key": "inaba-chicken",
+    "slug": "pate-inaba-ga-rau-cu-pho-mai",
+    "name": "Pate INABA vị gà, rau củ và phô mai",
+    "brand": "INABA",
+    "category": "THUC-AN-UOT",
+    "pet": "DOG",
+    "short": "Thức ăn ướt cho chó, hộp đôi 35 g × 2.",
+    "description": "INABA Chicken, Vegetables & Cheese dạng hộp đôi, vị gà kết hợp rau củ và phô mai. Dùng theo hướng dẫn của nhà sản xuất.",
+    "variants": [
+      {
+        "sku": "INABA-CHICKEN-CHEESE-35GX2",
+        "label": "Hộp 35 g × 2",
+        "price": 35000,
+        "quantity": 40,
+        "cost": 24500
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.petmart.vn/pate-cho-cho-vi-ga-rau-cu-va-pho-mai-inaba-chicken-vegetables-cheese",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2021/06/pate-cho-cho-vi-ga-rau-cu-va-pho-mai-inaba-chicken-vegetables-cheese.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/pate-inaba-ga-rau-cu-pho-mai.jpg",
+    "imageSha256": "363f47e24863a50e6a51e1586724cafb9b564a50d9d69097a606a39222620fd1",
+    "imageSize": [
+      800,
+      800
+    ]
+  },
+  {
+    "key": "ciao-chicken",
+    "slug": "ciao-ga-phi-le-ca-ngu-nuong",
+    "name": "CIAO vị gà phi lê và cá ngừ nướng",
+    "brand": "CIAO",
+    "category": "THUC-AN-UOT",
+    "pet": "CAT",
+    "short": "Thức ăn bổ sung cho mèo, gói 10 g × 4.",
+    "description": "CIAO Chicken Fillet & Grilled Bonito, vị gà phi lê và cá ngừ nướng. Quy cách đóng gói 4 túi nhỏ, mỗi túi 10 g.",
+    "variants": [
+      {
+        "sku": "CIAO-CHICKEN-BONITO-10GX4",
+        "label": "Gói 10 g × 4",
+        "price": 55000,
+        "quantity": 35,
+        "cost": 38500
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.petmart.vn/pate-cho-meo-ciao-chicken-fillet-grilled-bonito-vi-ga-phi-le-va-ca-ngu-nuong",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2021/05/pate-cho-meo-ciao-chicken-fillet-grilled-bonito-vi-ga-phi-le-va-ca-ngu-nuong.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/ciao-ga-phi-le-ca-ngu-nuong.jpg",
+    "imageSha256": "ce51f310efa18e5c6172747554e2404ab0fa0d8f9106fbdf6b2dbcfadd21b900",
+    "imageSize": [
+      800,
+      800
+    ]
+  },
+  {
+    "key": "meowow-crab",
+    "slug": "pate-meowow-ca-ngu-thit-cua",
+    "name": "Pate MEOWOW vị cá ngừ trắng và thịt cua",
+    "brand": "MEOWOW",
+    "category": "THUC-AN-UOT",
+    "pet": "CAT",
+    "short": "Pate lon cho mèo, vị cá ngừ trắng và thịt cua.",
+    "description": "MEOWOW Tuna Kanikama dạng lon dành cho mèo. Sản phẩm kết hợp cá ngừ trắng và thịt cua, sử dụng theo thông tin trên bao bì.",
+    "variants": [
+      {
+        "sku": "MEOWOW-TUNA-KANIKAMA-80G",
+        "label": "Lon 80 g",
+        "price": 25000,
+        "quantity": 40,
+        "cost": 17500
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.petmart.vn/pate-lon-cho-meo-vi-ca-ngu-trang-thit-cua-meowow-tuna-kanikama",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2023/05/pate-lon-cho-meo-vi-ca-ngu-trang-thit-cua-meowow-tuna-kanikama.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/pate-meowow-ca-ngu-thit-cua.jpg",
+    "imageSha256": "fe0addbbef9899d109714584526a54642d2435f7a83317b19b04218b5fe4be95",
+    "imageSize": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "key": "bobo-rope",
+    "slug": "do-choi-day-thung-bobo-hinh-gau",
+    "name": "Đồ chơi dây thừng BOBO hình gấu",
+    "brand": "BOBO",
+    "category": "DO-CHOI",
+    "pet": "BOTH",
+    "short": "Đồ chơi dây thừng tạo hình gấu cho chó mèo.",
+    "description": "Đồ chơi BOBO dạng dây thừng đan thành hình gấu. Kiểm tra tình trạng đồ chơi trước khi sử dụng và giám sát thú cưng khi chơi.",
+    "variants": [
+      {
+        "sku": "BOBO-ROPE-BEAR",
+        "label": "1 chiếc",
+        "price": 55000,
+        "quantity": 20,
+        "cost": 38500
+      }
+    ],
+    "featured": true,
+    "existing": false,
+    "source": "https://www.petmart.vn/do-choi-day-thung-cho-cho-meo-bobo-hinh-gau",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2020/12/do-choi-day-thung-cho-cho-meo-bobo-hinh-gau.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/do-choi-day-thung-bobo-hinh-gau.jpg",
+    "imageSha256": "0476664b0147ffe1caae1101858dc9c69d8aa8fcd8b07c24fccfefeeba0da111",
+    "imageSize": [
+      800,
+      800
+    ]
+  },
+  {
+    "key": "bobo-bowl",
+    "slug": "bat-an-bobo-plastic-bowl-3060",
+    "name": "Bát ăn BOBO Plastic Bowl 3060",
+    "brand": "BOBO",
+    "category": "PHU-KIEN",
+    "pet": "BOTH",
+    "short": "Bát ăn nhựa cho chó mèo, kích thước 15 × 15 × 6,5 cm.",
+    "description": "Bát ăn BOBO mã 3060 bằng nhựa. Dùng đựng thức ăn hoặc nước; vệ sinh sạch sau mỗi lần sử dụng.",
+    "variants": [
+      {
+        "sku": "BOBO-BOWL-3060",
+        "label": "15 × 15 × 6,5 cm",
+        "price": 90000,
+        "quantity": 15,
+        "cost": 62999
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.petmart.vn/bat-an-cho-cho-meo-bang-nhua-bobo-plastic-bowl-3060",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2020/10/bat-an-cho-cho-meo-bang-nhua-bobo-plastic-bowl-3060.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/bat-an-bobo-plastic-bowl-3060.jpg",
+    "imageSha256": "a0925a2a9c63cc61abb8c72ebeda89fd52142e50f3faf20281dd1fe3181ac7b1",
+    "imageSize": [
+      800,
+      800
+    ]
+  },
+  {
+    "key": "bobo-comb",
+    "slug": "luoc-chai-long-bobo-pet-comb",
+    "name": "Lược chải lông BOBO Pet Comb",
+    "brand": "BOBO",
+    "category": "CHAM-SOC",
+    "pet": "BOTH",
+    "short": "Lược chải lông cho chó mèo, lựa chọn cỡ S hoặc M.",
+    "description": "BOBO Pet Comb có tay cầm và răng lược mềm. Chải nhẹ theo chiều lông, không kéo mạnh vùng lông rối.",
+    "variants": [
+      {
+        "sku": "BOBO-COMB-S",
+        "label": "Cỡ S",
+        "price": 85000,
+        "quantity": 15,
+        "cost": 59499
+      },
+      {
+        "sku": "BOBO-COMB-M",
+        "label": "Cỡ M",
+        "price": 95000,
+        "quantity": 12,
+        "cost": 66500
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.petmart.vn/luoc-chai-long-cho-meo-dau-luoi-mem-bobo-pet-comb",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2016/08/luoc-chai-long-cho-meo-dau-luoi-mem-bobo-pet-comb7.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/luoc-chai-long-bobo-pet-comb.jpg",
+    "imageSha256": "3343ffeedf4f12560cf1a9bdb4fd73dae5258aa3929fb0d9f8e1e9e4119863c1",
+    "imageSize": [
+      1000,
+      1001
+    ]
+  },
+  {
+    "key": "bobo-wash-brush",
+    "slug": "ban-chai-tam-bobo-pet-washing-brush",
+    "name": "Bàn chải tắm BOBO Pet Washing Brush",
+    "brand": "BOBO",
+    "category": "CHAM-SOC",
+    "pet": "BOTH",
+    "short": "Bàn chải hỗ trợ vệ sinh lông cho chó mèo khi tắm.",
+    "description": "Bàn chải tắm BOBO Pet Washing Brush. Làm sạch và để khô dụng cụ sau khi dùng.",
+    "variants": [
+      {
+        "sku": "BOBO-WASH-BRUSH",
+        "label": "1 chiếc",
+        "price": 30000,
+        "quantity": 20,
+        "cost": 21000
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.petmart.vn/ban-chai-tam-cho-cho-meo-bobo-pet-washing-brush",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2013/07/ban-cha-tam-cho-cho-meo-bobo-pet-washing-brush.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/ban-chai-tam-bobo-pet-washing-brush.jpg",
+    "imageSha256": "f8f8506261b8da47ccec0df8f61f0b99e3a5095b85b7129f36faa48dcc0b83ca",
+    "imageSize": [
+      800,
+      800
+    ]
+  },
+  {
+    "key": "bobo-glove",
+    "slug": "gang-tay-bobo-grooming-brush-gloves",
+    "name": "Găng tay BOBO Grooming Brush Gloves",
+    "brand": "BOBO",
+    "category": "CHAM-SOC",
+    "pet": "BOTH",
+    "short": "Găng tay chải lông và hỗ trợ tắm cho chó mèo.",
+    "description": "BOBO Pet Grooming Brush Gloves là dụng cụ chăm sóc lông dạng găng tay. Sử dụng nhẹ nhàng và vệ sinh sau mỗi lần dùng.",
+    "variants": [
+      {
+        "sku": "BOBO-GROOMING-GLOVE",
+        "label": "12,3 × 11,3 cm",
+        "price": 40000,
+        "quantity": 20,
+        "cost": 28000
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.petmart.vn/gang-tay-tam-cho-cho-meo-bobo-pet-grooming-brush-gloves",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2013/07/gang-tay-tam-cho-cho-meo-bobo-pet-grooming-brush-gloves.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/gang-tay-bobo-grooming-brush-gloves.jpg",
+    "imageSha256": "c04c71a5370660801b33ed05decb493fe2b8abeee0bdcf5b9ee0757e7ae3d691",
+    "imageSize": [
+      750,
+      750
+    ]
+  },
+  {
+    "key": "dele-leash",
+    "slug": "day-dat-tu-cuon-dele-002",
+    "name": "Dây dắt tự cuốn DELE 002",
+    "brand": "DELE",
+    "category": "PK-VONG-CO",
+    "pet": "BOTH",
+    "short": "Dây dắt tự cuốn DELE 002 cho chó mèo đi dạo.",
+    "description": "DELE 002 Retractable Leash dạng tự cuốn, có móc gắn vòng cổ. Chọn theo giới hạn chịu lực trên bao bì và kiểm tra khóa trước khi dùng.",
+    "variants": [
+      {
+        "sku": "DELE-LEASH-002",
+        "label": "Mẫu 002",
+        "price": 165000,
+        "quantity": 4,
+        "cost": 115499
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://www.petmart.vn/day-dat-cho-meo-di-dao-tu-cuon-dele-002-retractable-leash",
+    "imageSource": "https://www.petmart.vn/wp-content/uploads/2019/05/day-dat-cho-meo-di-dao-tu-cuon-dele-002-retractable-leash.jpg",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/day-dat-tu-cuon-dele-002.jpg",
+    "imageSha256": "c8760c846b82c9a160a36bc7edbe008f10e2c0cc06df57f4cf9af5356926a46d",
+    "imageSize": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "key": "meo-lemon",
+    "slug": "cat-meo-lemon-scent-5l",
+    "name": "Cát vệ sinh Me-O Lemon Scent 5L",
+    "brand": "Me-O",
+    "category": "CAT-VE-SINH",
+    "pet": "CAT",
+    "short": "Cát vệ sinh cho mèo Me-O hương chanh, túi 5 lít.",
+    "description": "Me-O Cat Litter Lemon Scent dùng cho khay vệ sinh của mèo. Vệ sinh khay và thay cát theo hướng dẫn trên bao bì.",
+    "variants": [
+      {
+        "sku": "MEO-LEMON-5L",
+        "label": "Túi 5 lít",
+        "price": 95000,
+        "quantity": 20,
+        "cost": 66500
+      }
+    ],
+    "featured": false,
+    "existing": false,
+    "source": "https://fagopet.vn/san-pham/cat-ve-sinh-cho-meo-me-o-cat-litter-lemon-scent/",
+    "imageSource": "https://fagopet.vn/uploads/images/623ff9779487f634f8441ed4/cat-ve-sinh-cho-meo-me-o-cat-litter-lemon-scent.webp",
+    "usage": "Đọc hướng dẫn trên bao bì trước khi sử dụng.",
+    "image": "/images/products/cat-meo-lemon-scent-5l.webp",
+    "imageSha256": "91ac9c8eb3d649eb6b3ac04b6dd849cc2671635915ee809a0f08c8ba68d9538e",
+    "imageSize": [
+      800,
+      800
+    ]
+  }
+]
