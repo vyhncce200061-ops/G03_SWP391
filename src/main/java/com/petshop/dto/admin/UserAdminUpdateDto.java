@@ -23,7 +23,7 @@ public class UserAdminUpdateDto {
     @Size(max = 255, message = "Email không vượt quá 255 ký tự")
     private String email;
 
-    @Pattern(regexp = "^(0|\\+84)[3|5|7|8|9][0-9]{8}$|^$", message = "Số điện thoại không đúng định dạng Việt Nam")
+    @Pattern(regexp = "^(0|\\+84)[35789][0-9]{8}$|^$", message = "Số điện thoại không đúng định dạng Việt Nam")
     private String phone;
 
     @NotBlank(message = "Trạng thái không được để trống")

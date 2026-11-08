@@ -228,6 +228,8 @@
                                 <input type="hidden" name="status" th:value="${status}">
                                 <input type="hidden" name="page" th:value="${reviews.number}">
 
+                                <input type="hidden" name="size" th:value="${reviews.size}">
+
                                 <button th:if="${r.status.name() == 'VISIBLE'}"
                                         type="submit"
                                         class="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"

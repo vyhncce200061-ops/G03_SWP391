@@ -22,6 +22,12 @@ public class VoucherManageController {
 
     private final VoucherService voucherService;
 
+    @InitBinder("voucherForm")
+    public void bindForm(org.springframework.web.bind.WebDataBinder binder) {
+        // The path identifies the edited record; ignore a client-supplied form ID.
+        binder.setDisallowedFields("id");
+    }
+
     @GetMapping
     public String listVouchers(@RequestParam(required = false) String keyword,
                                @RequestParam(required = false) VoucherStatus status,
@@ -29,7 +35,7 @@ public class VoucherManageController {
                                @RequestParam(defaultValue = "0") int page,
                                @RequestParam(defaultValue = "10") int size,
                                Model model) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
+        Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
         Page<Voucher> vouchers = voucherService.searchVouchers(keyword, status, deleted, pageable);
         model.addAttribute("vouchers", vouchers);
         model.addAttribute("keyword", keyword);
@@ -105,6 +111,7 @@ public class VoucherManageController {
                                 BindingResult bindingResult,
                                 RedirectAttributes redirectAttributes,
                                 Model model) {
+        voucherForm.setId(id);
         if (bindingResult.hasErrors()) {
             model.addAttribute("isEdit", true);
             return "admin/voucher-form";

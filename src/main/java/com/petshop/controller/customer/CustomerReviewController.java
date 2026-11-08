@@ -16,7 +16,7 @@ public class CustomerReviewController {
     private final ReviewService reviews;
     @GetMapping
     public String list(@AuthenticationPrincipal CustomUserDetails user, @RequestParam(defaultValue="0") int page, Model model) {
-        model.addAttribute("reviews", reviews.myReviews(user.getId(), PageRequest.of(Math.max(0,page),10)));
+        model.addAttribute("reviews", reviews.myReviews(user.getId(), com.petshop.util.PageRequests.bounded(page,10)));
         return "customer/reviews";
     }
     @GetMapping("/create")

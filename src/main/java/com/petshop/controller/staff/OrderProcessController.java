@@ -26,7 +26,7 @@ public class OrderProcessController {
                              @RequestParam(defaultValue = "0") int page,
                              @RequestParam(defaultValue = "10") int size,
                              Model model) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
+        Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
         Page<Order> orders = orderService.getOrdersForStaff(status, pageable);
 
         model.addAttribute("orders", orders);
@@ -36,7 +36,13 @@ public class OrderProcessController {
 
     @GetMapping("/{id}")
     public String orderDetail(@PathVariable Long id, Model model) {
-        Order order = orderService.getOrderDetailForStaff(id);
+        Order order;
+        try {
+            order = orderService.getOrderDetailForStaff(id);
+        } catch (IllegalArgumentException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng.");
+        }
         model.addAttribute("order", order);
         return "staff/order-detail";
     }
