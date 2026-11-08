@@ -295,9 +295,12 @@ public class OrderServiceImpl implements OrderService {
     public void confirmOrder(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.PENDING_CONFIRMATION);
-        if (!(order.getPaymentMethod() == PaymentMethod.COD && order.getPaymentStatus() == PaymentStatus.UNPAID)
-                && !(order.getPaymentMethod() == PaymentMethod.VNPAY && order.getPaymentStatus() == PaymentStatus.PAID)) {
-            throw new IllegalStateException("Chỉ xác nhận đơn COD chưa thanh toán hoặc VNPay đã thanh toán.");
+        boolean validCOD = order.getPaymentMethod() == PaymentMethod.COD
+                && order.getPaymentStatus() == PaymentStatus.UNPAID;
+        boolean validVNPay = order.getPaymentMethod() == PaymentMethod.VNPAY
+                && order.getPaymentStatus() == PaymentStatus.PAID;
+        if (!validCOD && !validVNPay) {
+            throw new IllegalStateException("Đơn hàng không đủ điều kiện xác nhận.");
         }
         if (!Boolean.TRUE.equals(order.getStockDeducted())) {
             List<OrderItem> items = orderItemRepository.findByOrderId(orderId);

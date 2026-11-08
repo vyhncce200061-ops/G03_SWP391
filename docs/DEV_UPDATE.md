@@ -1,6 +1,6 @@
 # Bản gộp dev
 
-Các nhánh cũ đã có trong lịch sử `dev` được giữ nguyên. Bản này gộp hai phần còn thiếu: `fix/order-service-logic` của Hà và `feature/wishlist-my_vourcher` của Hân, trên nền bản Authentication mới nhất của Bảo (`28f4bd3`). Không sửa lịch sử các nhánh thành viên hoặc nhánh main.
+Các nhánh cũ đã có trong lịch sử `dev` được giữ nguyên. Bản này gộp hai phần còn thiếu: `fix/order-service-logic` của Hà (đến `cc161f9`, gồm commit sản phẩm/đơn hàng vừa bổ sung) và `feature/wishlist-my_vourcher` của Hân, trên nền bản Authentication mới nhất của Bảo (`28f4bd3`). Không sửa lịch sử các nhánh thành viên hoặc nhánh main.
 
 ## Nghiệp vụ giữ từ code thành viên
 
@@ -15,6 +15,8 @@ Các nhánh cũ đã có trong lịch sử `dev` được giữ nguyên. Bản n
 
 Giữ tìm kiếm/gợi ý/lọc sản phẩm của Vy, Feedback công khai và trả lời Admin của Đạt, rồi bổ sung trạng thái wishlist của khách. Giữ layout/thông báo tự đóng của Bảo và thêm hai menu Wishlist/Ví voucher. Đồng bộ thông báo wishlist với layout; bỏ nút từ chối đơn PAID theo bản sửa của Hà; giữ xử lý lỗi của controller khi xác nhận/từ chối thất bại. Không thay phạm vi quyền của thành viên.
 
+Commit sản phẩm mới của Hà giữ file ảnh gốc và chỉnh giao diện. Giữ cả byte gốc GIF động/JPEG/PNG, đồng thời kiểm tra nội dung thực, định dạng khai báo và đặt đuôi file theo loại ảnh đã xác minh để không lưu đuôi tùy ý từ client. Ảnh hỏng trả lỗi validation. Giữ phần căn giữa ảnh dự phòng và bỏ thông báo lỗi bị trùng; phân trang tiếp tục giữ bộ lọc và đúng đường dẫn Admin/Staff thay vì cố định Staff.
+
 Test cũ được đổi theo thời điểm phân bổ mới: cạnh tranh giảm phiếu nhập so với xác nhận đơn, giới hạn voucher và báo cáo kho, quyền xác nhận của Staff, không hủy đơn PAID. Có thêm kiểm tra JSON/CSRF của wishlist và việc layout vẫn chứa Feedback, wishlist, thông báo đúng một lần.
 
 ## Database
@@ -27,7 +29,7 @@ Phần quy tắc từ chối VNPay/giữ kho trong `MERGE_REVIEW.md` là lịch 
 
 ## Kiểm chứng
 
-- Maven verify: 230 test đạt, không thất bại/lỗi/bỏ qua; đóng gói ứng dụng thành công.
+- Maven verify: 232 test đạt, không thất bại/lỗi/bỏ qua; đóng gói ứng dụng thành công, gồm kiểm tra ảnh gốc GIF động/JPEG và ảnh giả/hỏng.
 - SQL Server thật: 27 kiểm tra nghiệp vụ/ràng buộc và dữ liệu trước/sau; thao tác thử nằm trong transaction rollback.
 - 276 kiểm tra HTTP/form/phân quyền, đăng nhập thật ba vai trò; chỉ gửi form nghiệp vụ không hợp lệ, không phát sinh đơn/mật khẩu/email mới.
 - Migration: 18 kiểm tra trên database tách biệt (bảo vệ database hệ thống, backfill một lần, chạy lại, kiểu cột sai, rollback, view kho). Gói SQL tổng hợp và seed: thêm 16 kiểm tra trên database dựng riêng đủ 21 bảng; chạy lại giữ cờ, lời mời Staff, voucher đã xóa và trả lời Admin.
