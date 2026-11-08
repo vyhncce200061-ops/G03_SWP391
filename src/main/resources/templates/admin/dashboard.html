@@ -13,8 +13,8 @@
 <div layout:fragment="admin-content">
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-            <h4 class="fw-bold mb-1">Bảng Điều Khiển Quản Trị Hệ Thống</h4>
-            <p class="text-muted small mb-0">Theo dõi thời gian thực các chỉ số tài chính, bán hàng và vận hành cửa hàng.</p>
+            <h1 class="h4 fw-bold mb-1">Tổng quan cửa hàng</h1>
+            <p class="text-muted small mb-0">Theo dõi các chỉ số tài chính, bán hàng và công việc cần xử lý.</p>
         </div>
         <div class="d-flex gap-2">
             <a th:href="@{/admin/reports/revenue}" class="btn btn-outline-primary d-flex align-items-center gap-1">
@@ -25,7 +25,7 @@
 
     <!-- Alert Banners for Pending Tasks -->
     <div class="row g-3 mb-4">
-        <div th:if="${stats.pendingOrdersCount > 0}" class="col-md-6">
+        <div th:if="${stats.pendingOrdersCount > 0}" th:class="${stats.lowStockCount > 0} ? 'col-md-6' : 'col-12'">
             <div class="alert alert-warning border-0 shadow-sm rounded-4 d-flex align-items-center justify-content-between p-3 m-0">
                 <div class="d-flex align-items-center gap-3">
                     <i class="bi bi-exclamation-triangle-fill fs-3 text-warning"></i>
@@ -40,7 +40,7 @@
             </div>
         </div>
 
-        <div th:if="${stats.lowStockCount > 0}" class="col-md-6">
+        <div th:if="${stats.lowStockCount > 0}" th:class="${stats.pendingOrdersCount > 0} ? 'col-md-6' : 'col-12'">
             <div class="alert alert-danger border-0 shadow-sm rounded-4 d-flex align-items-center justify-content-between p-3 m-0">
                 <div class="d-flex align-items-center gap-3">
                     <i class="bi bi-box-seam-fill fs-3 text-danger"></i>
@@ -170,7 +170,7 @@
                         <tbody>
                             <tr th:each="ord : ${stats.recentOrders}">
                                 <td>
-                                    <span class="fw-bold font-monospace small" th:text="${ord.orderCode}">ORD-123</span>
+                                    <span class="fw-bold font-monospace small text-nowrap" th:text="${ord.orderCode}">ORD-123</span>
                                 </td>
                                 <td>
                                     <span class="small" th:text="${ord.recipientName}">Nguyễn Văn A</span>
@@ -210,7 +210,7 @@
 
 <th:block layout:fragment="admin-js">
     <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script th:src="@{/js/vendor/chart.umd.js}"></script>
     <script th:inline="javascript">
         document.addEventListener('DOMContentLoaded', function() {
             const ctx = document.getElementById('revenueChart');

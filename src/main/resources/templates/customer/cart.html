@@ -45,7 +45,7 @@
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center gap-3">
-                                        <img th:src="${item.imageUrl != null ? item.imageUrl : 'https://placehold.co/80x80?text=Pet'}"
+                                        <img th:data-fallback-src="@{/images/product-placeholder.svg}" th:src="${item.imageUrl != null ? item.imageUrl : 'https://placehold.co/80x80?text=Pet'}"
                                              width="60" height="60" class="rounded" alt="">
                                         <div>
                                             <h6 class="fw-bold mb-0" th:text="${item.productName}">Tên sản phẩm</h6>

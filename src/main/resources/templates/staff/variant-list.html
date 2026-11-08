@@ -47,7 +47,7 @@
                 <tr th:each="v : ${product.variants}">
                     <td class="fw-semibold" th:text="${v.skuCode}">SKU-001</td>
                     <td th:text="${v.variantName}">Túi 500g</td>
-                    <td th:text="${#numbers.formatDecimal(v.price, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
+                    <td th:text="${#numbers.formatDecimal(v.price, 0, 'POINT', 0, 'COMMA') + ' đ'}">100.000 đ</td>
                     <td class="text-center">
                         <!-- In Stock: Quantity > Low Stock Threshold -->
                         <span th:if="${v.stockQuantity > v.lowStockThreshold}"

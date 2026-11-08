@@ -62,7 +62,7 @@
                         <td class="fw-semibold" th:text="${item.variant.product.name + ' (' + item.variant.variantName + ')'}">SP</td>
                         <td th:text="${item.variant.skuCode}">SKU</td>
                         <td class="text-center" th:text="${item.quantity}">10</td>
-                        <td class="text-end" th:text="${#numbers.formatDecimal(item.unitCost, 0, 'COMMA', 0, 'POINT') + ' đ'}">50.000 đ</td>
+                        <td class="text-end" th:text="${#numbers.formatDecimal(item.unitCost, 0, 'POINT', 0, 'COMMA') + ' đ'}">50.000 đ</td>
                         <td class="text-center">
                             <a th:href="@{/staff/stock-imports/items/{itemId}/edit(itemId=${item.id})}"
                                class="btn btn-sm btn-pet-outline">

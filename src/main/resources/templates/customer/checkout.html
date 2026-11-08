@@ -9,7 +9,7 @@
 <div layout:fragment="content" class="py-5">
     <div class="container">
         <h3 class="fw-bold mb-4">Thanh Toán</h3>
-        
+
         <form id="checkout-form" th:action="@{/checkout/place-order}" th:object="${checkoutForm}" method="post"
               th:attr="data-quote-url=@{/checkout/quote},data-csrf-header=${_csrf.headerName},data-csrf-token=${_csrf.token}">
             <div th:if="${checkoutError}" class="alert alert-danger" role="alert" th:text="${checkoutError}"></div>

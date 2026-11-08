@@ -6,9 +6,9 @@
     <title>Trang Chủ - PetShop</title>
 </head>
 <body>
-<div layout:fragment="content">
+<div layout:fragment="content" class="home-screen">
 
-    <section class="py-5 bg-white border-bottom">
+    <section class="home-hero py-5 bg-white border-bottom">
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-lg-6">
@@ -21,7 +21,7 @@
                     </div>
                 </div>
                 <div class="col-lg-6 text-center mt-4 mt-lg-0">
-                    <img src="https://i.pinimg.com/736x/6f/0c/41/6f0c41bbcee6821a3a47dbc9be070635.jpg" alt="Thú cưng" class="img-fluid rounded-4 shadow">
+                    <img th:src="@{/images/hero-pets.svg}" alt="Minh họa chó và mèo của PetShop" class="img-fluid rounded-4 shadow">
                 </div>
             </div>
         </div>
@@ -93,7 +93,7 @@
                         <a th:href="@{/products/{slug}(slug=${product.slug})}"
                            class="text-decoration-none">
 
-                            <img th:if="${product.primaryImageUrl != null and !#strings.isEmpty(product.primaryImageUrl)}"
+                            <img th:data-fallback-src="@{/images/product-placeholder.svg}" th:if="${product.primaryImageUrl != null and !#strings.isEmpty(product.primaryImageUrl)}"
                                  th:src="${product.primaryImageUrl}"
                                  th:alt="${product.name}"
                                  class="card-img-top"
@@ -132,8 +132,8 @@
                             <span th:if="${product.minPrice != null}"
                                   class="text-danger fw-bold fs-5"
                                   th:text="${product.maxPrice != null and product.minPrice.compareTo(product.maxPrice) != 0
-                                      ? #numbers.formatDecimal(product.minPrice, 0, 'COMMA', 0, 'POINT') + ' - ' + #numbers.formatDecimal(product.maxPrice, 0, 'COMMA', 0, 'POINT') + ' đ'
-                                      : #numbers.formatDecimal(product.minPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">
+                                      ? #numbers.formatDecimal(product.minPrice, 0, 'POINT', 0, 'COMMA') + ' - ' + #numbers.formatDecimal(product.maxPrice, 0, 'POINT', 0, 'COMMA') + ' đ'
+                                      : #numbers.formatDecimal(product.minPrice, 0, 'POINT', 0, 'COMMA') + ' đ'}">
                                 Giá sản phẩm
                             </span>
 

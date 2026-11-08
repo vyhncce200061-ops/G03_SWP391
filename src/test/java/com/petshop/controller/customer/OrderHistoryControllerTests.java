@@ -151,7 +151,7 @@ class OrderHistoryControllerTests {
                 .matcher(html).results().map(MatchResult::group)
                 .filter(line -> line.contains("Tên lưu lúc đặt"))
                 .findFirst().orElseThrow(() -> new AssertionError("Missing snapshot order line"));
-        assertThat(snapshotLine).containsPattern("(?s)<strong\\b[^>]*>\\s*246,912 đ\\s*</strong>");
+        assertThat(snapshotLine).containsPattern("(?s)<strong\\b[^>]*>\\s*246\\.912 đ\\s*</strong>");
         assertThat(html).contains("18/10/2026 09:00", "18/10/2026 10:00");
         assertThat(html.indexOf("18/10/2026 09:00")).isLessThan(html.indexOf("18/10/2026 10:00"));
         verify(orderService).getOrderDetailForCustomer(12L, 7L);

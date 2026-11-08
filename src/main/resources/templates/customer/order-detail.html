@@ -30,8 +30,8 @@
                                 <small class="text-muted" th:text="${item.variantNameSnapshot + ' | SKU: ' + item.skuCodeSnapshot}"></small>
                             </div>
                             <div class="text-end">
-                                <span th:text="${item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + 'đ'}"></span>
-                                <strong class="d-block" th:text="${#numbers.formatDecimal(item.unitPrice * item.quantity, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
+                                <span th:text="${item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
+                                <strong class="d-block" th:text="${#numbers.formatDecimal(item.unitPrice * item.quantity, 0, 'POINT', 0, 'COMMA') + ' đ'}"></strong>
                             </div>
                         </li>
                     </ul>
@@ -71,22 +71,22 @@
                     <p class="mb-3">Thanh toán: <strong th:text="${paymentStatusLabels[order.paymentStatus.name()]}"></strong></p>
                     <div class="d-flex justify-content-between mb-1">
                         <span>Tạm tính:</span>
-                        <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}"></span>
+                        <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                     </div>
                     <div class="d-flex justify-content-between mb-1">
                         <span>Giảm giá:</span>
-                        <span th:text="${'-' + #numbers.formatDecimal(order.discountAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}"></span>
+                        <span th:text="${'-' + #numbers.formatDecimal(order.discountAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                     </div>
                     <p th:if="${!#strings.isEmpty(order.voucherCodeSnapshot)}" class="small text-muted"
                        th:text="${'Mã giảm giá đã dùng: ' + order.voucherCodeSnapshot}"></p>
                     <div class="d-flex justify-content-between mb-2">
                         <span>Phí ship:</span>
-                        <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'COMMA', 0, 'POINT') + 'đ'}"></span>
+                        <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3">
                         <strong>Tổng cộng:</strong>
-                        <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}"></strong>
+                        <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}"></strong>
                     </div>
 
                     <form th:if="${canResumePayment}" th:action="@{/customer/orders/{id}/pay(id=${order.id})}"

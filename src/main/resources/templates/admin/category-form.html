@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout/main-layout}">
+      layout:decorate="~{layout/admin-layout}">
 <head>
     <title th:text="${category.id == null ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'} + ' - PetShop'">Danh mục - PetShop</title>
 </head>
@@ -17,8 +17,7 @@
             <p class="text-muted">Nhập thông tin danh mục sản phẩm.</p>
         </div>
 
-        <div th:if="${errorMessage}" class="alert alert-danger"
-             th:text="${errorMessage}"></div>
+
 
         <div class="card border-0 shadow-sm rounded-4">
             <div class="card-body p-4">

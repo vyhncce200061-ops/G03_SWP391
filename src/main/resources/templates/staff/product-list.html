@@ -64,7 +64,7 @@
                     <!-- Display Product Image -->
                     <td class="align-middle" style="width: 60px;">
                         <!-- Display primary image. If no image data, show placeholder icon -->
-                        <img th:if="${p.images != null and p.images.size() > 0}"
+                        <img th:data-fallback-src="@{/images/product-placeholder.svg}" th:if="${p.images != null and p.images.size() > 0}"
                              th:src="@{${p.images[0].imageUrl}}"
                              class="rounded border fade-in"
                              style="width: 45px; height: 45px; object-fit: cover;"

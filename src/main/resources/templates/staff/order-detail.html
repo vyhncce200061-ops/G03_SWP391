@@ -46,8 +46,8 @@
                                     <div class="small text-muted" th:text="${'Phân loại: ' + item.variantNameSnapshot}">Phân loại: Túi 500g</div>
                                 </td>
                                 <td class="text-center fw-bold" th:text="${item.quantity}">1</td>
-                                <td class="text-end" th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
-                                <td class="text-end fw-bold text-danger" th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
+                                <td class="text-end" th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + ' đ'}">100.000 đ</td>
+                                <td class="text-end fw-bold text-danger" th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'POINT', 0, 'COMMA') + ' đ'}">100.000 đ</td>
                             </tr>
                             </tbody>
                         </table>
@@ -182,20 +182,20 @@
                 <hr class="my-3">
                 <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">Tạm tính:</span>
-                    <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                    <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}"></span>
                 </div>
                 <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">Phí ship:</span>
-                    <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                    <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'POINT', 0, 'COMMA') + ' đ'}"></span>
                 </div>
                 <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">Giảm giá:</span>
-                    <span class="text-success">-<span th:text="${#numbers.formatDecimal(order.discountAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span></span>
+                    <span class="text-success">-<span th:text="${#numbers.formatDecimal(order.discountAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}"></span></span>
                 </div>
                 <hr class="my-2">
                 <div class="d-flex justify-content-between align-items-center">
                     <span class="fw-bold">Tổng cộng:</span>
-                    <span class="fw-bold fs-5 text-danger" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                    <span class="fw-bold fs-5 text-danger" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}"></span>
                 </div>
             </div>
         </div>

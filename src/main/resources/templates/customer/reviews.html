@@ -4,7 +4,7 @@
 <title>Đánh giá của tôi</title>
 </head>
 <body>
-<main layout:fragment="content" class="container py-4">
+<div layout:fragment="content" class="container py-4">
 <div class="card p-4">
 <h1 class="h4">Đánh giá của tôi (Feedback)</h1>
 <a th:href="@{/customer/orders}">Mở đơn hoàn tất để đánh giá sản phẩm</a>
@@ -33,6 +33,6 @@
 <a th:if="${reviews.hasNext()}" th:href="@{/customer/reviews(page=${reviews.number + 1})}">Sau</a>
 </nav>
 </div>
-</main>
+</div>
 </body>
 </html>
