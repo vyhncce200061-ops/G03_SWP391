@@ -54,6 +54,21 @@ public class VnPayService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public Set<Long> getResumableOrderIds(Long customerId, List<Long> orderIds) {
+        if (!isConfigured() || orderIds.isEmpty()) return Set.of();
+        return new HashSet<>(transactionRepository.findResumableOrderIds(customerId, orderIds, LocalDateTime.now()));
+    }
+
+    @Transactional
+    public String resumePayment(Long orderId, Long customerId, String clientIp) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .filter(o -> o.getCustomer().getId().equals(customerId))
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        // Reuse the existing attempt and its deadline; never create another order or reserve resources.
+        return createPaymentUrl(order, clientIp);
+    }
+
     @Transactional
     public String createPaymentUrl(Order submittedOrder, String clientIp) {
         if (!isConfigured()) {
@@ -143,11 +158,13 @@ public class VnPayService {
             transaction.setProviderTransactionId(providerId);
             transaction.setPaidAt(LocalDateTime.now());
             order.setPaymentStatus(PaymentStatus.PAID);
-            order.setOrderStatus(OrderStatus.CONFIRMED);
+            boolean stockAllocated = orderService.deductPaidVnpayStock(order.getId());
+            order.setOrderStatus(stockAllocated ? OrderStatus.CONFIRMED : OrderStatus.PENDING_CONFIRMATION);
             orderRepository.save(order);
             historyRepository.save(OrderStatusHistory.builder().order(order)
-                    .oldStatus(OrderStatus.PENDING_PAYMENT).newStatus(OrderStatus.CONFIRMED)
-                    .reason("VNPay IPN xác nhận thanh toán thành công").build());
+                    .oldStatus(OrderStatus.PENDING_PAYMENT).newStatus(order.getOrderStatus())
+                    .reason(stockAllocated ? "VNPay IPN xác nhận thanh toán thành công"
+                            : "VNPay đã thanh toán; chưa đủ tồn kho, cần nhân viên bổ sung hàng và xác nhận đơn.").build());
         } else {
             boolean cancelledAtGateway = "24".equals(fields.get("vnp_ResponseCode"));
             orderService.cancelPendingPaymentOrder(order.getId(), cancelledAtGateway

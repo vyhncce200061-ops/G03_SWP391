@@ -10,42 +10,37 @@
     <div class="container" id="shopping-cart"
          th:attr="data-api-url=@{/cart/api},data-quantity-url=@{/cart/api/quantity},data-selection-url=@{/cart/api/selection},data-csrf-token=${_csrf != null ? _csrf.token : ''},data-csrf-header=${_csrf != null ? _csrf.headerName : ''}">
         <h3 class="fw-bold mb-4">Giỏ Hàng</h3>
-        <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
-            <span th:text="${successMessage}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
-        </div>
-        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
-            <span th:text="${errorMessage}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
-        </div>
-        <div th:if="${infoMessage}" class="alert alert-info alert-dismissible fade show" role="alert">
-            <span th:text="${infoMessage}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
-        </div>
         <noscript>
-            <div class="alert alert-warning">Vui lòng bật JavaScript để cập nhật số lượng và chọn sản phẩm thanh toán.</div>
+            <div class="alert alert-warning">Vui lòng bật JavaScript để cập nhật số lượng và chọn sản phẩm thanh toán.
+            </div>
         </noscript>
         <div id="cart-error" class="alert alert-danger" role="alert" hidden></div>
         <div class="d-flex align-items-center gap-2 mb-3">
             <span id="cart-status" class="small text-muted" role="status" aria-live="polite">Chọn sản phẩm để thanh toán. Số lượng được lưu tự động.</span>
-            <button type="button" id="cart-retry" class="btn btn-sm btn-outline-secondary" hidden>Tải lại trạng thái</button>
+            <button type="button" id="cart-retry" class="btn btn-sm btn-outline-secondary" hidden>Tải lại trạng thái
+            </button>
         </div>
         <div class="row g-4">
             <div class="col-lg-8">
-                <div id="cart-items" class="card border-0 shadow-sm rounded-4 p-3" th:hidden="${cart == null or cart.items.empty}">
+                <div id="cart-items" class="card border-0 shadow-sm rounded-4 p-3"
+                     th:hidden="${cart == null or cart.items.empty}">
                     <div class="table-responsive">
                         <table class="table align-middle">
                             <thead>
                             <tr>
-                                <th scope="col">Chọn</th><th scope="col">Sản phẩm</th><th scope="col">Đơn giá</th>
-                                <th scope="col">Số lượng</th><th scope="col">Thành tiền</th>
+                                <th scope="col">Chọn</th>
+                                <th scope="col">Sản phẩm</th>
+                                <th scope="col">Đơn giá</th>
+                                <th scope="col">Số lượng</th>
+                                <th scope="col">Thành tiền</th>
                                 <th scope="col"><span class="visually-hidden">Thao tác</span></th>
                             </tr>
                             </thead>
                             <tbody>
                             <tr th:each="item : ${cart.items}" th:attr="data-cart-item=${item.id}">
                                 <td>
-                                    <input type="checkbox" class="form-check-input" data-cart-selection th:checked="${item.isSelected}"
+                                    <input type="checkbox" class="form-check-input" data-cart-selection
+                                           th:checked="${item.isSelected}"
                                            th:attr="aria-label=${'Chọn ' + item.productName}">
                                 </td>
                                 <td>
@@ -55,24 +50,31 @@
                                         <div>
                                             <h6 class="fw-bold mb-0" th:text="${item.productName}">Tên sản phẩm</h6>
                                             <small class="text-muted" th:text="${item.variantName}">Phân loại</small>
-                                            <div data-cart-availability class="small text-danger" th:text="${item.availabilityMessage}"></div>
+                                            <div data-cart-availability class="small text-danger"
+                                                 th:text="${item.availabilityMessage}"></div>
                                         </div>
                                     </div>
                                 </td>
-                                <td data-cart-price th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</td>
+                                <td data-cart-price
+                                    th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ
+                                </td>
                                 <td>
-                                    <input type="number" name="quantity" class="form-control form-control-sm" data-cart-quantity
+                                    <input type="number" name="quantity" class="form-control form-control-sm"
+                                           data-cart-quantity
                                            th:value="${item.quantity}" min="1" step="1" th:max="${item.maxStock}"
                                            th:disabled="${item.maxStock <= 0}" style="width: 85px;"
                                            th:attr="aria-label=${'Số lượng ' + item.productName},aria-describedby=${'cart-item-error-' + item.id}">
-                                    <div class="small text-danger mt-1" data-cart-item-error role="alert" th:id="${'cart-item-error-' + item.id}"></div>
+                                    <div class="small text-danger mt-1" data-cart-item-error role="alert"
+                                         th:id="${'cart-item-error-' + item.id}"></div>
                                 </td>
                                 <td class="fw-bold text-danger" data-cart-line-total
-                                    th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</td>
+                                    th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ
+                                </td>
                                 <td>
                                     <form th:action="@{/cart/remove}" method="post" data-cart-navigation>
                                         <input type="hidden" name="itemId" th:value="${item.id}">
-                                        <button type="submit" class="btn btn-sm text-danger" th:attr="aria-label=${'Xóa ' + item.productName}">
+                                        <button type="submit" class="btn btn-sm text-danger"
+                                                th:attr="aria-label=${'Xóa ' + item.productName}">
                                             <i class="bi bi-trash" aria-hidden="true"></i>
                                         </button>
                                     </form>
@@ -81,7 +83,8 @@
                             </tbody>
                         </table>
                     </div>
-                    <form th:action="@{/cart/clear}" method="post" data-cart-navigation data-cart-clear class="text-end">
+                    <form th:action="@{/cart/clear}" method="post" data-cart-navigation data-cart-clear
+                          class="text-end">
                         <button type="submit" class="btn btn-sm btn-outline-danger">Xóa toàn bộ giỏ hàng</button>
                     </form>
                 </div>
@@ -94,7 +97,8 @@
             <div class="col-lg-4">
                 <div class="card border-0 shadow-sm rounded-4 p-4" id="cart-summary">
                     <h5 class="fw-bold mb-3">Tóm Tắt Đơn Hàng</h5>
-                    <p id="cart-no-selection" class="text-muted" th:hidden="${cart.selectedItemCount > 0}">Chưa chọn sản phẩm nào để thanh toán.</p>
+                    <p id="cart-no-selection" class="text-muted" th:hidden="${cart.selectedItemCount > 0}">Chưa chọn sản
+                        phẩm nào để thanh toán.</p>
                     <ul id="cart-selected-items" class="list-unstyled small mb-3">
                         <li th:each="item : ${cart.items}" th:if="${item.isSelected}" class="mb-2">
                             <div th:text="${item.productName + ' - ' + item.variantName}"></div>
@@ -106,20 +110,25 @@
                     </ul>
                     <div class="d-flex justify-content-between mb-2">
                         <span>Tạm tính sản phẩm đã chọn:</span>
-                        <span id="cart-subtotal" class="fw-bold" th:text="${#numbers.formatDecimal(cart.subtotal, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
+                        <span id="cart-subtotal" class="fw-bold"
+                              th:text="${#numbers.formatDecimal(cart.subtotal, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
                     </div>
                     <div class="d-flex justify-content-between mb-3 text-muted">
                         <span>Phí vận chuyển:</span>
-                        <span id="cart-shipping" th:text="${#numbers.formatDecimal(cart.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
+                        <span id="cart-shipping"
+                              th:text="${#numbers.formatDecimal(cart.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3 fw-bold">
                         <span>Tổng cộng:</span>
-                        <span id="cart-total" th:text="${#numbers.formatDecimal(cart.totalAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
+                        <span id="cart-total"
+                              th:text="${#numbers.formatDecimal(cart.totalAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
                     </div>
                     <form th:action="@{/checkout}" method="get" id="cart-checkout-form">
                         <button type="submit" id="cart-checkout" class="btn btn-pet-primary w-100 py-2 fw-semibold"
-                                th:disabled="${!cart.checkoutAllowed}" th:attr="data-server-allowed=${cart.checkoutAllowed}">Tiến Hành Đặt Hàng</button>
+                                th:disabled="${!cart.checkoutAllowed}"
+                                th:attr="data-server-allowed=${cart.checkoutAllowed}">Tiến Hành Đặt Hàng
+                        </button>
                     </form>
                 </div>
             </div>

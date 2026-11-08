@@ -8,6 +8,8 @@
 
 Bản gộp nhóm ngày 26/10/2026: xem [hướng dẫn nhận source và kiểm thử](docs/DEV_INTEGRATION_20261026.md). Với database đã có dữ liệu, dùng [script đồng bộ tăng dần](database/sync_existing/README.md); không chạy lại bootstrap để cập nhật.
 
+**Bản dev hiện tại:** xem [các chức năng đã gộp và quy tắc đơn hàng](docs/DEV_UPDATE.md). Trước khi Run, cập nhật [StockDeducted và đối soát kho](database/sync_order_stock/README.md), kể cả máy đã có sáu cột Staff/voucher/Feedback của đợt trước. Không chạy bootstrap/reset để đồng bộ database có dữ liệu.
+
 ---
 
 ## 📋 Mục lục / Table of Contents

@@ -143,6 +143,8 @@
                                     <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/orders}"><i class="bi bi-bag-check me-2"></i>Đơn Hàng Của Tôi</a></li>
                                     <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/reviews}">Đánh giá của tôi</a></li>
                                     <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/addresses}"><i class="bi bi-geo-alt me-2"></i>Sổ Địa Chỉ</a></li>
+                                    <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/wishlist}"><i class="bi bi-heart me-2"></i>Sản phẩm yêu thích</a></li>
+                                    <li sec:authorize="hasRole('CUSTOMER')"><a class="dropdown-item" th:href="@{/customer/vouchers}"><i class="bi bi-ticket-perforated me-2"></i>Ví voucher</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li>
                                         <form th:action="@{/logout}" method="post" class="m-0 p-0">

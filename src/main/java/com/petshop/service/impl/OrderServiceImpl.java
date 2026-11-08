@@ -165,9 +165,6 @@ public class OrderServiceImpl implements OrderService {
         for (int i = 0; i < selectedItems.size(); i++) {
             CartItem cartItem = selectedItems.get(i);
             ProductVariant variant = variants.get(i);
-            if (variantRepository.deductStockAtomic(variant.getId(), cartItem.getQuantity()) != 1) {
-                throw new IllegalStateException("Sản phẩm không đủ số lượng trong kho. Vui lòng kiểm tra lại giỏ hàng.");
-            }
             OrderItem orderItem = OrderItem.builder()
                     .order(savedOrder).variant(variant)
                     .productNameSnapshot(variant.getProduct().getName())
@@ -177,6 +174,7 @@ public class OrderServiceImpl implements OrderService {
             savedOrder.getItems().add(orderItem);
             purchasedVariantIds.add(variant.getId());
         }
+        savedOrder.setStockDeducted(false);
         saveHistory(savedOrder, null, initialStatus,
                 "Khách hàng tạo đơn hàng mới (" + request.getPaymentMethod() + ")", customer);
 
@@ -297,11 +295,25 @@ public class OrderServiceImpl implements OrderService {
     public void confirmOrder(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.PENDING_CONFIRMATION);
-
-        // VNPay is confirmed by the verified callback. PENDING_CONFIRMATION
-        // remains COD-only as required by the existing SQL constraint.
-        if (order.getPaymentMethod() != PaymentMethod.COD || order.getPaymentStatus() != PaymentStatus.UNPAID) {
-            throw new IllegalStateException("Đơn hàng không đủ điều kiện xác nhận.");
+        if (!(order.getPaymentMethod() == PaymentMethod.COD && order.getPaymentStatus() == PaymentStatus.UNPAID)
+                && !(order.getPaymentMethod() == PaymentMethod.VNPAY && order.getPaymentStatus() == PaymentStatus.PAID)) {
+            throw new IllegalStateException("Chỉ xác nhận đơn COD chưa thanh toán hoặc VNPay đã thanh toán.");
+        }
+        if (!Boolean.TRUE.equals(order.getStockDeducted())) {
+            List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+            items.sort(Comparator.comparing(item -> item.getVariant().getId()));
+            if (items.isEmpty()) throw new IllegalStateException("Đơn hàng không có sản phẩm.");
+            for (OrderItem item : items) {
+                ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId())
+                        .orElseThrow(() -> new IllegalStateException("Sản phẩm không còn tồn tại."));
+                if (item.getQuantity() == null || item.getQuantity() <= 0
+                        || variant.getProduct().getStatus() != ProductStatus.ACTIVE
+                        || variantRepository.deductStockAtomic(variant.getId(), item.getQuantity()) != 1) {
+                    throw new IllegalStateException("Không thể xác nhận: " + item.getSkuCodeSnapshot()
+                            + " không còn bán hoặc không đủ tồn kho. Đơn vẫn chờ xác nhận.");
+                }
+            }
+            order.setStockDeducted(true);
         }
         transitionStatus(order, OrderStatus.CONFIRMED, "Nhân viên xác nhận đơn hàng", requireUser(staffId));
     }
@@ -313,6 +325,35 @@ public class OrderServiceImpl implements OrderService {
         requireStatus(order, OrderStatus.CONFIRMED);
         requirePaymentForFulfilment(order);
         transitionStatus(order, OrderStatus.PREPARING, "Đang đóng gói hàng tại kho", requireUser(staffId));
+    }
+
+    @Override
+    @Transactional
+    public boolean deductPaidVnpayStock(Long orderId) {
+        Order order = lockOrder(orderId);
+        if (order.getPaymentMethod() != PaymentMethod.VNPAY || order.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new IllegalStateException("Chỉ trừ tồn VNPay sau khi đã thanh toán.");
+        }
+        if (Boolean.TRUE.equals(order.getStockDeducted())) return true;
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        items.sort(Comparator.comparing(item -> item.getVariant().getId()));
+        if (items.isEmpty()) throw new IllegalStateException("Đơn hàng không có sản phẩm.");
+        // Lock and validate every SKU before writing any deduction. A paid order
+        // with insufficient stock is kept for staff resolution, never marked unpaid.
+        for (OrderItem item : items) {
+            ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId()).orElse(null);
+            if (variant == null || item.getQuantity() == null || item.getQuantity() <= 0
+                    || variant.getStatus() != ProductVariantStatus.ACTIVE
+                    || variant.getProduct().getStatus() != ProductStatus.ACTIVE
+                    || variant.getStockQuantity() == null || variant.getStockQuantity() < item.getQuantity()) return false;
+        }
+        for (OrderItem item : items) {
+            if (variantRepository.deductStockAtomic(item.getVariant().getId(), item.getQuantity()) != 1) {
+                throw new IllegalStateException("Không thể cập nhật tồn kho cho đơn đã thanh toán.");
+            }
+        }
+        order.setStockDeducted(true);
+        return true;
     }
 
     @Override
@@ -454,6 +495,9 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void requirePaymentForFulfilment(Order order) {
+        if (!Boolean.TRUE.equals(order.getStockDeducted())) {
+            throw new IllegalStateException("Đơn hàng chưa được cấp đủ tồn kho.");
+        }
         if ((order.getPaymentMethod() == PaymentMethod.COD && order.getPaymentStatus() != PaymentStatus.UNPAID)
                 || (order.getPaymentMethod() == PaymentMethod.VNPAY && order.getPaymentStatus() != PaymentStatus.PAID)) {
             throw new IllegalStateException("Trạng thái thanh toán không phù hợp để xử lý đơn hàng.");
@@ -517,13 +561,16 @@ public class OrderServiceImpl implements OrderService {
                 paymentTransactionRepository.save(transaction);
             }
         }
-        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-        items.sort(Comparator.comparing(item -> item.getVariant().getId()));
-        for (OrderItem item : items) {
-            if (item.getQuantity() == null || item.getQuantity() <= 0
-                    || variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity()) != 1) {
-                throw new IllegalStateException("Không thể hoàn tồn kho cho đơn hàng này.");
+        if (Boolean.TRUE.equals(order.getStockDeducted())) {
+            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            items.sort(Comparator.comparing(item -> item.getVariant().getId()));
+            for (OrderItem item : items) {
+                if (item.getQuantity() == null || item.getQuantity() <= 0
+                        || variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity()) != 1) {
+                    throw new IllegalStateException("Không thể hoàn tồn kho cho đơn hàng này.");
+                }
             }
+            order.setStockDeducted(false);
         }
         if (order.getVoucher() != null) {
             voucherService.releaseVoucher(order.getVoucher().getId());

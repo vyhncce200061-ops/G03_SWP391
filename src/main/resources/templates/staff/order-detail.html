@@ -58,6 +58,9 @@
             <!-- Action Buttons based on Order Status -->
             <div class="card border-0 shadow-sm rounded-4 p-4">
                 <h5 class="fw-bold mb-3">Xử Lý Đơn Hàng</h5>
+                <p th:if="${order.paymentMethod.name() == 'VNPAY' and order.paymentStatus.name() == 'PAID' and !order.stockDeducted}" class="alert alert-warning">
+                    Đơn đã thanh toán VNPay nhưng chưa đủ tồn kho. Bổ sung hàng rồi xác nhận đơn. Không thu tiền lại.
+                </p>
 
                 <!-- Current Status Banner -->
                 <div class="alert alert-light border d-flex align-items-center mb-4">
@@ -73,13 +76,13 @@
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <!-- COD: Pending Confirmation -> Confirm or Reject -->
+                    <!-- Pending confirmation: allocate stock once, then confirm -->
                     <th:block th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION'}">
                         <span class="text-muted me-2 small fst-italic">Xử lý:</span>
                         <form th:action="@{/staff/orders/{id}/confirm(id=${order.id})}" method="post">
                             <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i>Xác Nhận Đơn</button>
                         </form>
-                        <form th:action="@{/staff/orders/{id}/reject(id=${order.id})}" method="post" class="d-flex gap-2">
+                        <form th:if="${order.paymentMethod.name() == 'COD' and order.paymentStatus.name() == 'UNPAID'}" th:action="@{/staff/orders/{id}/reject(id=${order.id})}" method="post" class="d-flex gap-2">
                             <input type="text" name="reason" class="form-control" placeholder="Lý do từ chối..." required style="width: 200px;">
                             <button type="submit" class="btn btn-outline-danger text-nowrap"><i class="bi bi-x-circle me-1"></i>Từ Chối</button>
                         </form>
@@ -92,13 +95,6 @@
                             <button type="submit" class="btn btn-primary"><i class="bi bi-box-seam me-1"></i>Chuyển sang Đóng Gói</button>
                         </form>
                     </th:block>
-
-                    <form th:if="${order.orderStatus.name() == 'CONFIRMED' and order.paymentMethod.name() == 'VNPAY' and order.paymentStatus.name() == 'PAID'}"
-                          th:action="@{/staff/orders/{id}/reject(id=${order.id})}" method="post" class="d-flex flex-wrap gap-2">
-                        <input type="text" name="reason" class="form-control" placeholder="Lý do từ chối..." maxlength="1000" required>
-                        <button type="submit" class="btn btn-outline-danger">Từ chối đơn</button>
-                        <small class="text-muted w-100">Tiền đã thu cần đối chiếu hoàn tiền riêng nếu từ chối đơn.</small>
-                    </form>
                     <!-- Preparing -> Shipping -->
                     <th:block th:if="${order.orderStatus.name() == 'PREPARING'}">
                         <span class="text-muted me-2 small fst-italic">Xử lý:</span>

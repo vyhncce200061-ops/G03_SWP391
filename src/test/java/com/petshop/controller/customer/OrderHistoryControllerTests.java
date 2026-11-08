@@ -54,6 +54,9 @@ class OrderHistoryControllerTests {
     private OrderService orderService;
 
     @MockBean
+    private com.petshop.service.VnPayService vnPayService;
+
+    @MockBean
     private com.petshop.repository.UserRepository accountRepository;
 
     private CustomUserDetails customer;
@@ -230,6 +233,50 @@ class OrderHistoryControllerTests {
     private void verifyNoCustomerOrderQuery() {
         verify(orderService, never()).getCustomerOrders(anyLong(), nullable(OrderStatus.class),
                 nullable(LocalDate.class), nullable(LocalDate.class), any(Pageable.class));
+    }
+
+    @Test
+    void resumeButtonAppearsOnListAndDetailOnlyWhenEligible() throws Exception {
+        Order pending = order();
+        pending.setPaymentMethod(PaymentMethod.VNPAY);
+        pending.setOrderStatus(OrderStatus.PENDING_PAYMENT);
+        when(orderService.getCustomerOrders(eq(7L), nullable(OrderStatus.class), nullable(LocalDate.class),
+                nullable(LocalDate.class), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(pending)));
+        when(orderService.getOrderDetailForCustomer(12L, 7L)).thenReturn(pending);
+        when(vnPayService.getResumableOrderIds(eq(7L), anyList())).thenReturn(java.util.Set.of(12L));
+        mvc.perform(get("/customer/orders").with(user(customer)))
+                .andExpect(status().isOk()).andExpect(content().string(containsString("/customer/orders/12/pay")));
+        mvc.perform(get("/customer/orders/12").with(user(customer)))
+                .andExpect(status().isOk()).andExpect(content().string(containsString("/customer/orders/12/pay")));
+        when(vnPayService.getResumableOrderIds(eq(7L), anyList())).thenReturn(java.util.Set.of());
+        mvc.perform(get("/customer/orders").with(user(customer)))
+                .andExpect(content().string(not(containsString("/customer/orders/12/pay"))));
+        mvc.perform(get("/customer/orders/12").with(user(customer)))
+                .andExpect(content().string(not(containsString("/customer/orders/12/pay"))));
+    }
+
+    @Test
+    void resumeRequiresCsrfAndRedirectsToGatewayWithAuthenticatedOwner() throws Exception {
+        mvc.perform(post("/customer/orders/12/pay").with(user(customer)))
+                .andExpect(redirectedUrl("/error/403"));
+        verify(vnPayService, never()).resumePayment(anyLong(), anyLong(), anyString());
+        when(vnPayService.resumePayment(eq(12L), eq(7L), anyString()))
+                .thenReturn("https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?test=1");
+        mvc.perform(post("/customer/orders/12/pay").with(user(customer)).with(csrf()))
+                .andExpect(redirectedUrl("https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?test=1"));
+    }
+
+    @Test
+    void staleResumeShowsFlashAndNonOwnerGets404() throws Exception {
+        when(vnPayService.resumePayment(eq(12L), eq(7L), anyString()))
+                .thenThrow(new IllegalStateException("Giao dịch đã hết hạn."));
+        mvc.perform(post("/customer/orders/12/pay").with(user(customer)).with(csrf()))
+                .andExpect(redirectedUrl("/customer/orders/12"))
+                .andExpect(flash().attribute("errorMessage", "Giao dịch đã hết hạn."));
+        when(vnPayService.resumePayment(eq(12L), eq(7L), anyString()))
+                .thenThrow(new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        mvc.perform(post("/customer/orders/12/pay").with(user(customer)).with(csrf()))
+                .andExpect(status().isNotFound());
     }
 
     private Order order() {

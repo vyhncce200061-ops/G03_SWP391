@@ -1,5 +1,7 @@
 # Cập nhật database PetShop
 
+**Bản dev mới:** chạy [đồng bộ tồn kho đơn hàng](sync_order_stock/README.md) trước khi Run. Thêm `Orders.StockDeducted`, điều chỉnh CHECK chờ xác nhận và view đối soát kho theo code wishlist/đơn hàng của thành viên. Sáu cột Staff/voucher/Feedback cũ vẫn giữ. Dùng [nghiệp vụ hiện tại](../docs/DEV_UPDATE.md); các mục theo ngày dưới đây là lịch sử bàn giao.
+
 Bảng thay đổi để gửi nhóm và cập nhật tài liệu: [CHANGELOG_20261007.md](CHANGELOG_20261007.md). Gói SQL chia sẻ nằm trong `outputs/team_database_update_20261007`.
 
 Database `PetShopDB` trên máy này đã được cập nhật trong lần sửa ngày 07/10/2026. Không cần chạy lại các script sửa trên database này.

@@ -48,6 +48,90 @@ class OrderWorkflowTests {
     @Autowired private EntityManager entityManager;
 
     @Test
+    void codConfirmationRollsBackEverySkuIfOneDeductionFails() {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, true, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        doReturn(0).when(variants).deductStockAtomic(f.secondId(), 2);
+        assertThrows(IllegalStateException.class, () -> orders.confirmOrder(placed.getId(), staffId));
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10, variants.findById(f.secondId()).orElseThrow().getStockQuantity());
+            Order current = orderRepository.findById(placed.getId()).orElseThrow();
+            assertEquals(OrderStatus.PENDING_CONFIRMATION, current.getOrderStatus());
+            assertFalse(current.getStockDeducted());
+            return null;
+        });
+    }
+
+    @Test
+    void customerCannotConfirmOrAllocateStock() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        assertThrows(IllegalArgumentException.class, () -> orders.confirmOrder(placed.getId(), f.customerId()));
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            Order current=orderRepository.findById(placed.getId()).orElseThrow();
+            assertEquals(OrderStatus.PENDING_CONFIRMATION,current.getOrderStatus());
+            assertFalse(current.getStockDeducted());
+            assertEquals(1,current.getStatusHistories().size());
+            return null;
+        });
+    }
+
+    @Test
+    void competingCodConfirmationsCannotOversell() throws Exception {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, false, false);
+        inTransaction(() -> {
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(2);
+            return null;
+        });
+        Order first = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        addFirstSkuAgain(f);
+        Order second = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        List<Boolean> results = runConcurrently(
+                () -> { try { orders.confirmOrder(first.getId(), staffId); return true; }
+                        catch (IllegalStateException e) { return false; } },
+                () -> { try { orders.confirmOrder(second.getId(), staffId); return true; }
+                        catch (IllegalStateException e) { return false; } });
+        assertEquals(1, results.stream().filter(Boolean::booleanValue).count());
+        inTransaction(() -> {
+            Order a = orderRepository.findById(first.getId()).orElseThrow();
+            assertEquals(a.getOrderStatus() == OrderStatus.CONFIRMED ? 0 : 1,
+                    variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            return null;
+        });
+    }
+
+    @Test
+    void legacyDeductedCodIsNotDeductedAgainAndCancellationRestoresIt() {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, false, false);
+        Order first = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        inTransaction(() -> {
+            variants.deductStockAtomic(f.firstId(), 2);
+            orderRepository.findById(first.getId()).orElseThrow().setStockDeducted(true);
+            return null;
+        });
+        orders.confirmOrder(first.getId(), staffId);
+        assertThrows(IllegalStateException.class, () -> orders.confirmOrder(first.getId(), staffId));
+        addFirstSkuAgain(f);
+        Order second = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        inTransaction(() -> {
+            variants.deductStockAtomic(f.firstId(), 1);
+            orderRepository.findById(second.getId()).orElseThrow().setStockDeducted(true);
+            return null;
+        });
+        orders.customerCancelOrder(second.getId(), f.customerId(), "Cancel legacy order");
+        inTransaction(() -> {
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertFalse(orderRepository.findById(second.getId()).orElseThrow().getStockDeducted());
+            return null;
+        });
+    }
+
+    @Test
     void selectedLinesOnlyDetermineTotalsSnapshotsStockAndCartRemoval() {
         Fixture f = fixture(true, false, false);
         Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
@@ -56,7 +140,7 @@ class OrderWorkflowTests {
         assertEquals(1, placed.getItems().size());
         assertTrue(placed.getOrderCode().length() <= 40);
         inTransaction(() -> {
-            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
             assertEquals(10, variants.findById(f.secondId()).orElseThrow().getStockQuantity());
             List<CartItem> remaining = cartItems.findByCartId(f.cartId());
             assertEquals(2, remaining.size());
@@ -124,23 +208,27 @@ class OrderWorkflowTests {
     }
 
     @Test
-    void failedStockWriteRollsBackEarlierDeductionOrderAndVoucherReservation() {
+    void paidStockWriteFailureRollsBackAllSkuDeductions() {
         Fixture f = fixture(true, true, false);
         Long voucherId = voucher();
-        CheckoutSubmitDto request = request(PaymentMethod.COD);
+        CheckoutSubmitDto request = request(PaymentMethod.VNPAY);
         request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
-        // Simulate a failed conditional write after the first SKU and voucher quota
-        // have been updated. All other persistence calls still use the real database.
+        Order placed = orders.checkoutOrder(f.customerId(), request);
+        inTransaction(() -> {
+            orderRepository.findById(placed.getId()).orElseThrow().setPaymentStatus(PaymentStatus.PAID);
+            return null;
+        });
         doReturn(0).when(variants).deductStockAtomic(f.secondId(), 2);
-        assertThrows(IllegalStateException.class, () -> orders.checkoutOrder(f.customerId(), request));
+        assertThrows(IllegalStateException.class, () -> orders.deductPaidVnpayStock(placed.getId()));
         verify(variants).deductStockAtomic(f.firstId(), 2);
         verify(variants).deductStockAtomic(f.secondId(), 2);
-        assertEquals(0, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
+        assertEquals(1, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
         inTransaction(() -> {
             assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
             assertEquals(10, variants.findById(f.secondId()).orElseThrow().getStockQuantity());
-            assertEquals(0, vouchers.findById(voucherId).orElseThrow().getUsedCount());
-            assertEquals(3, cartItems.findByCartId(f.cartId()).size());
+            assertFalse(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+            assertEquals(1, vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(1, cartItems.findByCartId(f.cartId()).size());
             return null;
         });
     }
@@ -195,7 +283,7 @@ class OrderWorkflowTests {
         assertMoney("10000", replacement.getDiscountAmount());
         inTransaction(() -> {
             assertEquals(1, vouchers.findById(voucherId).orElseThrow().getUsedCount());
-            assertEquals(9, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
             return null;
         });
     }
@@ -244,6 +332,70 @@ class OrderWorkflowTests {
         });
     }
 
+    @Test
+    void vnpayCheckoutDoesNotDeductAndPaidAllocationIsIdempotent() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        assertThrows(IllegalStateException.class, () -> orders.deductPaidVnpayStock(placed.getId()));
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            orderRepository.findById(placed.getId()).orElseThrow().setPaymentStatus(PaymentStatus.PAID);
+            return null;
+        });
+        assertTrue(orders.deductPaidVnpayStock(placed.getId()));
+        assertTrue(orders.deductPaidVnpayStock(placed.getId()));
+        inTransaction(() -> {
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertTrue(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+            return null;
+        });
+    }
+
+    @Test
+    void resumableOrderQueryChecksOwnerDeadlineAndPaymentState() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        List<Long> ids = List.of(placed.getId());
+        LocalDateTime now = LocalDateTime.now();
+        assertEquals(ids, payments.findResumableOrderIds(f.customerId(), ids, now));
+        assertTrue(payments.findResumableOrderIds(-1L, ids, now).isEmpty());
+        assertTrue(payments.findResumableOrderIds(f.customerId(), ids, now.plusMinutes(16)).isEmpty());
+        inTransaction(() -> {
+            orderRepository.findById(placed.getId()).orElseThrow().setPaymentStatus(PaymentStatus.PAID);
+            return null;
+        });
+        assertTrue(payments.findResumableOrderIds(f.customerId(), ids, now).isEmpty());
+    }
+
+    @Test
+    void paidShortageDoesNotPartiallyDeductAndStaffCanConfirmAfterRestock() {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, true, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        inTransaction(() -> {
+            Order current = orderRepository.findById(placed.getId()).orElseThrow();
+            current.setPaymentStatus(PaymentStatus.PAID);
+            current.setOrderStatus(OrderStatus.PENDING_CONFIRMATION);
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(0);
+            return null;
+        });
+        assertFalse(orders.deductPaidVnpayStock(placed.getId()));
+        assertThrows(IllegalStateException.class, () -> orders.confirmOrder(placed.getId(), staffId));
+        assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy"));
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(5);
+            return null;
+        });
+        orders.confirmOrder(placed.getId(), staffId);
+        inTransaction(() -> {
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(3, variants.findById(f.secondId()).orElseThrow().getStockQuantity());
+            assertEquals(PaymentStatus.PAID, orderRepository.findById(placed.getId()).orElseThrow().getPaymentStatus());
+            return null;
+        });
+    }
+
     private void addFirstSkuAgain(Fixture fixture) {
         inTransaction(() -> {
             cartItems.save(CartItem.builder().cart(carts.findById(fixture.cartId()).orElseThrow())
@@ -269,7 +421,7 @@ class OrderWorkflowTests {
         });
         assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy"));
         inTransaction(() -> {
-            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
             assertEquals(OrderStatus.PENDING_PAYMENT, orderRepository.findById(placed.getId()).orElseThrow().getOrderStatus());
             return null;
         });
@@ -394,7 +546,7 @@ class OrderWorkflowTests {
         assertEquals(1, results.stream().filter(Boolean::booleanValue).count());
         assertEquals(1, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
         inTransaction(() -> {
-            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
             assertEquals(2, cartItems.findByCartId(f.cartId()).size());
             return null;
         });

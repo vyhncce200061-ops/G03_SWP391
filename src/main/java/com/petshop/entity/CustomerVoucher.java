@@ -46,6 +46,12 @@ public class CustomerVoucher {
     @Transient
     private Integer remainingUses;
 
+    @Transient
+    private String availabilityLabel;
+
+    @Transient
+    private boolean available;
+
     @PrePersist
     protected void onCreate() {
         if (this.savedAt == null) {
