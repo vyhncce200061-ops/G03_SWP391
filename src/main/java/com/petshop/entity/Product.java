@@ -88,6 +88,23 @@ public class Product {
     @Column(name = "UpdatedAt", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Transient
+    public String getDisplayImageUrl() {
+        return images.stream().sorted(java.util.Comparator
+                .comparing((ProductImage image) -> !Boolean.TRUE.equals(image.getIsPrimary()))
+                .thenComparing(ProductImage::getSortOrder, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+                .thenComparing(ProductImage::getId, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .map(ProductImage::getImageUrl).filter(url -> url != null && !url.isBlank())
+                .findFirst().orElse("https://placehold.co/500x400?text=PetShop");
+    }
+
+    @Transient
+    public boolean isAvailableInStock() {
+        return status == ProductStatus.ACTIVE && variants.stream().anyMatch(v ->
+                v.getStatus() == com.petshop.entity.enums.ProductVariantStatus.ACTIVE
+                        && v.getStockQuantity() != null && v.getStockQuantity() > 0);
+    }
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();

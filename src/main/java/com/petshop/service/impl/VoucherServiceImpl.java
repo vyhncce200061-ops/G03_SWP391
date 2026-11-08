@@ -309,6 +309,13 @@ public class VoucherServiceImpl implements VoucherService {
     public void saveVoucherToWallet(Long customerId, Long voucherId) {
         User customer = userRepository.findByIdForUpdate(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy khách hàng: " + customerId));
+        if (!"ACTIVE".equals(customer.getStatus()) || !"CUSTOMER".equals(customer.getRole().getCode())) {
+            throw new IllegalArgumentException("Tài khoản không được phép lưu voucher.");
+        }
+        // Read usage before locking the campaign (same lock order as checkout).
+        long usage = orderRepository.countVoucherUsageByCustomer(customerId, voucherId);
+        LocalDateTime lastUsedAt = usage > 0
+                ? orderRepository.findLastVoucherUsageAt(customerId, voucherId) : null;
         Voucher voucher = voucherRepository.findByIdForUpdate(voucherId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mã giảm giá."));
         entityManager.refresh(voucher, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
@@ -320,6 +327,15 @@ public class VoucherServiceImpl implements VoucherService {
         if (LocalDateTime.now().isAfter(voucher.getEndDate())) {
             throw new IllegalArgumentException("Voucher này đã hết hạn.");
         }
+        if (LocalDateTime.now().isBefore(voucher.getStartDate())) {
+            throw new IllegalArgumentException("Voucher này chưa đến thời gian áp dụng.");
+        }
+        if (voucher.getUsedCount() >= voucher.getTotalUsageLimit()) {
+            throw new IllegalArgumentException("Voucher này đã hết lượt sử dụng.");
+        }
+        if (usage >= voucher.getPerCustomerLimit()) {
+            throw new IllegalArgumentException("Bạn đã sử dụng hết số lần cho phép với mã này.");
+        }
 
         if (customerVoucherRepository.existsByCustomerIdAndVoucherId(customerId, voucherId)) {
             throw new IllegalArgumentException("Bạn đã lưu mã giảm giá này vào ví rồi.");
@@ -329,7 +345,8 @@ public class VoucherServiceImpl implements VoucherService {
                 .customer(customer)
                 .voucher(voucher)
                 .savedAt(LocalDateTime.now())
-                .isUsed(orderRepository.countVoucherUsageByCustomer(customerId, voucherId) > 0)
+                .isUsed(lastUsedAt != null)
+                .usedAt(lastUsedAt)
                 .build();
 
         customerVoucherRepository.save(cv);
@@ -339,6 +356,8 @@ public class VoucherServiceImpl implements VoucherService {
     @Override
     @Transactional
     public void removeVoucherFromWallet(Long customerId, Long walletVoucherId) {
+        userRepository.findByIdForUpdate(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy khách hàng."));
         customerVoucherRepository.deleteByCustomerIdAndId(customerId, walletVoucherId);
     }
 
@@ -349,6 +368,21 @@ public class VoucherServiceImpl implements VoucherService {
         for (CustomerVoucher entry : wallet) {
             long used = orderRepository.countVoucherUsageByCustomer(customerId, entry.getVoucher().getId());
             entry.setRemainingUses((int)Math.max(0, entry.getVoucher().getPerCustomerLimit() - used));
+            Voucher v = entry.getVoucher();
+            entry.setAvailable(false);
+            LocalDateTime now = LocalDateTime.now();
+            String label;
+            if (Boolean.TRUE.equals(v.getIsDeleted())) label = "Đã ngừng phát hành";
+            else if (now.isAfter(v.getEndDate())) label = "Đã hết hạn";
+            else if (v.getStatus() != VoucherStatus.ACTIVE) label = "Tạm ngưng áp dụng";
+            else if (now.isBefore(v.getStartDate())) label = "Chưa đến thời gian áp dụng";
+            else if (entry.getRemainingUses() == 0) label = "Đã dùng hết lượt";
+            else if (v.getUsedCount() >= v.getTotalUsageLimit()) label = "Đã hết lượt toàn hệ thống";
+            else {
+                entry.setAvailable(true);
+                label = (used > 0 ? "Đã sử dụng · " : "Khả dụng · ") + "Còn " + entry.getRemainingUses() + " lượt";
+            }
+            entry.setAvailabilityLabel(label);
         }
         return wallet;
     }

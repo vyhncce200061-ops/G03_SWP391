@@ -44,6 +44,9 @@
             <!-- Lifecycle Actions -->
             <div class="card border-0 shadow-sm rounded-4 p-4">
                 <h5 class="fw-bold mb-3">Chuyển Trạng Thái Đơn Hàng</h5>
+                <p th:if="${order.paymentMethod.name() == 'VNPAY' and order.paymentStatus.name() == 'PAID' and !order.stockDeducted}" class="alert alert-warning">
+                    Đơn đã thanh toán VNPay nhưng chưa đủ tồn kho. Bổ sung hàng rồi xác nhận đơn. Không thu tiền lại.
+                </p>
                 <div class="d-flex flex-wrap gap-2">
                     <form th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION'}"
                           th:action="@{/staff/orders/{id}/confirm(id=${order.id})}" method="post">
@@ -65,7 +68,7 @@
                         <button type="submit" class="btn btn-success"><i class="bi bi-check2-all me-1"></i>Giao Hàng Thành Công (Completed)</button>
                     </form>
 
-                    <div th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION'}" class="w-100 mt-3 border-top pt-3">
+                    <div th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION' and order.paymentMethod.name() == 'COD' and order.paymentStatus.name() == 'UNPAID'}" class="w-100 mt-3 border-top pt-3">
                         <form th:action="@{/staff/orders/{id}/reject(id=${order.id})}" method="post" class="d-flex gap-2">
                             <input type="text" name="reason" class="form-control" placeholder="Nhập lý do từ chối đơn hàng..." required>
                             <button type="submit" class="btn btn-outline-danger text-nowrap">Từ Chối Đơn</button>

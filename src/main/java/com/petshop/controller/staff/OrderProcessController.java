@@ -45,8 +45,12 @@ public class OrderProcessController {
     public String confirmOrder(@AuthenticationPrincipal CustomUserDetails userDetails,
                                @PathVariable Long id,
                                RedirectAttributes redirectAttributes) {
-        orderService.confirmOrder(id, userDetails.getId());
-        redirectAttributes.addFlashAttribute("successMessage", "Đã xác nhận đơn hàng thành công!");
+        try {
+            orderService.confirmOrder(id, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Đã xác nhận đơn hàng và trừ tồn kho!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -84,7 +88,7 @@ public class OrderProcessController {
                               RedirectAttributes redirectAttributes) {
         try {
             orderService.staffRejectOrder(id, userDetails.getId(), reason);
-            redirectAttributes.addFlashAttribute("successMessage", "Đã từ chối đơn hàng và hoàn tồn kho!");
+            redirectAttributes.addFlashAttribute("successMessage", "Đã từ chối đơn hàng!");
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }

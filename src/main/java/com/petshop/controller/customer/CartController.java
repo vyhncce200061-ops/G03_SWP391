@@ -119,9 +119,9 @@ public class CartController {
             session.setAttribute("cartCount", cart.getTotalQuantity());
             if ("XMLHttpRequest".equalsIgnoreCase(requestedWith)) return ResponseEntity.ok(cart);
             redirectAttributes.addFlashAttribute("successMessage", "Đã cập nhật số lượng sản phẩm.");
-
         } catch (IllegalArgumentException | IllegalStateException e) {
-            if ("XMLHttpRequest".equalsIgnoreCase(requestedWith)) return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            if ("XMLHttpRequest".equalsIgnoreCase(requestedWith))
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/cart";
@@ -134,11 +134,8 @@ public class CartController {
                              RedirectAttributes redirectAttributes) {
         try {
             CartDto cart = cartService.removeItem(userDetails.getId(), itemId);
-
             session.setAttribute("cartCount", cart.getTotalQuantity());
-
             redirectAttributes.addFlashAttribute("infoMessage", "Đã xóa sản phẩm khỏi giỏ hàng.");
-
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
@@ -147,9 +144,10 @@ public class CartController {
 
     @PostMapping("/clear")
     public String clearCart(@AuthenticationPrincipal CustomUserDetails userDetails,
-                            HttpSession session) {
+                            HttpSession session, RedirectAttributes redirectAttributes) {
         cartService.clearCart(userDetails.getId());
         session.setAttribute("cartCount", 0);
+        redirectAttributes.addFlashAttribute("infoMessage", "Đã xóa toanf bộ sản phẩm khỏi giỏ hàng.");
         return "redirect:/cart";
     }
 }

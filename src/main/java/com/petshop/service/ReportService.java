@@ -23,7 +23,7 @@ public class ReportService {
         for (Object[] row : em.createQuery("SELECT i.variant.id, SUM(i.quantity), SUM(i.unitCost * i.quantity), SUM(CASE WHEN i.unitCost IS NULL THEN 1 ELSE 0 END) FROM StockImportItem i GROUP BY i.variant.id", Object[].class).getResultList())
             imported.put(((Number)row[0]).longValue(), row);
         Map<Long,Long> held = new HashMap<>();
-        for (Object[] row : em.createQuery("SELECT i.variant.id, SUM(i.quantity) FROM OrderItem i WHERE i.order.orderStatus <> com.petshop.entity.enums.OrderStatus.CANCELLED GROUP BY i.variant.id", Object[].class).getResultList())
+        for (Object[] row : em.createQuery("SELECT i.variant.id, SUM(i.quantity) FROM OrderItem i WHERE i.order.stockDeducted = true AND i.order.orderStatus <> com.petshop.entity.enums.OrderStatus.CANCELLED GROUP BY i.variant.id", Object[].class).getResultList())
             held.put(((Number)row[0]).longValue(), ((Number)row[1]).longValue());
         List<StockReportRow> rows = new ArrayList<>();
         for (var v : variants.findAll()) {

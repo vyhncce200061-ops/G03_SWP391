@@ -8,6 +8,9 @@
 <body>
 <div layout:fragment="content" class="py-5">
     <div class="container">
+        <div th:if="${order.paymentMethod.name() == 'VNPAY' and order.paymentStatus.name() == 'PAID' and !order.stockDeducted}" class="alert alert-warning">
+            Đã nhận thanh toán. Cửa hàng đang xử lý bổ sung hàng cho đơn của bạn. Bạn không cần thanh toán lại.
+        </div>
         <a th:href="@{/customer/orders}" class="btn btn-link px-0 mb-3">Quay lại đơn hàng của tôi</a>
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h3 class="fw-bold mb-0">Đơn Hàng <span th:text="${order.orderCode}">ORD-XXXX</span></h3>
@@ -85,6 +88,11 @@
                         <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + 'đ'}"></strong>
                     </div>
 
+                    <form th:if="${canResumePayment}" th:action="@{/customer/orders/{id}/pay(id=${order.id})}"
+                          method="post" class="mb-3">
+                        <button type="submit" class="btn btn-primary w-100">Tiếp tục thanh toán</button>
+                        <p class="small text-muted mt-2 mb-0">Tiếp tục thanh toán đơn hiện tại. Thời hạn thanh toán không được gia hạn.</p>
+                    </form>
                     <form th:if="${canCancel}" th:action="@{/customer/orders/{id}/cancel(id=${order.id})}" method="post">
                         <label for="cancelReason" class="form-label">Lý do hủy đơn (không bắt buộc)</label>
                         <textarea id="cancelReason" name="reason" maxlength="1000" rows="2" class="form-control mb-2"></textarea>

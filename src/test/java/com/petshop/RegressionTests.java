@@ -52,6 +52,7 @@ class RegressionTests {
     @Autowired UserAddressRepository addresses;
     @Autowired UserService userService;
     @Autowired VoucherService voucherService;
+    @Autowired WishlistService wishlistService;
     @Autowired OrderService orderService;
     @Autowired CheckoutPlacementService placementService;
     @Autowired CartService carts;
@@ -86,6 +87,96 @@ class RegressionTests {
                 .discountValue(BigDecimal.TEN).minOrderAmount(BigDecimal.ZERO).maxDiscountAmount(new BigDecimal("50000"))
                 .startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(2)).totalUsageLimit(10).perCustomerLimit(2).build();
     }
+    @Test void productHeartReflectsOnlyCurrentCustomersWishlist() throws Exception {
+        String path = "/products/" + product.getSlug();
+        mvc.perform(get(path)).andExpect(status().isOk()).andExpect(model().attribute("wishlisted", false));
+        wishlistService.add(customer.getId(), product.getId());
+        mvc.perform(get(path).with(user(new CustomUserDetails(customer))))
+                .andExpect(status().isOk()).andExpect(model().attribute("wishlisted", true))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("bi-heart-fill")));
+        mvc.perform(get(path).with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk()).andExpect(model().attribute("wishlisted", false));
+        wishlistService.remove(customer.getId(), product.getId());
+        mvc.perform(get(path).with(user(new CustomUserDetails(customer))))
+                .andExpect(status().isOk()).andExpect(model().attribute("wishlisted", false))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("bi-heart-fill"))));
+    }
+
+    @Test void wishlistIsIdempotentPrivateAndRendersInactiveProducts() throws Exception {
+        wishlistService.add(customer.getId(), product.getId());
+        wishlistService.add(customer.getId(), product.getId());
+        assertEquals(1, wishlistService.getWishlist(customer.getId()).size());
+        assertTrue(wishlistService.getWishlist(admin.getId()).isEmpty());
+        product.setStatus(ProductStatus.HIDDEN);
+        em.flush();
+        mvc.perform(get("/customer/wishlist").with(user(new CustomUserDetails(customer))))
+                .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("Sản phẩm hiện không còn kinh doanh")));
+        mvc.perform(post("/customer/wishlist/remove/" + product.getId()).with(user(new CustomUserDetails(customer))))
+                .andExpect(redirectedUrl("/error/403"));
+        mvc.perform(post("/customer/wishlist/remove/" + product.getId()).with(user(new CustomUserDetails(customer))).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+        assertTrue(wishlistService.getWishlist(customer.getId()).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> wishlistService.add(customer.getId(), product.getId()));
+    }
+
+    @Test void walletRejectsFutureAndExhaustedCampaignsAndShowsExpiredState() throws Exception {
+        var form = voucherForm();
+        form.setStartDate(LocalDateTime.now().plusHours(1));
+        Voucher voucher = voucherService.createVoucher(form);
+        assertThrows(IllegalArgumentException.class, () -> voucherService.saveVoucherToWallet(customer.getId(), voucher.getId()));
+        voucher.setStartDate(LocalDateTime.now().minusDays(1));
+        voucher.setUsedCount(voucher.getTotalUsageLimit());
+        em.flush();
+        assertThrows(IllegalArgumentException.class, () -> voucherService.saveVoucherToWallet(customer.getId(), voucher.getId()));
+        voucher.setUsedCount(0);
+        em.flush();
+        voucherService.saveVoucherToWallet(customer.getId(), voucher.getId());
+        assertThrows(IllegalArgumentException.class, () -> voucherService.saveVoucherToWallet(customer.getId(), voucher.getId()));
+        voucher.setEndDate(LocalDateTime.now().minusMinutes(1));
+        em.flush();
+        var entry = voucherService.getCustomerWalletVouchers(customer.getId()).get(0);
+        assertFalse(entry.isAvailable());
+        assertEquals("Đã hết hạn", entry.getAvailabilityLabel());
+        mvc.perform(get("/customer/vouchers").with(user(new CustomUserDetails(customer))))
+                .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("Đã hết hạn")));
+        voucherService.removeVoucherFromWallet(admin.getId(), entry.getId());
+        assertEquals(1, voucherService.getCustomerWalletVouchers(customer.getId()).size());
+        voucherService.removeVoucherFromWallet(customer.getId(), entry.getId());
+        assertTrue(voucherService.getCustomerWalletVouchers(customer.getId()).isEmpty());
+    }
+
+    @Test void resavingPartlyUsedVoucherPreservesLedgerAndRemainingLimit() {
+        Voucher voucher = voucherService.createVoucher(voucherForm());
+        voucherService.saveVoucherToWallet(customer.getId(), voucher.getId());
+        carts.addItemToCart(customer.getId(), variant.getId(), 1);
+        var request = checkout();
+        request.setVoucherCode(voucher.getCode());
+        Order order = orderService.checkoutOrder(customer.getId(), request);
+        em.flush(); em.clear();
+        var entry = wallet.findByCustomerIdAndVoucherId(customer.getId(), voucher.getId()).orElseThrow();
+        voucherService.removeVoucherFromWallet(customer.getId(), entry.getId());
+        em.flush();
+        voucherService.saveVoucherToWallet(customer.getId(), voucher.getId());
+        em.flush(); em.clear();
+        var saved = voucherService.getCustomerWalletVouchers(customer.getId()).get(0);
+        assertTrue(saved.getIsUsed());
+        assertEquals(orders.findById(order.getId()).orElseThrow().getCreatedAt(), saved.getUsedAt());
+        assertEquals(1, saved.getRemainingUses());
+        assertTrue(saved.isAvailable());
+        vouchers.findById(voucher.getId()).orElseThrow().setStatus(VoucherStatus.INACTIVE);
+        assertFalse(voucherService.getCustomerWalletVouchers(customer.getId()).get(0).isAvailable());
+    }
+
+    @Test void stockReportOnlyCountsOrdersWhoseStockWasDeducted() {
+        carts.addItemToCart(customer.getId(), variant.getId(), 2);
+        Order order = orderService.checkoutOrder(customer.getId(), checkout());
+        assertEquals(0, reports.stockReconciliation().get(0).getReservedOrSold());
+        orderService.confirmOrder(order.getId(), staff.getId());
+        em.flush(); em.clear();
+        assertEquals(2, reports.stockReconciliation().get(0).getReservedOrSold());
+        assertEquals(8, reports.stockReconciliation().get(0).getCurrentStock());
+    }
+
     CheckoutSubmitDto checkout() {
         return CheckoutSubmitDto.builder().recipientName("Customer").recipientPhone("0901000001")
                 .shippingProvince("HCM").shippingDistrict("Thu Duc").shippingWard("Linh Trung").shippingAddressLine("123 Road")
@@ -396,13 +487,13 @@ class RegressionTests {
         assertThrows(IllegalArgumentException.class,()->auth.resetPasswordWithToken(token,"Locked@123"));
         assertEquals("LOCKED",users.findById(customer.getId()).orElseThrow().getStatus());
     }
-    @Test void checkoutAndCancelRestoreStockAndVoucherExactlyOnce() {
+    @Test void codCheckoutAndCancelLeaveStockUnchangedAndReleaseVoucherExactlyOnce() {
         Voucher v=voucherService.createVoucher(voucherForm());voucherService.saveVoucherToWallet(customer.getId(),v.getId());
         carts.addItemToCart(customer.getId(),variant.getId(),2);
         var form=checkout();form.setVoucherCode(v.getCode());
         Order order=orderService.checkoutOrder(customer.getId(),form);
         em.flush();em.clear();
-        assertEquals(8,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
         assertEquals(1,vouchers.findById(v.getId()).orElseThrow().getUsedCount());
         assertEquals(0,new BigDecimal("390000").compareTo(order.getTotalAmount()));
         orderService.customerCancelOrder(order.getId(),customer.getId(),"Changed mind");
@@ -635,7 +726,7 @@ class RegressionTests {
         assertEquals(0,new BigDecimal("390000").compareTo(persisted.getTotalAmount()));
         var walletAfter=wallet.findByCustomerIdAndVoucherId(customer.getId(),voucher.getId()).orElseThrow();
         assertEquals(walletId,walletAfter.getId());assertEquals(savedAt,walletAfter.getSavedAt());assertEquals(usedAt,walletAfter.getUsedAt());
-        assertTrue(walletAfter.getIsUsed());assertEquals(8,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertTrue(walletAfter.getIsUsed());assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
         assertEquals(0,voucherService.searchVouchers(null,null,true,PageRequest.of(0,10)).getTotalElements());
         assertEquals(1,voucherService.getAllVouchers(PageRequest.of(0,10)).getTotalElements());
         assertFalse(voucherService.validateAndCalculateDiscount(voucher.getCode(),null,new BigDecimal("400000")).isValid());

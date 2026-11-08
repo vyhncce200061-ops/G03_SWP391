@@ -8,29 +8,14 @@
 <body>
 <div layout:fragment="content" class="container py-4">
     <div class="row">
-        <!-- Sidebar Navigation -->
-        <div class="col-lg-3 mb-4">
-            <div class="card border-0 shadow-sm rounded-4 p-3">
-                <div class="list-group list-group-flush">
-                    <a th:href="@{/customer/profile}" class="list-group-item list-group-item-action border-0 py-3 rounded-3 text-secondary">
-                        <i class="bi bi-person me-2"></i> Hồ Sơ Của Tôi
-                    </a>
-                    <a th:href="@{/customer/addresses}" class="list-group-item list-group-item-action border-0 py-3 rounded-3 text-secondary">
-                        <i class="bi bi-geo-alt me-2"></i> Sổ Địa Chỉ
-                    </a>
-                    <a th:href="@{/orders}" class="list-group-item list-group-item-action border-0 py-3 rounded-3 text-secondary">
-                        <i class="bi bi-bag-check me-2"></i> Đơn Mua Hàng
-                    </a>
-                    <a th:href="@{/customer/vouchers}" class="list-group-item list-group-item-action border-0 py-3 rounded-3 fw-bold active text-white" style="background-color: var(--pet-primary);">
-                        <i class="bi bi-ticket-perforated me-2"></i> Ví Voucher
-                    </a>
-                </div>
-            </div>
-        </div>
 
         <!-- Main Content -->
-        <div class="col-lg-9">
-            <!-- Messages -->
+        <div class="col-12">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div><h1 class="h3 text-white mb-2">Ví voucher</h1>
+                    <p class="text-white mb-0">Quản lý mã đã lưu và khám phá ưu đãi mới.</p></div>
+                <a th:href="@{/cart}" class="btn btn-light">Đến giỏ hàng</a>
+            </div>
             <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
                 <i class="bi bi-check-circle-fill me-2"></i>
                 <span th:text="${successMessage}"></span>
@@ -43,7 +28,7 @@
             </div>
 
             <!-- Tab Navigation -->
-            <ul class="nav nav-pills mb-4" id="voucherTab" role="tablist">
+            <ul class="nav nav-pills flex-wrap gap-2 p-2 bg-white rounded-4 mb-4" id="voucherTab" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active rounded-pill px-4" id="wallet-tab" data-bs-toggle="tab" data-bs-target="#wallet-pane" type="button" role="tab">
                         <i class="bi bi-wallet2 me-1"></i> Ví Của Tôi (<span th:text="${#lists.size(walletVouchers)}">0</span>)
@@ -66,22 +51,19 @@
                     </div>
 
                     <div class="row g-3">
-                        <div th:each="item : ${walletVouchers}" class="col-md-6">
+                        <div th:each="item : ${walletVouchers}" class="col-12 col-md-6 col-lg-4">
                             <div class="card border-0 shadow-sm rounded-4 h-100 p-3 position-relative"
-                                 th:classappend="${item.remainingUses == 0 ? 'bg-light opacity-75' : 'bg-white'}">
+                                 th:classappend="${!item.available ? 'bg-light opacity-75' : 'bg-white'}">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <span class="badge font-monospace fs-6"
                                           th:classappend="${item.remainingUses == 0 ? 'bg-secondary' : 'bg-danger'}"
                                           th:text="${item.voucher.code}">CODE</span>
-                                    <span th:if="${item.remainingUses == 0}" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                        Hết lượt sử dụng
-                                    </span>
-                                    <span th:unless="${item.remainingUses == 0}" class="badge bg-success-subtle text-success border border-success-subtle">
-                                        <span th:text="${'Còn ' + item.remainingUses + ' lượt'}">Còn lượt</span>
-                                    </span>
+                                    <span class="badge text-wrap" th:classappend="${item.available ? 'bg-success' : 'bg-secondary'}" th:text="${item.availabilityLabel}"></span>
                                 </div>
                                 <h6 class="fw-bold mb-1 text-dark" th:text="${item.voucher.title}">Tiêu đề</h6>
                                 <p class="text-muted small mb-2" th:text="${item.voucher.description}">Mô tả</p>
+                                <p class="small mb-2">Đơn tối thiểu: <span th:text="${#numbers.formatDecimal(item.voucher.minOrderAmount, 0, 'POINT', 0, 'COMMA') + ' đ'}"></span></p>
+                                <a th:if="${item.available}" th:href="@{/cart}" class="btn btn-sm btn-outline-primary mb-2">Đến giỏ hàng để dùng mã</a>
 
                                 <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
                                     <small class="text-muted">
@@ -107,7 +89,7 @@
                     </div>
 
                     <div class="row g-3">
-                        <div th:each="v : ${publicVouchers}" class="col-md-6">
+                        <div th:each="v : ${publicVouchers}" class="col-12 col-md-6 col-lg-4">
                             <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <span class="badge bg-primary font-monospace fs-6" th:text="${v.code}">CODE</span>

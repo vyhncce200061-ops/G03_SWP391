@@ -29,6 +29,12 @@ import java.util.Map;
 public class OrderHistoryController {
 
     private final OrderService orderService;
+    private final com.petshop.service.VnPayService vnPayService;
+
+    @ModelAttribute("resumableOrderIds")
+    public java.util.Set<Long> resumableOrderIds() {
+        return java.util.Set.of();
+    }
 
     @ModelAttribute("orderStatuses")
     public OrderStatus[] orderStatuses() {
@@ -78,6 +84,8 @@ public class OrderHistoryController {
             Page<Order> orders = orderService.getCustomerOrders(userDetails.getId(), orderStatus,
                     from, to, PageRequest.of(pageNumber, pageSize));
             model.addAttribute("orders", orders);
+            model.addAttribute("resumableOrderIds", vnPayService.getResumableOrderIds(userDetails.getId(),
+                    orders.getContent().stream().map(Order::getId).toList()));
             model.addAttribute("currentStatus", orderStatus);
         } catch (IllegalArgumentException e) {
             model.addAttribute("errorMessage", e.getMessage());
@@ -99,6 +107,8 @@ public class OrderHistoryController {
             return "error/404";
         }
         model.addAttribute("order", order);
+        model.addAttribute("canResumePayment", vnPayService.getResumableOrderIds(userDetails.getId(),
+                java.util.List.of(id)).contains(id));
         model.addAttribute("currentCustomerId", userDetails.getId());
         model.addAttribute("statusHistory", order.getStatusHistories().stream()
                 .sorted(Comparator.comparing(OrderStatusHistory::getChangedAt,
@@ -115,6 +125,21 @@ public class OrderHistoryController {
                     || order.getPaymentStatus() == PaymentStatus.FAILED);
         model.addAttribute("canCancel", canCancelCod || canCancelVnpay);
         return "customer/order-detail";
+    }
+
+    @PostMapping("/{id}/pay")
+    public String resumePayment(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                @PathVariable Long id, jakarta.servlet.http.HttpServletRequest request,
+                                RedirectAttributes redirectAttributes, HttpServletResponse response) {
+        try {
+            return "redirect:" + vnPayService.resumePayment(id, userDetails.getId(), request.getRemoteAddr());
+        } catch (IllegalArgumentException e) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return "error/404";
+        } catch (IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/customer/orders/" + id;
+        }
     }
 
     @PostMapping("/{id}/cancel")
