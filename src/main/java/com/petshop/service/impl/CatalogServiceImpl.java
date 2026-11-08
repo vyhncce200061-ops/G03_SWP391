@@ -113,12 +113,12 @@ public class CatalogServiceImpl implements CatalogService {
         BigDecimal minPrice = variants.stream()
                 .map(ProductVariant::getPrice)
                 .min(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
+                .orElse(null);
 
         BigDecimal maxPrice = variants.stream()
                 .map(ProductVariant::getPrice)
                 .max(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
+                .orElse(null);
 
         int totalStock = variants.stream()
                 .mapToInt(ProductVariant::getStockQuantity)

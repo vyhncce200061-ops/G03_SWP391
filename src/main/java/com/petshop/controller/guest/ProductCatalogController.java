@@ -1,4 +1,3 @@
-
 package com.petshop.controller.guest;
 
 import com.petshop.dto.catalog.ProductFilterDto;
@@ -32,12 +31,8 @@ import java.util.regex.Pattern;
 public class ProductCatalogController {
 
     private final CatalogService catalogService;
-<<<<<<< Updated upstream
-    private final com.petshop.service.ReviewService reviews;
-    private final com.petshop.service.WishlistService wishlistService;
-=======
     private final ReviewService reviews;
->>>>>>> Stashed changes
+    private final com.petshop.service.WishlistService wishlistService;
 
     // Hiển thị danh sách sản phẩm và xử lý các bộ lọc
     @GetMapping("/products")
@@ -128,10 +123,7 @@ public class ProductCatalogController {
                 .build();
 
         // Thiết lập phân trang
-        Pageable pageable = PageRequest.of(
-                Math.max(0, page),
-                Math.max(1, Math.min(100, size))
-        );
+        Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
 
         // Lấy danh sách sản phẩm theo điều kiện lọc
         Page<ProductSummaryDto> productPage =
@@ -163,7 +155,7 @@ public class ProductCatalogController {
 
         // Giữ lại các lựa chọn bộ lọc
         model.addAttribute("selectedPetType",
-                petType != null ? petType : "");
+                petTypeEnum != null ? petTypeEnum.name() : "");
 
         model.addAttribute("selectedSort",
                 sortBy != null ? sortBy : "newest");
@@ -280,17 +272,9 @@ public class ProductCatalogController {
 
     // Hiển thị chi tiết sản phẩm và danh sách đánh giá
     @GetMapping("/products/{slug}")
-<<<<<<< Updated upstream
     public String productDetail(@PathVariable String slug, @RequestParam(defaultValue="0") int reviewPage, Model model,
             @org.springframework.security.core.annotation.AuthenticationPrincipal
             com.petshop.config.security.CustomUserDetails principal) {
-=======
-    public String productDetail(
-            @PathVariable String slug,
-            @RequestParam(defaultValue = "0") int reviewPage,
-            Model model) {
-
->>>>>>> Stashed changes
         Product product;
 
         try {
@@ -303,7 +287,6 @@ public class ProductCatalogController {
         }
 
         model.addAttribute("product", product);
-<<<<<<< Updated upstream
         model.addAttribute("reviews", reviews.publicReviews(product.getId(), com.petshop.util.PageRequests.bounded(reviewPage,10)));
         model.addAttribute("wishlisted", principal != null && "CUSTOMER".equals(principal.getRoleCode())
                 && wishlistService.contains(principal.getId(), product.getId()));
@@ -311,36 +294,6 @@ public class ProductCatalogController {
                 .filter(v -> v.getStatus() == com.petshop.entity.enums.ProductVariantStatus.ACTIVE && v.getStockQuantity() > 0)
                 .toList());
         model.addAttribute("relatedProducts", catalogService.getFeaturedProducts(4));
-=======
-
-        // Lấy danh sách đánh giá công khai
-        model.addAttribute(
-                "reviews",
-                reviews.publicReviews(
-                        product.getId(),
-                        PageRequest.of(Math.max(0, reviewPage), 10)
-                )
-        );
-
-        // Chỉ hiển thị biến thể đang hoạt động và còn hàng
-        model.addAttribute(
-                "availableVariants",
-                product.getVariants()
-                        .stream()
-                        .filter(v ->
-                                v.getStatus()
-                                        == com.petshop.entity.enums.ProductVariantStatus.ACTIVE
-                                        && v.getStockQuantity() > 0
-                        )
-                        .toList()
-        );
-
-        // Lấy bốn sản phẩm nổi bật để gợi ý
-        model.addAttribute(
-                "relatedProducts",
-                catalogService.getFeaturedProducts(4)
-        );
->>>>>>> Stashed changes
 
         return "guest/product-detail";
     }
