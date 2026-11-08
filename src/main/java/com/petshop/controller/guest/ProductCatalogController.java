@@ -28,6 +28,7 @@ public class ProductCatalogController {
 
     private final CatalogService catalogService;
     private final com.petshop.service.ReviewService reviews;
+    private final com.petshop.service.WishlistService wishlistService;
 
     @GetMapping("/products")
     public String listProducts(
@@ -203,7 +204,9 @@ public class ProductCatalogController {
     }
 
     @GetMapping("/products/{slug}")
-    public String productDetail(@PathVariable String slug, @RequestParam(defaultValue="0") int reviewPage, Model model) {
+    public String productDetail(@PathVariable String slug, @RequestParam(defaultValue="0") int reviewPage, Model model,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+            com.petshop.config.security.CustomUserDetails principal) {
         Product product;
         try {
             product = catalogService.getProductBySlug(slug);
@@ -213,6 +216,8 @@ public class ProductCatalogController {
 
         model.addAttribute("product", product);
         model.addAttribute("reviews", reviews.publicReviews(product.getId(), com.petshop.util.PageRequests.bounded(reviewPage,10)));
+        model.addAttribute("wishlisted", principal != null && "CUSTOMER".equals(principal.getRoleCode())
+                && wishlistService.contains(principal.getId(), product.getId()));
         model.addAttribute("availableVariants", product.getVariants().stream()
                 .filter(v -> v.getStatus() == com.petshop.entity.enums.ProductVariantStatus.ACTIVE && v.getStockQuantity() > 0)
                 .toList());

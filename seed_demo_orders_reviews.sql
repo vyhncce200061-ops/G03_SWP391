@@ -1,4 +1,6 @@
 -- Script nạp dữ liệu mẫu Đơn Hàng & Đánh Giá phục vụ Demo môn SWP391
+-- Chạy các migration, gồm V20261108__order_stock_allocation.sql, trước seed.
+-- Chỉ dùng cho demo; không chạy để đồng bộ database đang dùng của thành viên.
 USE [PetShopDB];
 GO
 
@@ -254,14 +256,18 @@ BEGIN
     VALUES (@ItemOrd4_2, @CustomerId, 1, N'Giao hàng hơi chậm so với dự kiến, shipper thái độ không thân thiện. Mong shop đổi đơn vị vận chuyển khác.', 'HIDDEN', DATEADD(HOUR, -12, SYSDATETIME()), DATEADD(HOUR, -12, SYSDATETIME()));
 END;
 
--- Only newly inserted non-cancelled orders consume stock/quota. Re-running is a no-op.
+-- Match current allocation rules. Completed/processing samples have stock deducted;
+-- pending COD samples have not been confirmed. Existing orders are never re-marked.
+UPDATE o SET StockDeducted=CASE WHEN o.OrderStatus IN ('CONFIRMED','PREPARING','SHIPPING','COMPLETED') THEN 1 ELSE 0 END
+FROM dbo.Orders o JOIN @NewOrders n ON n.Id=o.Id;
+-- Only allocated new orders consume stock. Voucher quota is reserved at checkout.
 IF EXISTS (SELECT 1 FROM dbo.ProductVariants v JOIN
-    (SELECT oi.VariantId,SUM(oi.Quantity) Qty FROM dbo.OrderItems oi JOIN @NewOrders n ON n.Id=oi.OrderId JOIN dbo.Orders o ON o.Id=oi.OrderId WHERE o.OrderStatus<>'CANCELLED' GROUP BY oi.VariantId) x
+    (SELECT oi.VariantId,SUM(oi.Quantity) Qty FROM dbo.OrderItems oi JOIN @NewOrders n ON n.Id=oi.OrderId JOIN dbo.Orders o ON o.Id=oi.OrderId WHERE o.StockDeducted=1 AND o.OrderStatus<>'CANCELLED' GROUP BY oi.VariantId) x
     ON x.VariantId=v.Id WHERE v.StockQuantity<x.Qty)
     THROW 50002,N'Không đủ tồn kho để nạp đơn demo.',1;
 UPDATE v SET StockQuantity=StockQuantity-x.Qty,UpdatedAt=SYSDATETIME()
 FROM dbo.ProductVariants v JOIN
-    (SELECT oi.VariantId,SUM(oi.Quantity) Qty FROM dbo.OrderItems oi JOIN @NewOrders n ON n.Id=oi.OrderId JOIN dbo.Orders o ON o.Id=oi.OrderId WHERE o.OrderStatus<>'CANCELLED' GROUP BY oi.VariantId) x ON x.VariantId=v.Id;
+    (SELECT oi.VariantId,SUM(oi.Quantity) Qty FROM dbo.OrderItems oi JOIN @NewOrders n ON n.Id=oi.OrderId JOIN dbo.Orders o ON o.Id=oi.OrderId WHERE o.StockDeducted=1 AND o.OrderStatus<>'CANCELLED' GROUP BY oi.VariantId) x ON x.VariantId=v.Id;
 IF EXISTS (SELECT 1 FROM dbo.Vouchers v JOIN
     (SELECT o.VoucherId,COUNT(*) Uses FROM dbo.Orders o JOIN @NewOrders n ON n.Id=o.Id WHERE o.VoucherId IS NOT NULL AND o.OrderStatus<>'CANCELLED' GROUP BY o.VoucherId) x ON x.VoucherId=v.Id
     WHERE v.UsedCount+x.Uses>v.TotalUsageLimit)

@@ -165,9 +165,6 @@ public class OrderServiceImpl implements OrderService {
         for (int i = 0; i < selectedItems.size(); i++) {
             CartItem cartItem = selectedItems.get(i);
             ProductVariant variant = variants.get(i);
-            if (variantRepository.deductStockAtomic(variant.getId(), cartItem.getQuantity()) != 1) {
-                throw new IllegalStateException("Sản phẩm không đủ số lượng trong kho. Vui lòng kiểm tra lại giỏ hàng.");
-            }
             OrderItem orderItem = OrderItem.builder()
                     .order(savedOrder).variant(variant)
                     .productNameSnapshot(variant.getProduct().getName())
@@ -177,6 +174,7 @@ public class OrderServiceImpl implements OrderService {
             savedOrder.getItems().add(orderItem);
             purchasedVariantIds.add(variant.getId());
         }
+        savedOrder.setStockDeducted(false);
         saveHistory(savedOrder, null, initialStatus,
                 "Khách hàng tạo đơn hàng mới (" + request.getPaymentMethod() + ")", customer);
 
@@ -297,11 +295,28 @@ public class OrderServiceImpl implements OrderService {
     public void confirmOrder(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.PENDING_CONFIRMATION);
-
-        // VNPay is confirmed by the verified callback. PENDING_CONFIRMATION
-        // remains COD-only as required by the existing SQL constraint.
-        if (order.getPaymentMethod() != PaymentMethod.COD || order.getPaymentStatus() != PaymentStatus.UNPAID) {
+        boolean validCOD = order.getPaymentMethod() == PaymentMethod.COD
+                && order.getPaymentStatus() == PaymentStatus.UNPAID;
+        boolean validVNPay = order.getPaymentMethod() == PaymentMethod.VNPAY
+                && order.getPaymentStatus() == PaymentStatus.PAID;
+        if (!validCOD && !validVNPay) {
             throw new IllegalStateException("Đơn hàng không đủ điều kiện xác nhận.");
+        }
+        if (!Boolean.TRUE.equals(order.getStockDeducted())) {
+            List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+            items.sort(Comparator.comparing(item -> item.getVariant().getId()));
+            if (items.isEmpty()) throw new IllegalStateException("Đơn hàng không có sản phẩm.");
+            for (OrderItem item : items) {
+                ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId())
+                        .orElseThrow(() -> new IllegalStateException("Sản phẩm không còn tồn tại."));
+                if (item.getQuantity() == null || item.getQuantity() <= 0
+                        || variant.getProduct().getStatus() != ProductStatus.ACTIVE
+                        || variantRepository.deductStockAtomic(variant.getId(), item.getQuantity()) != 1) {
+                    throw new IllegalStateException("Không thể xác nhận: " + item.getSkuCodeSnapshot()
+                            + " không còn bán hoặc không đủ tồn kho. Đơn vẫn chờ xác nhận.");
+                }
+            }
+            order.setStockDeducted(true);
         }
         transitionStatus(order, OrderStatus.CONFIRMED, "Nhân viên xác nhận đơn hàng", requireUser(staffId));
     }
@@ -313,6 +328,35 @@ public class OrderServiceImpl implements OrderService {
         requireStatus(order, OrderStatus.CONFIRMED);
         requirePaymentForFulfilment(order);
         transitionStatus(order, OrderStatus.PREPARING, "Đang đóng gói hàng tại kho", requireUser(staffId));
+    }
+
+    @Override
+    @Transactional
+    public boolean deductPaidVnpayStock(Long orderId) {
+        Order order = lockOrder(orderId);
+        if (order.getPaymentMethod() != PaymentMethod.VNPAY || order.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new IllegalStateException("Chỉ trừ tồn VNPay sau khi đã thanh toán.");
+        }
+        if (Boolean.TRUE.equals(order.getStockDeducted())) return true;
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        items.sort(Comparator.comparing(item -> item.getVariant().getId()));
+        if (items.isEmpty()) throw new IllegalStateException("Đơn hàng không có sản phẩm.");
+        // Lock and validate every SKU before writing any deduction. A paid order
+        // with insufficient stock is kept for staff resolution, never marked unpaid.
+        for (OrderItem item : items) {
+            ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId()).orElse(null);
+            if (variant == null || item.getQuantity() == null || item.getQuantity() <= 0
+                    || variant.getStatus() != ProductVariantStatus.ACTIVE
+                    || variant.getProduct().getStatus() != ProductStatus.ACTIVE
+                    || variant.getStockQuantity() == null || variant.getStockQuantity() < item.getQuantity()) return false;
+        }
+        for (OrderItem item : items) {
+            if (variantRepository.deductStockAtomic(item.getVariant().getId(), item.getQuantity()) != 1) {
+                throw new IllegalStateException("Không thể cập nhật tồn kho cho đơn đã thanh toán.");
+            }
+        }
+        order.setStockDeducted(true);
+        return true;
     }
 
     @Override
@@ -346,15 +390,14 @@ public class OrderServiceImpl implements OrderService {
         }
         String reason = cancellationReason(rejectReason, null);
         Order order = lockOrder(orderId);
+
+        // CHỈ cho phép từ chối đơn COD chưa thanh toán
         boolean validCOD = order.getOrderStatus() == OrderStatus.PENDING_CONFIRMATION
                 && order.getPaymentMethod() == PaymentMethod.COD
                 && order.getPaymentStatus() == PaymentStatus.UNPAID;
-        boolean validVNPay = order.getOrderStatus() == OrderStatus.CONFIRMED
-                && order.getPaymentMethod() == PaymentMethod.VNPAY
-                && order.getPaymentStatus() == PaymentStatus.PAID;
 
-        if (!validCOD && !validVNPay) {
-            throw new IllegalStateException("Đơn hàng không đủ điều kiện từ chối.");
+        if (!validCOD) {
+            throw new IllegalStateException("Chỉ được phép từ chối đơn COD chưa thanh toán đang chờ xác nhận.");
         }
 
         List<PaymentTransaction> transactions = paymentTransactionRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
@@ -423,7 +466,13 @@ public class OrderServiceImpl implements OrderService {
         }
         User actor = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại."));
-        if (!"ACTIVE".equals(actor.getStatus()) || !java.util.Set.of("ADMIN","STAFF").contains(actor.getRole().getCode())) throw new IllegalArgumentException("Tài khoản không có quyền xử lý đơn hàng.");
+
+        String role = actor.getRole().getCode();
+        boolean isAdminOrStaff = "ADMIN".equals(role) || "STAFF".equals(role);
+
+        if (!"ACTIVE".equals(actor.getStatus()) || !isAdminOrStaff) {
+            throw new IllegalArgumentException("Tài khoản không có quyền xử lý đơn hàng.");
+        }
         return actor;
     }
 
@@ -449,6 +498,9 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void requirePaymentForFulfilment(Order order) {
+        if (!Boolean.TRUE.equals(order.getStockDeducted())) {
+            throw new IllegalStateException("Đơn hàng chưa được cấp đủ tồn kho.");
+        }
         if ((order.getPaymentMethod() == PaymentMethod.COD && order.getPaymentStatus() != PaymentStatus.UNPAID)
                 || (order.getPaymentMethod() == PaymentMethod.VNPAY && order.getPaymentStatus() != PaymentStatus.PAID)) {
             throw new IllegalStateException("Trạng thái thanh toán không phù hợp để xử lý đơn hàng.");
@@ -483,25 +535,17 @@ public class OrderServiceImpl implements OrderService {
 
     private void performOrderCancellation(Order order, CancelType cancelType, String reason,
                                           User actor, List<PaymentTransaction> transactions) {
-        // 1. MUST CHECK: Only allow cancel if order is PENDING_CONFIRMATION or PENDING_PAYMENT.
-        // This applies to all cancel sources (Customer, Staff, System timeout).
-        boolean staffRejectPaid = cancelType == CancelType.STAFF_REJECT
-                && order.getOrderStatus() == OrderStatus.CONFIRMED
-                && order.getPaymentMethod() == PaymentMethod.VNPAY
-                && order.getPaymentStatus() == PaymentStatus.PAID;
+        // 1. Chỉ cho phép hủy khi đơn đang Chờ xác nhận hoặc Chờ thanh toán
         if (order.getOrderStatus() != OrderStatus.PENDING_CONFIRMATION
-                && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT && !staffRejectPaid) {
+                && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new IllegalStateException("Đơn hàng đã được xử lý, không thể hủy lại.");
         }
-        // 2. BLOCK COD PAID: COD is only marked PAID when delivered (COMPLETED).
-        // So this is just a defensive check (though the OrderStatus check above already blocks it).
-        if (order.getPaymentMethod() == PaymentMethod.COD && order.getPaymentStatus() == PaymentStatus.PAID) {
-            throw new IllegalStateException("Đơn COD đã thanh toán (đã giao hàng), không thể hủy.");
+
+        // 2. CHẶN TUYỆT ĐỐI: Không cho phép hủy đơn nếu đã thanh toán (áp dụng cho cả VNPay và COD)
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new IllegalStateException("Đơn hàng đã thanh toán, không thể hủy.");
         }
 
-        // 3. ALLOW VNPay PAID: Staff can cancel if out of stock/bombing, refund handled manually.
-        // 4. ALLOW COD UNPAID: Customer cancels or Staff rejects.
-        // 5. ALLOW VNPay UNPAID: Timeout or Customer cancels before payment.
         OrderStatus previous = order.getOrderStatus();
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setCancelType(cancelType);
@@ -509,11 +553,8 @@ public class OrderServiceImpl implements OrderService {
         order.setCancelledAt(LocalDateTime.now());
         order.setCancelledBy(actor);
 
-        // Cancelling fulfilment does not undo a successful bank payment.
-        // Keep PAID and the successful transaction until an actual refund is reconciled.
-        if (order.getPaymentStatus() != PaymentStatus.PAID) {
-            order.setPaymentStatus(cancelType == CancelType.PAYMENT_FAILED ? PaymentStatus.FAILED : PaymentStatus.CANCELLED);
-        }
+        // Cập nhật trạng thái thanh toán (đoạn này giờ chỉ áp dụng cho đơn chưa thanh toán)
+        order.setPaymentStatus(cancelType == CancelType.PAYMENT_FAILED ? PaymentStatus.FAILED : PaymentStatus.CANCELLED);
         orderRepository.save(order);
 
         for (PaymentTransaction transaction : transactions) {
@@ -523,19 +564,22 @@ public class OrderServiceImpl implements OrderService {
                 paymentTransactionRepository.save(transaction);
             }
         }
-        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-        items.sort(Comparator.comparing(item -> item.getVariant().getId()));
-        for (OrderItem item : items) {
-            if (item.getQuantity() == null || item.getQuantity() <= 0
-                    || variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity()) != 1) {
-                throw new IllegalStateException("Không thể hoàn tồn kho cho đơn hàng này.");
+        if (Boolean.TRUE.equals(order.getStockDeducted())) {
+            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            items.sort(Comparator.comparing(item -> item.getVariant().getId()));
+            for (OrderItem item : items) {
+                if (item.getQuantity() == null || item.getQuantity() <= 0
+                        || variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity()) != 1) {
+                    throw new IllegalStateException("Không thể hoàn tồn kho cho đơn hàng này.");
+                }
             }
+            order.setStockDeducted(false);
         }
         if (order.getVoucher() != null) {
             voucherService.releaseVoucher(order.getVoucher().getId());
             voucherService.restoreCustomerVoucher(order.getCustomer().getId(), order.getVoucher().getId());
         }
-        String historyReason = "Hủy đơn: " + (staffRejectPaid ? "Đã thu tiền; cần đối chiếu hoàn tiền riêng. " : "") + reason;
+        String historyReason = "Hủy đơn: " + reason;
         saveHistory(order, previous, OrderStatus.CANCELLED,
                 historyReason.substring(0, Math.min(1000, historyReason.length())), actor);
         log.info("Order {} cancelled with type {}", order.getOrderCode(), cancelType);

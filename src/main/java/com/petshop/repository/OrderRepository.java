@@ -44,6 +44,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     @Query("SELECT COUNT(o) FROM Order o WHERE o.customer.id = :customerId AND o.voucher.id = :voucherId AND o.orderStatus <> com.petshop.entity.enums.OrderStatus.CANCELLED")
     long countVoucherUsageByCustomer(@Param("customerId") Long customerId, @Param("voucherId") Long voucherId);
 
+    @Query("SELECT MAX(o.createdAt) FROM Order o WHERE o.customer.id = :customerId AND o.voucher.id = :voucherId AND o.orderStatus <> com.petshop.entity.enums.OrderStatus.CANCELLED")
+    java.time.LocalDateTime findLastVoucherUsageAt(@Param("customerId") Long customerId, @Param("voucherId") Long voucherId);
+
     @Query("SELECT o FROM Order o " +
            "LEFT JOIN FETCH o.customer " +
            "LEFT JOIN FETCH o.items i " +

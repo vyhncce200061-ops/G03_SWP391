@@ -222,22 +222,53 @@ public class ProductManageServiceImpl implements ProductManageService {
             File dir = new File(uploadDir);
             if (!dir.exists()) dir.mkdirs();
 
-            // If product has no images yet, the first uploaded image becomes primary
             boolean isFirstImage = product.getImages().isEmpty();
 
             for (MultipartFile file : files) {
                 if (file.isEmpty()) continue;
 
+                List<String> allowedTypes = java.util.Arrays.asList("image/jpeg", "image/png", "image/gif");
                 if (file.getSize() > 5L * 1024 * 1024 || file.getContentType() == null
-                        || !java.util.Set.of("image/jpeg", "image/png", "image/gif").contains(file.getContentType())) {
+                        || !allowedTypes.contains(file.getContentType())) {
                     throw new IllegalArgumentException("Ảnh sản phẩm cần là JPG, PNG hoặc GIF, tối đa 5 MB.");
                 }
-                java.awt.image.BufferedImage decoded;
-                try (var input = file.getInputStream()) { decoded = javax.imageio.ImageIO.read(input); }
-                if (decoded == null) throw new IllegalArgumentException("Nội dung tệp không phải hình ảnh hợp lệ.");
-                String newFileName = UUID.randomUUID() + ".png";
+
+                // Keep the original image bytes (including animated GIFs), but derive
+                // the stored extension from validated content, never the client filename.
+                String fileExtension;
+                try (var input = file.getInputStream();
+                     var imageInput = javax.imageio.ImageIO.createImageInputStream(input)) {
+                    if (imageInput == null) throw new IllegalArgumentException("Nội dung tệp không phải hình ảnh hợp lệ.");
+                    var readers = javax.imageio.ImageIO.getImageReaders(imageInput);
+                    if (!readers.hasNext()) throw new IllegalArgumentException("Nội dung tệp không phải hình ảnh hợp lệ.");
+                    var reader = readers.next();
+                    try {
+                        String format = reader.getFormatName().toLowerCase(java.util.Locale.ROOT);
+                        String actualType = switch (format) {
+                            case "jpeg", "jpg" -> "image/jpeg";
+                            case "png" -> "image/png";
+                            case "gif" -> "image/gif";
+                            default -> "";
+                        };
+                        if (!actualType.equals(file.getContentType())) {
+                            throw new IllegalArgumentException("Nội dung ảnh không khớp định dạng JPG, PNG hoặc GIF đã khai báo.");
+                        }
+                        reader.setInput(imageInput);
+                        if (reader.read(0) == null) throw new IllegalArgumentException("Nội dung tệp không phải hình ảnh hợp lệ.");
+                        fileExtension = format.equals("gif") ? ".gif" : format.equals("png") ? ".png" : ".jpg";
+                    } finally {
+                        reader.dispose();
+                    }
+                } catch (IOException e) {
+                    throw new IllegalArgumentException("Nội dung ảnh bị hỏng hoặc không đọc được.");
+                }
+
+                String newFileName = UUID.randomUUID() + fileExtension;
                 Path path = Paths.get(uploadDir + newFileName);
-                if (!javax.imageio.ImageIO.write(decoded, "png", path.toFile())) throw new IllegalStateException("Không thể lưu ảnh sản phẩm.");
+
+                try (var input = file.getInputStream()) {
+                    Files.copy(input, path, StandardCopyOption.REPLACE_EXISTING);
+                }
 
                 ProductImage image = new ProductImage();
                 image.setProduct(product);
@@ -246,7 +277,7 @@ public class ProductManageServiceImpl implements ProductManageService {
                 image.setIsPrimary(isFirstImage);
 
                 productImageRepository.save(image);
-                product.getImages().add(image); // Update the in-memory list
+                product.getImages().add(image);
 
                 isFirstImage = false;
             }

@@ -201,22 +201,26 @@ class DatScopeAuditTests {
         var result=race(()->{try{orders.checkoutOrder(customer.getId(),request);return true;}catch(IllegalArgumentException|IllegalStateException e){return false;}},
                 ()->{try{orders.checkoutOrder(other.getId(),request);return true;}catch(IllegalArgumentException|IllegalStateException e){return false;}});
         assertEquals(1,result.stream().filter(Boolean::booleanValue).count());assertEquals(1,voucherRows.findById(v.getId()).orElseThrow().getUsedCount());
-        assertEquals(9,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
     }
 
-    @Test void stockReportSeparatesHeldOrdersFromSalesAndDoesNotInventMissingCost() {
+    @Test void stockReportOnlyCountsAllocatedOrdersAndDoesNotInventMissingCost() {
         stock(0);
         imports.createStockImport(com.petshop.dto.stock.StockImportFormDto.builder().supplierName("Supplier")
                 .items(List.of(com.petshop.dto.stock.StockImportItemDto.builder().variantId(variant.getId()).quantity(10).unitCost(new BigDecimal("20000")).build())).build(),staff.getId());
         var order=purchase(customer,2,null);
         var row=reports.stockReconciliation().stream().filter(x->x.getSku().equals(variant.getSkuCode())).findFirst().orElseThrow();
-        assertEquals(8,row.getCurrentStock());assertEquals(2,row.getReservedOrSold());assertEquals(0,row.getDifference());
-        assertEquals(0,new BigDecimal("160000").compareTo(row.getEstimatedValue()));
+        assertEquals(10,row.getCurrentStock());assertEquals(0,row.getReservedOrSold());assertEquals(0,row.getDifference());
+        assertEquals(0,new BigDecimal("200000").compareTo(row.getEstimatedValue()));
         assertTrue(reports.productSales(LocalDateTime.now().minusDays(1),LocalDateTime.now().plusDays(1),org.springframework.data.domain.PageRequest.of(0,20))
                 .stream().noneMatch(x->((Number)x[1]).longValue()==product.getId()));
         orders.customerCancelOrder(order.getId(),customer.getId(),"Customer cancelled");
         var after=reports.stockReconciliation().stream().filter(x->x.getSku().equals(variant.getSkuCode())).findFirst().orElseThrow();
         assertEquals(10,after.getCurrentStock());assertEquals(0,after.getReservedOrSold());
+        var allocated=purchase(customer,2,null);orders.confirmOrder(allocated.getId(),staff.getId());
+        var confirmed=reports.stockReconciliation().stream().filter(x->x.getSku().equals(variant.getSkuCode())).findFirst().orElseThrow();
+        assertEquals(8,confirmed.getCurrentStock());assertEquals(2,confirmed.getReservedOrSold());assertEquals(0,confirmed.getDifference());
+        assertEquals(0,new BigDecimal("160000").compareTo(confirmed.getEstimatedValue()));
         jdbc.update("UPDATE dbo.ProductVariants SET StockQuantity=11 WHERE Id=?",variant.getId());
         assertNull(reports.stockReconciliation().stream().filter(x->x.getSku().equals(variant.getSkuCode())).findFirst().orElseThrow().getEstimatedValue());
     }

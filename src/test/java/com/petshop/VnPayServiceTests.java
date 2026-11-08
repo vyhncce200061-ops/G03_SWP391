@@ -67,6 +67,60 @@ class VnPayServiceTests {
     }
 
     @Test
+    void resumeReusesTransactionAmountAndDeadlineWithoutCreatingOrder() throws Exception {
+        LocalDateTime deadline = transaction.getExpiresAt();
+        when(orders.findByIdForUpdate(10L)).thenReturn(Optional.of(order));
+        when(transactions.findByOrderIdOrderByCreatedAtDesc(10L)).thenReturn(List.of(transaction));
+        Map<String, String[]> first = parse(service.resumePayment(10L, 7L, "127.0.0.1"));
+        Map<String, String[]> second = parse(service.resumePayment(10L, 7L, "127.0.0.1"));
+        assertThat(first.get("vnp_TxnRef")).containsExactly("TXN-TEST-1");
+        assertThat(second.get("vnp_TxnRef")).containsExactly(first.get("vnp_TxnRef"));
+        assertThat(second.get("vnp_ExpireDate")).containsExactly(first.get("vnp_ExpireDate"));
+        assertThat(second.get("vnp_Amount")).containsExactly("13000000");
+        assertThat(transaction.getExpiresAt()).isEqualTo(deadline);
+        assertThat(transaction.getTransactionStatus()).isEqualTo(TransactionStatus.PENDING);
+        verify(orders, never()).save(any());
+        verifyNoInteractions(orderService, histories);
+    }
+
+    @Test
+    void resumeRejectsAnotherCustomersOrderBeforeReadingTransactions() {
+        when(orders.findByIdForUpdate(10L)).thenReturn(Optional.of(order));
+        assertThatThrownBy(() -> service.resumePayment(10L, 8L, "127.0.0.1"))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(transactions);
+    }
+
+    @Test
+    void resumeRejectsExpiredAttemptWithoutExtendingIt() {
+        transaction.setExpiresAt(LocalDateTime.now().minusSeconds(1));
+        LocalDateTime deadline = transaction.getExpiresAt();
+        when(orders.findByIdForUpdate(10L)).thenReturn(Optional.of(order));
+        when(transactions.findByOrderIdOrderByCreatedAtDesc(10L)).thenReturn(List.of(transaction));
+        assertThatThrownBy(() -> service.resumePayment(10L, 7L, "127.0.0.1"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(transaction.getExpiresAt()).isEqualTo(deadline);
+        verify(transactions, never()).save(any());
+    }
+
+    @Test
+    void resumeRejectsPaidCancelledAndCodOrders() {
+        when(orders.findByIdForUpdate(10L)).thenReturn(Optional.of(order));
+        order.setPaymentStatus(PaymentStatus.PAID);
+        assertThatThrownBy(() -> service.resumePayment(10L, 7L, "127.0.0.1"))
+                .isInstanceOf(IllegalStateException.class);
+        order.setPaymentStatus(PaymentStatus.UNPAID);
+        order.setOrderStatus(OrderStatus.CANCELLED);
+        assertThatThrownBy(() -> service.resumePayment(10L, 7L, "127.0.0.1"))
+                .isInstanceOf(IllegalStateException.class);
+        order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
+        order.setPaymentMethod(PaymentMethod.COD);
+        assertThatThrownBy(() -> service.resumePayment(10L, 7L, "127.0.0.1"))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(transactions);
+    }
+
+    @Test
     void malformedReturnUrlIsNotConfigured() {
         properties.setReturnUrl("javascript:alert(1)");
         assertThat(service.isConfigured()).isFalse();
@@ -103,6 +157,7 @@ class VnPayServiceTests {
     @Test
     void knownIndependentSignatureVectorConfirmsPaymentAndRecordsHistory() {
         mockCallbackLookup();
+        when(orderService.deductPaidVnpayStock(10L)).thenReturn(true);
         assertThat(service.processIpn(vector())).containsEntry("RspCode", "00");
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
@@ -117,7 +172,19 @@ class VnPayServiceTests {
         inOrder.verify(transactions).findOrderIdByTransactionCode("TXN-TEST-1");
         inOrder.verify(orders).findByIdForUpdate(10L);
         inOrder.verify(transactions).findByTransactionCode("TXN-TEST-1");
-        verifyNoInteractions(orderService);
+        verify(orderService).deductPaidVnpayStock(10L);
+    }
+
+    @Test
+    void paidButOutOfStockWaitsForStaffAndReplayNeverAllocatesAgain() {
+        mockCallbackLookup();
+        when(orderService.deductPaidVnpayStock(10L)).thenReturn(false);
+        assertThat(service.processIpn(vector())).containsEntry("RspCode", "00");
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING_CONFIRMATION);
+        assertThat(transaction.getTransactionStatus()).isEqualTo(TransactionStatus.SUCCESS);
+        assertThat(service.processIpn(vector())).containsEntry("RspCode", "02");
+        verify(orderService, times(1)).deductPaidVnpayStock(10L);
     }
 
     @Test
@@ -164,11 +231,12 @@ class VnPayServiceTests {
     @Test
     void repeatedSuccessWritesHistoryOnlyOnce() {
         mockCallbackLookup();
+        when(orderService.deductPaidVnpayStock(10L)).thenReturn(true);
         assertThat(service.processIpn(vector())).containsEntry("RspCode", "00");
         assertThat(service.processIpn(vector())).containsEntry("RspCode", "02");
         verify(histories, times(1)).save(any());
         verify(transactions, times(1)).save(transaction);
-        verifyNoInteractions(orderService);
+        verify(orderService, times(1)).deductPaidVnpayStock(10L);
     }
 
     @Test

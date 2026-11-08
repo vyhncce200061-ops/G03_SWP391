@@ -205,6 +205,57 @@ class TeamIntegrationTests {
         assertFalse(products.existsBySlug("bad-" + key));
     }
 
+    @Test void productUploadsPreserveOriginalGifAndJpegWithSafeExtensions() throws Exception {
+        for(String format:List.of("gif","jpeg")) {
+            var buffer=new java.io.ByteArrayOutputStream();
+            var image=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB);
+            if(format.equals("gif")) {
+                var writer=javax.imageio.ImageIO.getImageWritersByFormatName("gif").next();
+                try(var output=javax.imageio.ImageIO.createImageOutputStream(buffer)) {
+                    writer.setOutput(output);writer.prepareWriteSequence(null);
+                    for(int i=0;i<2;i++){image.setRGB(0,0,i==0?0xff0000:0x0000ff);writer.writeToSequence(new javax.imageio.IIOImage(image,null,null),null);}
+                    writer.endWriteSequence();
+                }finally{writer.dispose();}
+            }else assertTrue(javax.imageio.ImageIO.write(image,format,buffer));
+            byte[] original=buffer.toByteArray();String slug=format+"-"+key,imageUrl=null;
+            try {
+                mvc.perform(multipart("/staff/products/create")
+                        .file(new org.springframework.mock.web.MockMultipartFile("imageFiles","untrusted-name.html","image/"+format,original))
+                        .with(user(new CustomUserDetails(staff))).with(csrf())
+                        .param("name","Original image").param("slug",slug).param("categoryId",category.getId().toString())
+                        .param("petType","DOG").param("status","ACTIVE"))
+                        .andExpect(redirectedUrl("/staff/products"));
+                var saved=products.findBySlug(slug).orElseThrow();
+                imageUrl=productService.findById(saved.getId()).getImages().iterator().next().getImageUrl();
+                assertTrue(imageUrl.matches("/uploads/products/[0-9a-f-]+\\."+(format.equals("jpeg")?"jpg":"gif")));
+                assertArrayEquals(original,java.nio.file.Files.readAllBytes(java.nio.file.Path.of(imageUrl.substring(1))));
+                mvc.perform(get(imageUrl)).andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith("image/"+format));
+                if(format.equals("gif"))try(var input=javax.imageio.ImageIO.createImageInputStream(new java.io.ByteArrayInputStream(original))){
+                    var reader=javax.imageio.ImageIO.getImageReaders(input).next();
+                    try{reader.setInput(input);assertEquals(2,reader.getNumImages(true));}finally{reader.dispose();}
+                }
+            }finally{
+                if(imageUrl!=null&&imageUrl.matches("/uploads/products/[0-9a-f-]+\\.(jpg|gif)"))java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(imageUrl.substring(1)));
+            }
+        }
+    }
+
+    @Test void spoofedAndBrokenImagesReturnValidationErrorsWithoutCreatingProducts() throws Exception {
+        var buffer=new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",buffer);
+        for(boolean broken:List.of(false,true)) {
+            byte[] data=broken?java.util.Arrays.copyOf(buffer.toByteArray(),12):buffer.toByteArray();
+            String slug=(broken?"broken-":"spoofed-")+key;
+            mvc.perform(multipart("/staff/products/create")
+                    .file(new org.springframework.mock.web.MockMultipartFile("imageFiles","claimed.gif",broken?"image/png":"image/gif",data))
+                    .with(user(new CustomUserDetails(staff))).with(csrf())
+                    .param("name","Invalid image").param("slug",slug).param("categoryId",category.getId().toString())
+                    .param("petType","DOG").param("status","ACTIVE"))
+                    .andExpect(status().isOk()).andExpect(model().attributeExists("errorMessage"));
+            assertFalse(products.existsBySlug(slug));
+        }
+    }
+
     @Test void staffAndAdminProfileFormsUseRoutesAllowedForTheirRole() throws Exception {
         for (User actor : List.of(admin, staff)) {
             String html = mvc.perform(get("/account/profile").with(user(new CustomUserDetails(actor))))
@@ -507,8 +558,9 @@ class TeamIntegrationTests {
         mvc.perform(get("/products/suggestions").param("keyword",key)).andExpect(status().isOk()).andExpect(jsonPath("$.products.length()").value(0));
     }
 
-    @Test void paidVnpayRejectionRestoresStockOnceAndPreservesBankReceipt() throws Exception {
+    @Test void paidVnpayCannotBeRejectedAndKeepsBankReceiptAndAllocation() throws Exception {
         var order=purchasedOrder();
+        orderService.confirmOrder(order.getId(),staff.getId());
         new TransactionTemplate(transactionManager).executeWithoutResult(tx->{
             var saved=orderRepository.findById(order.getId()).orElseThrow();saved.setPaymentMethod(PaymentMethod.VNPAY);
             saved.setPaymentStatus(PaymentStatus.PAID);saved.setOrderStatus(OrderStatus.CONFIRMED);orderRepository.save(saved);
@@ -517,17 +569,16 @@ class TeamIntegrationTests {
                     .paidAt(java.time.LocalDateTime.now()).build());
         });
         mvc.perform(get("/staff/orders/"+order.getId()).with(user(new CustomUserDetails(staff)))).andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("/reject")));
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/reject"))));
         assertThrows(IllegalStateException.class,()->orderService.customerCancelOrder(order.getId(),customer.getId(),"Cancel"));
-        orderService.staffRejectOrder(order.getId(),staff.getId(),"Không thể giao hàng; cần đối chiếu hoàn tiền");
+        assertThrows(IllegalStateException.class,()->orderService.staffRejectOrder(order.getId(),staff.getId(),"Cannot deliver"));
         var saved=orderRepository.findById(order.getId()).orElseThrow();
-        assertEquals(OrderStatus.CANCELLED,saved.getOrderStatus());assertEquals(PaymentStatus.PAID,saved.getPaymentStatus());
-        assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertEquals(OrderStatus.CONFIRMED,saved.getOrderStatus());assertEquals(PaymentStatus.PAID,saved.getPaymentStatus());
+        assertTrue(saved.getStockDeducted());assertNull(saved.getCancelType());
+        assertEquals(8,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
         assertEquals(TransactionStatus.SUCCESS,paymentTransactions.findByOrderIdOrderByCreatedAtDesc(order.getId()).get(0).getTransactionStatus());
         assertThrows(IllegalStateException.class,()->orderService.staffRejectOrder(order.getId(),staff.getId(),"Again"));
-        assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
-        mvc.perform(get("/staff/orders/"+order.getId()).with(user(new CustomUserDetails(staff)))).andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("hệ thống chưa xác nhận hoàn tiền")));
+        assertEquals(8,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
     }
 
     @Test void productAndReceiptPaginationRetainsEscapedKeywordAndAdminRoutes() throws Exception {
@@ -547,17 +598,18 @@ class TeamIntegrationTests {
         mvc.perform(get("/staff/stock-imports").param("size","1").with(user(new CustomUserDetails(staff)))).andExpect(status().isOk());
     }
 
-    @Test void receiptDecreaseAndCheckoutCannotBothConsumeSameAvailableStock() throws Exception {
+    @Test void receiptDecreaseAndConfirmationCannotBothConsumeSameAvailableStock() throws Exception {
         var line=importLine(6);carts.addItemToCart(customer.getId(),variant.getId(),12);
+        var order=orderService.checkoutOrder(customer.getId(),com.petshop.dto.order.CheckoutSubmitDto.builder()
+                .recipientName("Customer").recipientPhone("0901234567").shippingProvince("HCM").shippingDistrict("Thu Duc")
+                .shippingWard("Linh Trung").shippingAddressLine("123 Test").paymentMethod(PaymentMethod.COD).build());
         var pool=java.util.concurrent.Executors.newFixedThreadPool(2);var gate=new java.util.concurrent.CountDownLatch(1);
         try {
             var edit=pool.submit(()->{gate.await();try{imports.updateImportItem(editLine(line,1),staff.getId());return true;}catch(IllegalArgumentException e){return false;}});
-            var checkout=pool.submit(()->{gate.await();try{orderService.checkoutOrder(customer.getId(),com.petshop.dto.order.CheckoutSubmitDto.builder()
-                    .recipientName("Customer").recipientPhone("0901234567").shippingProvince("HCM").shippingDistrict("Thu Duc")
-                    .shippingWard("Linh Trung").shippingAddressLine("123 Test").paymentMethod(PaymentMethod.COD).build());return true;
+            var confirmation=pool.submit(()->{gate.await();try{orderService.confirmOrder(order.getId(),staff.getId());return true;
                 }catch(IllegalArgumentException|IllegalStateException e){return false;}});
             gate.countDown();boolean edited=edit.get(15,java.util.concurrent.TimeUnit.SECONDS);
-            assertNotEquals(edited,checkout.get(15,java.util.concurrent.TimeUnit.SECONDS));
+            assertNotEquals(edited,confirmation.get(15,java.util.concurrent.TimeUnit.SECONDS));
             assertEquals(edited ? 11 : 4,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
             assertEquals(edited ? 1 : 6,importItems.findById(line.getId()).orElseThrow().getQuantity());
         } finally {pool.shutdownNow();}

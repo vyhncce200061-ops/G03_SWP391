@@ -72,7 +72,8 @@
                              onerror="this.style.display='none';">
 
                         <!-- Placeholder icon for products with NO image data in DB -->
-                        <span th:if="${p.images == null or p.images.size() == 0}" class="text-muted fs-5">
+                        <span th:if="${p.images == null or p.images.size() == 0}"
+                              class="text-muted fs-5 d-flex justify-content-center align-items-center w-100 h-100">
                             <i class="bi bi-image"></i>
                         </span>
                     </td>
