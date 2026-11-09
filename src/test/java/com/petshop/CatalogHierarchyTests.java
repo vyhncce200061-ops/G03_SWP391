@@ -113,41 +113,92 @@ class CatalogHierarchyTests {
                 .doesNotContain(child.getName(), sibling.getName(), inactiveChild.getName(), "Danh mục cha", "Danh mục con");
     }
 
-    @Test void categoryListKeepsChildrenUnderTheirParentAndDisplaysTheRelationship() throws Exception {
+    @Test void categoryListGroupsChildrenInsideCollapsedRoots() throws Exception {
         var result = adminGet("/admin/categories");
-        List<CategoryViewDto> rows = list(result, "categories");
-        int index = java.util.stream.IntStream.range(0, rows.size()).filter(i -> rows.get(i).getId().equals(root.getId())).findFirst().orElseThrow();
-        assertThat(rows.subList(index + 1, index + 4)).extracting(CategoryViewDto::getId)
+        List<CategoryViewDto> roots = list(result, "categories");
+        assertThat(roots).allMatch(c -> c.getParentId() == null);
+        var branch = roots.stream().filter(c -> c.getId().equals(root.getId())).findFirst().orElseThrow();
+        assertThat(branch.getChildren()).extracting(CategoryViewDto::getId)
                 .containsExactly(sibling.getId(), inactiveChild.getId(), child.getId());
-        assertEquals(root.getId(), rows.get(index + 3).getParentId());
-        assertThat(result.getResponse().getContentAsString()).contains("Danh mục cha", "Danh mục con", "data-parent-id=\"" + root.getId() + "\"");
+        assertNull(result.getModelAndView().getModel().get("expandedParentId"));
+        assertThat(result.getResponse().getContentAsString()).contains("Thêm danh mục cha", "Thêm danh mục con",
+                "data-bs-target=\"#children-" + root.getId() + "\"", "/admin/categories/" + root.getId() + "/children/create")
+                .doesNotContain("class=\"collapse show\"", "Danh mục con nằm ngay dưới danh mục cha.");
     }
 
-    @Test void createFormLoadsRootsAndEditFormSelectsItsExistingParent() throws Exception {
+    @Test void creationModesAreExplicitAndEditFormKeepsItsExistingParent() throws Exception {
         var create = adminGet("/admin/categories/create");
-        List<CategoryViewDto> options = list(create, "parentCategories");
-        assertThat(options).extracting(CategoryViewDto::getId).contains(root.getId(), otherRoot.getId()).doesNotContain(child.getId(), sibling.getId());
+        assertEquals("Thêm danh mục cha", create.getModelAndView().getModel().get("categoryFormTitle"));
         assertNull(((CategoryFormDto) create.getModelAndView().getModel().get("categoryForm")).getParentId());
+        assertThat(create.getResponse().getContentAsString()).contains("value=\"Danh mục cha\"", "readonly")
+                .doesNotContain("name=\"parentId\"", "Để tạo danh mục cha");
+        var childCreate = adminGet("/admin/categories/" + root.getId() + "/children/create");
+        assertEquals(root.getId(), ((CategoryFormDto) childCreate.getModelAndView().getModel().get("categoryForm")).getParentId());
+        assertEquals("Thêm danh mục con", childCreate.getModelAndView().getModel().get("categoryFormTitle"));
+        assertThat(childCreate.getResponse().getContentAsString()).contains("value=\"" + root.getName() + "\"", "readonly")
+                .doesNotContain("name=\"parentId\"", "Để tạo danh mục cha");
         var edit = adminGet("/admin/categories/edit/" + child.getId());
         assertEquals(root.getId(), ((CategoryFormDto) edit.getModelAndView().getModel().get("categoryForm")).getParentId());
         assertThat(parentSelect(edit)).containsPattern("<option[^>]*value=\"" + root.getId() + "\"[^>]*selected=\"selected\"");
+        List<CategoryViewDto> options = list(edit, "parentCategories");
+        assertThat(options).extracting(CategoryViewDto::getId).contains(root.getId(), otherRoot.getId()).doesNotContain(child.getId(), sibling.getId());
         var parent = adminGet("/admin/categories/edit/" + root.getId());
         assertEquals(true, parent.getModelAndView().getModel().get("parentLocked"));
         assertThat(parentSelect(parent)).contains("disabled=\"disabled\"").doesNotContain("value=\"" + root.getId() + "\"");
     }
 
+    @Test void rootCreationCannotBeChangedIntoChildCreationByPostedFields() throws Exception {
+        var created = mvc.perform(categoryPost("/admin/categories/create", "NEWROOT" + key, "New root", ""))
+                .andExpect(status().is3xxRedirection()).andReturn();
+        Category saved = categories.findByCode("NEWROOT" + key).orElseThrow();
+        assertNull(saved.getParentCategory());
+        assertEquals(branchUrl(saved.getId()), created.getResponse().getRedirectedUrl());
+        long count = categories.count();
+        mvc.perform(categoryPost("/admin/categories/create", "FORGED" + key, "Forged parent", root.getId().toString()))
+                .andExpect(status().isOk()).andExpect(model().attributeHasErrors("categoryForm"));
+        assertEquals(count, categories.count());
+    }
+
+    @Test void listReopensTheRequestedRootAndIgnoresNonRootBranches() throws Exception {
+        var expanded = mvc.perform(get("/admin/categories").param("expanded", root.getId().toString()).with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk()).andExpect(model().attribute("expandedParentId", root.getId())).andReturn();
+        assertThat(expanded.getResponse().getContentAsString()).containsPattern("<div(?=[^>]*class=\"collapse show\")(?=[^>]*id=\"children-" + root.getId() + "\")[^>]*>");
+        for (String id : List.of(child.getId().toString(), "2147483647")) {
+            var ignored = mvc.perform(get("/admin/categories").param("expanded", id).with(user("admin").roles("ADMIN")))
+                    .andExpect(status().isOk()).andReturn();
+            assertNull(ignored.getModelAndView().getModel().get("expandedParentId"));
+            assertThat(ignored.getResponse().getContentAsString()).doesNotContain("class=\"collapse show\"");
+        }
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"nested", "missing"})
+    void childCreationRejectsAnInvalidContainingParent(String situation) throws Exception {
+        String parentId = situation.equals("nested") ? child.getId().toString() : "2147483647";
+        String path = "/admin/categories/" + parentId + "/children/create";
+        long before = categories.count();
+        mvc.perform(get(path).with(user("admin").roles("ADMIN")))
+                .andExpect(redirectedUrl("/admin/categories")).andExpect(flash().attributeExists("errorMessage"));
+        mvc.perform(categoryPost(path, "INVALID" + key, "Invalid child", ""))
+                .andExpect(redirectedUrl("/admin/categories")).andExpect(flash().attributeExists("errorMessage"));
+        assertEquals(before, categories.count());
+    }
+
+    String branchUrl(Integer id) {
+        return "/admin/categories?expanded=" + id + "#category-" + id;
+    }
+
     @Test void validCreateMoveAndPromotePreserveTheProductAssignment() throws Exception {
         String code = "NEW" + key;
-        mvc.perform(categoryPost("/admin/categories/create", "  " + code + "  ", "  New child  ", root.getId().toString())
-                .param("id", otherRoot.getId().toString())).andExpect(redirectedUrl("/admin/categories"));
+        mvc.perform(categoryPost("/admin/categories/" + root.getId() + "/children/create", "  " + code + "  ", "  New child  ", otherRoot.getId().toString())
+                .param("id", otherRoot.getId().toString())).andExpect(redirectedUrl(branchUrl(root.getId())));
         Category created = categories.findByCode(code).orElseThrow();
         assertEquals(root.getId(), created.getParentCategory().getId()); assertEquals("New child", created.getName());
         assertNotEquals(otherRoot.getId(), created.getId());
         mvc.perform(categoryPost("/admin/categories/update/" + child.getId(), child.getCode(), child.getName(), otherRoot.getId().toString()))
-                .andExpect(redirectedUrl("/admin/categories"));
+                .andExpect(redirectedUrl(branchUrl(otherRoot.getId())));
         assertEquals(otherRoot.getId(), categories.findById(child.getId()).orElseThrow().getParentCategory().getId());
         mvc.perform(categoryPost("/admin/categories/update/" + child.getId(), child.getCode(), child.getName(), ""))
-                .andExpect(redirectedUrl("/admin/categories"));
+                .andExpect(redirectedUrl(branchUrl(child.getId())));
         assertNull(categories.findById(child.getId()).orElseThrow().getParentCategory());
         assertEquals(child.getId(), products.findById(childProduct.getId()).orElseThrow().getCategory().getId());
     }
@@ -170,16 +221,17 @@ class CatalogHierarchyTests {
 
     @Test void invalidFieldsAndDuplicateCodeRetainTheSelectedParentAndEnteredText() throws Exception {
         long count = categories.count();
-        var invalid = mvc.perform(categoryPost("/admin/categories/create", "  " + root.getCode().toLowerCase(Locale.ROOT) + "  ", "New A&B", otherRoot.getId().toString()))
+        var invalid = mvc.perform(categoryPost("/admin/categories/" + otherRoot.getId() + "/children/create", "  " + root.getCode().toLowerCase(Locale.ROOT) + "  ", "New A&B", root.getId().toString()))
                 .andExpect(status().isOk()).andExpect(model().attributeHasErrors("categoryForm")).andReturn();
-        assertThat(parentSelect(invalid)).containsPattern("<option[^>]*value=\"" + otherRoot.getId() + "\"[^>]*selected=\"selected\"");
+        assertEquals(otherRoot.getId(), ((CategoryViewDto) invalid.getModelAndView().getModel().get("creationParent")).getId());
+        assertThat(invalid.getResponse().getContentAsString()).contains("action=\"/admin/categories/" + otherRoot.getId() + "/children/create\"");
         assertThat(invalid.getResponse().getContentAsString()).contains("New A&amp;B");
         for (String[] bad : List.of(new String[]{"code", " "}, new String[]{"name", "x".repeat(151)},
                 new String[]{"description", "x".repeat(1001)}, new String[]{"sortOrder", "-1"},
                 new String[]{"sortOrder", "2147483648"}, new String[]{"parentId", "not-an-id"})) {
             var parameters = new org.springframework.util.LinkedMultiValueMap<String, String>();
             parameters.set("code", "VALID" + key); parameters.set("name", "Valid");
-            parameters.set("parentId", root.getId().toString()); parameters.set("sortOrder", "0");
+            parameters.set("parentId", ""); parameters.set("sortOrder", "0");
             parameters.set(bad[0], bad[1]);
             mvc.perform(post("/admin/categories/create").with(user("admin").roles("ADMIN")).with(csrf()).params(parameters)).andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("categoryForm", bad[0]));
         }
@@ -199,7 +251,7 @@ class CatalogHierarchyTests {
 
     @Test void inactiveBranchesDisappearFromMenusWithoutChangingProductSaleStatus() throws Exception {
         mvc.perform(post("/admin/categories/toggle-status/" + root.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
-                .andExpect(redirectedUrl("/admin/categories"));
+                .andExpect(redirectedUrl(branchUrl(root.getId())));
         var home = mvc.perform(get("/")).andExpect(status().isOk()).andReturn();
         assertThat(home.getResponse().getContentAsString()).doesNotContain(root.getName(), child.getName(), sibling.getName());
         assertTrue(categories.findById(child.getId()).orElseThrow().getIsActive());
@@ -208,7 +260,7 @@ class CatalogHierarchyTests {
         var result = mvc.perform(get("/products").param("keyword", keyword)).andExpect(status().isOk()).andReturn();
         assertThat(ids(result, "productPage")).contains(childProduct.getId());
         mvc.perform(post("/admin/categories/toggle-status/" + root.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
-                .andExpect(redirectedUrl("/admin/categories"));
+                .andExpect(redirectedUrl(branchUrl(root.getId())));
         String restored = mvc.perform(get("/")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(restored).contains(root.getName()).doesNotContain(child.getName(), inactiveChild.getName());
         String catalog = mvc.perform(get("/products")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -275,6 +327,8 @@ class CatalogHierarchyTests {
 
     @Test void brandAndCategoryWritesStillRequireAdminAndCsrf() throws Exception {
         mvc.perform(post("/admin/brands/create").with(user("staff").roles("STAFF")).with(csrf()).param("name", "Forbidden"))
+                .andExpect(redirectedUrl("/error/403"));
+        mvc.perform(post("/admin/categories/" + root.getId() + "/children/create").with(user("staff").roles("STAFF")).with(csrf()).param("code", "Forbidden").param("name", "Forbidden"))
                 .andExpect(redirectedUrl("/error/403"));
         mvc.perform(post("/admin/categories/create").with(user("admin").roles("ADMIN")).param("code", "Forbidden").param("name", "Forbidden"))
                 .andExpect(redirectedUrl("/error/403"));

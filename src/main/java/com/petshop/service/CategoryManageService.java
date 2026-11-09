@@ -21,6 +21,18 @@ public class CategoryManageService {
         return flatten(tree(false));
     }
 
+    public List<CategoryViewDto> listTree() {
+        return tree(false);
+    }
+
+    public CategoryViewDto parentForCreation(Integer parentId) {
+        Category parent = requireCategory(parentId);
+        if (parent.getParentCategory() != null) {
+            throw new IllegalArgumentException("Chỉ được thêm danh mục con bên trong một danh mục cha.");
+        }
+        return view(parent, List.of());
+    }
+
     public List<CategoryViewDto> activeTree() {
         return tree(true);
     }
@@ -64,7 +76,7 @@ public class CategoryManageService {
     }
 
     @Transactional
-    public void save(Integer id, CategoryFormDto form) {
+    public Integer save(Integer id, CategoryFormDto form) {
         Category category = id == null ? new Category() : requireCategory(id);
         categories.findByCodeIgnoreCase(form.getCode()).filter(c -> !c.getId().equals(id))
                 .ifPresent(c -> { throw new IllegalArgumentException("Mã danh mục đã tồn tại."); });
@@ -87,6 +99,7 @@ public class CategoryManageService {
         category.setIsActive(Boolean.TRUE.equals(form.getIsActive()));
         category.setParentCategory(parent);
         categories.saveAndFlush(category);
+        return category.getId();
     }
 
     @Transactional
