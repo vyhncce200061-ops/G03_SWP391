@@ -158,7 +158,7 @@ class TeamIntegrationTests {
     @Test void categoryWithoutParentAndBrandCrudRemainUsable() throws Exception {
         mvc.perform(post("/admin/categories/create").with(user(new CustomUserDetails(admin))).with(csrf())
                 .param("code", "new-" + key).param("name", "New category").param("parentId", ""))
-                .andExpect(redirectedUrl("/admin/categories"));
+                .andExpect(status().is3xxRedirection());
         Category created = categories.findByCode("new-" + key).orElseThrow();
         assertNull(created.getParentCategory());
         mvc.perform(post("/admin/categories/update/" + created.getId()).with(user(new CustomUserDetails(admin))).with(csrf())

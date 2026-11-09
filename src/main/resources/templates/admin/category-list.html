@@ -1,193 +1,61 @@
 <!DOCTYPE html>
-<html lang="vi"
-      xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout/admin-layout}">
-
-<head>
-    <title>Quản lý danh mục - PetShop</title>
-</head>
-
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/admin-layout}">
+<head><title>Quản lý danh mục - PetShop</title></head>
 <body>
-<div layout:fragment="content" class="py-5 bg-light-subtle min-vh-100">
-    <div class="container">
-
-        <!-- Page header -->
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-            <h2 class="fw-bold text-dark mb-0">
-                Quản lý danh mục
-            </h2>
-
-            <a th:href="@{/admin/categories/create}"
-               class="btn btn-success rounded-pill px-4">
-                <i class="bi bi-plus-circle me-2"></i>
-                Thêm danh mục
-            </a>
+<div layout:fragment="content">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h4 mb-2">Quản lý danh mục</h1>
+            <div class="text-muted small"><span th:text="${#lists.size(categories)}"></span> danh mục cha <span class="mx-2" aria-hidden="true">·</span><span th:text="${childCount}"></span> danh mục con</div>
         </div>
-
-        <p class="text-muted">Danh mục con nằm ngay dưới danh mục cha. Lọc theo cha sẽ bao gồm sản phẩm của các danh mục con.</p>
-
-        <!-- Success message -->
-
-
-        <!-- Error message -->
-
-
-        <!-- Category table -->
-        <div class="card border-0 shadow-sm rounded-4">
-
-            <div class="card-header bg-white border-0 pt-4 px-4">
-                <h5 class="fw-bold mb-0">
-                    <i class="bi bi-grid-fill text-success me-2"></i>
-                    Danh sách danh mục
-                </h5>
-            </div>
-
-            <div class="card-body p-4">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-
-                        <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Mã danh mục</th>
-                            <th>Tên danh mục</th>
-                            <th>Danh mục cha</th>
-                            <th>Mô tả</th>
-                            <th>Thứ tự</th>
-                            <th>Trạng thái</th>
-                            <th class="text-center">Thao tác</th>
-                        </tr>
-                        </thead>
-
-                        <tbody>
-
-                        <!-- Category rows -->
-                        <tr th:each="cat : ${categories}" th:attr="data-category-id=${cat.id},data-parent-id=${cat.parentId}">
-
-                            <td th:text="${cat.id}"></td>
-
-                            <td>
-                                <span class="badge bg-light text-dark border"
-                                      th:text="${cat.code}"></span>
-                            </td>
-
-                            <td>
-                                <div class="fw-semibold" th:classappend="${cat.parentId != null} ? 'category-child-name'"><i th:if="${cat.parentId != null}" class="bi bi-arrow-return-right me-2" aria-hidden="true"></i><span th:text="${cat.name}"></span></div>
-                                <span class="small text-muted" th:text="${cat.parentId == null ? 'Danh mục cha' : 'Danh mục con'}"></span>
-                            </td>
-                            <td th:text="${cat.parentId == null ? '—' : cat.parentName}"></td>
-
-                            <td>
-                                <span th:text="${cat.description != null
-                                    and !cat.description.isEmpty()
-                                    ? cat.description : '-'}"></span>
-                            </td>
-
-                            <td th:text="${cat.sortOrder}"></td>
-
-                            <!-- Status -->
-                            <td>
-                                <span th:if="${cat.isActive}"
-                                      class="badge rounded-pill bg-success-subtle text-success">
-                                    Đang hoạt động
-                                </span>
-
-                                <span th:unless="${cat.isActive}"
-                                      class="badge rounded-pill bg-secondary-subtle text-secondary">
-                                    Ngừng hoạt động
-                                </span>
-                                <small th:if="${cat.isActive and !cat.parentActive}" class="d-block text-muted mt-1">Cha đang ngừng hoạt động</small>
-                            </td>
-
-                            <!-- Actions -->
-                            <td>
-                                <div class="d-flex justify-content-center gap-2 flex-wrap">
-
-                                    <!-- Edit -->
-                                    <a th:href="@{/admin/categories/edit/{id}(id=${cat.id})}"
-                                       class="btn btn-sm btn-outline-primary"
-                                       title="Chỉnh sửa">
-                                        <i class="bi bi-pencil-square"></i>
-                                        Sửa
-                                    </a>
-
-                                    <!-- Activate / deactivate -->
-                                    <form th:action="@{/admin/categories/toggle-status/{id}(id=${cat.id})}"
-                                          method="post"
-                                          class="d-inline">
-
-                                        <button type="submit"
-                                                class="btn btn-sm"
-                                                th:classappend="${cat.isActive}
-                                                    ? ' btn-outline-warning'
-                                                    : ' btn-outline-success'"
-                                                th:title="${cat.isActive}
-                                                    ? 'Ngừng hoạt động'
-                                                    : 'Kích hoạt lại'"
-                                                onclick="return confirm('Em có chắc muốn thay đổi trạng thái danh mục này không?')">
-
-                                            <i th:class="${cat.isActive}
-                                                ? 'bi bi-pause-circle'
-                                                : 'bi bi-check-circle'"></i>
-
-                                            <span th:text="${cat.isActive}
-                                                ? 'Ngừng hoạt động'
-                                                : 'Kích hoạt'"></span>
-                                        </button>
-                                    </form>
-
-                                    <!-- Soft delete -->
-                                    <form th:if="${cat.isActive}"
-                                          th:action="@{/admin/categories/delete/{id}(id=${cat.id})}"
-                                          method="post"
-                                          class="d-inline"
-                                          onsubmit="return confirm('Xóa mềm danh mục này? Danh mục sẽ được chuyển sang trạng thái ngừng hoạt động.');">
-
-                                        <button type="submit"
-                                                class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash"></i>
-                                            Xóa
-                                        </button>
-                                    </form>
-
-                                </div>
-                            </td>
-                        </tr>
-
-                        <!-- Empty state -->
-                        <tr th:if="${#lists.isEmpty(categories)}">
-                            <td colspan="8" class="text-center py-5">
-                                <i class="bi bi-inbox display-5 text-muted"></i>
-
-                                <p class="text-muted mt-3 mb-2">
-                                    Chưa có danh mục nào.
-                                </p>
-
-                                <a th:href="@{/admin/categories/create}"
-                                   class="btn btn-success btn-sm rounded-pill px-3">
-                                    <i class="bi bi-plus-circle me-1"></i>
-                                    Thêm danh mục đầu tiên
-                                </a>
-                            </td>
-                        </tr>
-
-                        </tbody>
-                    </table>
+        <a th:href="@{/admin/categories/create}" class="btn btn-success"><i class="bi bi-plus-lg me-2" aria-hidden="true"></i>Thêm danh mục cha</a>
+    </div>
+    <div class="category-management-tree">
+        <section class="card category-group mb-3" th:each="parent : ${categories}"
+                 th:id="${'category-' + parent.id}" th:attr="data-category-id=${parent.id}">
+            <div class="category-group-header">
+                <h2 class="category-parent-heading">
+                    <button type="button" class="category-group-toggle" data-bs-toggle="collapse"
+                            th:attr="data-bs-target=${'#children-' + parent.id},aria-controls=${'children-' + parent.id},aria-expanded=${expandedParentId == parent.id},aria-label=${'Danh mục ' + parent.name}">
+                        <i class="bi bi-chevron-right category-chevron" aria-hidden="true"></i>
+                        <i class="bi bi-folder2 category-folder" aria-hidden="true"></i>
+                        <span class="category-parent-copy">
+                            <span class="category-parent-name" th:text="${parent.name}"></span>
+                            <span class="category-parent-meta"><code th:text="${parent.code}"></code><span th:text="${#lists.size(parent.children) + ' danh mục con'}"></span><span th:text="${'Thứ tự: ' + parent.sortOrder}"></span></span>
+                        </span>
+                    </button>
+                </h2>
+                <div class="category-parent-toolbar">
+                    <span th:replace="~{fragments/category-actions :: status(${parent})}"></span>
+                    <div th:replace="~{fragments/category-actions :: actions(${parent})}"></div>
                 </div>
             </div>
-        </div>
-
-        <!-- Back to Admin button -->
-        <div class="d-flex justify-content-start mt-4 mb-3">
-            <a th:href="@{/admin/dashboard}"
-               class="btn btn-success rounded-pill px-4 py-2 text-white">
-                <i class="bi bi-arrow-left me-2"></i>
-                Quay lại trang Admin
-            </a>
-        </div>
-
+            <div class="collapse" th:id="${'children-' + parent.id}" th:classappend="${expandedParentId == parent.id} ? 'show'">
+                <div class="category-group-body">
+                    <p th:if="${!#strings.isEmpty(parent.description)}" class="text-muted small mb-3" th:text="${parent.description}"></p>
+                    <p th:unless="${parent.isActive}" class="small text-muted mb-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Danh mục cha đang ngừng hoạt động; các danh mục con trong nhánh này không hiển thị ở menu cửa hàng.</p>
+                    <div class="table-responsive" th:unless="${#lists.isEmpty(parent.children)}">
+                        <table class="table align-middle category-children-table mb-0">
+                            <caption class="visually-hidden" th:text="${'Danh mục con của ' + parent.name}"></caption>
+                            <thead><tr><th scope="col">Danh mục con</th><th scope="col">Mã danh mục</th><th scope="col">Thứ tự</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead>
+                            <tbody><tr th:each="child : ${parent.children}" th:attr="data-category-id=${child.id},data-parent-id=${parent.id}">
+                                <td><div class="fw-semibold" th:text="${child.name}"></div><div th:if="${!#strings.isEmpty(child.description)}" class="small text-muted category-description" th:text="${child.description}"></div></td>
+                                <td><code th:text="${child.code}"></code></td>
+                                <td th:text="${child.sortOrder}"></td>
+                                <td><span th:replace="~{fragments/category-actions :: status(${child})}"></span></td>
+                                <td><div th:replace="~{fragments/category-actions :: actions(${child})}"></div></td>
+                            </tr></tbody>
+                        </table>
+                    </div>
+                    <p th:if="${#lists.isEmpty(parent.children)}" class="text-muted py-2 mb-2">Chưa có danh mục con.</p>
+                    <div class="category-add-child">
+                        <a class="btn btn-outline-success btn-sm" th:href="@{/admin/categories/{id}/children/create(id=${parent.id})}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Thêm danh mục con</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <div th:if="${#lists.isEmpty(categories)}" class="card text-center p-5 text-muted"><i class="bi bi-folder2 fs-2 mb-3" aria-hidden="true"></i>Chưa có danh mục nào.</div>
     </div>
 </div>
-</body>
-</html>
+</body></html>

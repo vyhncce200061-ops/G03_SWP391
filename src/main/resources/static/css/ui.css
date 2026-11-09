@@ -256,3 +256,33 @@ h1 { font-weight: 750; } h2,h3,h4,h5,h6 { font-weight: 650; }
 .is-selected-branch > .catalog-children { border-left-color: #4b8a68; }
 .category-child-name { padding-left: 12px; }
 .brand-description { max-width: 350px; min-width: 150px; white-space: normal; overflow-wrap: anywhere; }
+
+/* Manage each root and its children as one collapsible group. */
+.category-group { scroll-margin-top: 90px; overflow: hidden; }
+.category-group-header { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; padding: 18px 20px; }
+.category-parent-heading { margin: 0; flex: 1 1 230px; min-width: 0; font-size: 1rem; }
+.category-group-toggle { display: flex; align-items: center; gap: 12px; width: 100%; padding: 3px 0; border: 0; background: transparent; text-align: left; color: inherit; border-radius: 6px; }
+.category-group-toggle:focus-visible { outline: 2px solid var(--pet-primary); outline-offset: 5px; }
+.category-chevron { font-size: .85rem; color: var(--pet-muted); flex-shrink: 0; transition: transform .15s; }
+.category-group-toggle[aria-expanded="true"] .category-chevron { transform: rotate(90deg); }
+.category-folder { color: var(--pet-primary); font-size: 1.3rem; flex-shrink: 0; }
+.category-parent-copy { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.category-parent-name { font-size: 1rem; font-weight: 650; overflow-wrap: anywhere; }
+.category-parent-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--pet-muted); font-size: .72rem; font-weight: 400; line-height: 1.5; }
+.category-parent-meta code { font-size: inherit; color: #436955; }
+.category-parent-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.category-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.category-actions form { margin: 0; }
+.category-actions .btn { white-space: nowrap; }
+.category-group-body { border-top: 1px solid var(--pet-line); padding: 18px 20px; background: #fcfdfb; }
+.category-group-body > .table-responsive { overflow-y: hidden; }
+.category-children-table { font-size: .83rem; }
+.category-children-table th { font-size: .68rem; }
+.category-description { max-width: 320px; min-width: 150px; white-space: normal; overflow-wrap: anywhere; }
+.category-add-child { padding-top: 18px; }
+@media (max-width: 575.98px) {
+    .category-group-header,.category-group-body { padding: 16px 14px; }
+    .category-parent-heading,.category-parent-toolbar { flex-basis: 100%; }
+    .category-parent-toolbar { padding-left: 27px; }
+    .category-actions .btn { font-size: .74rem; padding: .4rem .6rem; }
+}

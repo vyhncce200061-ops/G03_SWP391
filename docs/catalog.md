@@ -8,10 +8,13 @@ Homepage hiển thị thẻ có hình và tên danh mục cha. Danh mục con v�
 
 Danh mục sử dụng cấu trúc hai cấp hiện có:
 
-- Không chọn cha: danh mục cấp cha. Chọn một danh mục cấp cha: danh mục con.
+- Trang quản lý chỉ hiển thị các nhóm cha; mở một nhóm để xem các con. Mỗi nhóm có nút thêm con, kể cả khi chưa có con nào.
+- Nút “Thêm danh mục cha” trên đầu trang mở form tạo cấp cha, không yêu cầu chọn cha. Nút “Thêm danh mục con” trong nhóm mở form với cha cố định theo nhóm đó; dữ liệu gửi lên không thể đổi sang nhóm khác.
+- Tạo con dùng đường dẫn `/admin/categories/{parentId}/children/create`; cha phải tồn tại và ở cấp gốc. Sau khi lưu hoặc quay lại, nhóm liên quan được mở sẵn.
+- Tạo cha dùng `/admin/categories/create`; gửi kèm một cha vào luồng này sẽ bị từ chối.
 - Khi sửa, form nạp đúng cha đang lưu. Danh sách cha chỉ chứa cấp gốc, không chứa chính danh mục đang sửa.
 - Không cho chọn chính mình, chọn danh mục con làm cha hoặc đưa danh mục đang có con xuống cấp con.
-- Danh mục con được xếp ngay dưới cha theo thứ tự hiển thị. Các ô chọn danh mục sản phẩm hiện đường dẫn “Cha / Con”.
+- Danh mục con được xếp trong nhóm cha theo thứ tự hiển thị. Các ô chọn danh mục sản phẩm hiện đường dẫn “Cha / Con”.
 - Chọn cha để lọc sản phẩm sẽ lấy cả sản phẩm gắn trực tiếp với cha và sản phẩm của các con; chọn con chỉ lấy sản phẩm của con. Cửa hàng, Admin và Staff dùng cùng quy tắc này.
 - Giữ khả năng gắn sản phẩm trực tiếp với cấp cha như dữ liệu hiện có.
 - Ngừng danh mục cha ẩn cả nhánh khỏi menu cửa hàng. Không thay đổi trạng thái danh mục con hoặc trạng thái bán sản phẩm. Bật lại cha không tự bật những con đang ngừng. Sản phẩm vẫn có thể xuất hiện trong tìm kiếm và danh sách chung theo trạng thái bán của chính sản phẩm.
