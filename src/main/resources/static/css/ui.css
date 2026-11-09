@@ -241,3 +241,23 @@ h1 { font-weight: 750; } h2,h3,h4,h5,h6 { font-weight: 650; }
     .account-password-card { padding: 22px; }.storefront-footer { padding-top: 34px; }.footer-copy { flex-direction: column; gap: 3px; }.back-to-top { right: 15px; bottom: 15px; }
 }
 @media (prefers-reduced-motion: reduce) { html {scroll-behavior:auto} *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* Category navigation uses the same parent/child structure throughout the shop. */
+.category-card { border: 1px solid var(--pet-line); border-radius: 16px; }
+.category-card .card-body { display: flex; flex-direction: column; padding: 22px; }
+.category-eyebrow,.category-child-label { color: var(--pet-muted); font-size: .7rem; }
+.category-eyebrow { text-transform: uppercase; letter-spacing: .06em; }
+.category-child-label { margin-bottom: 6px; }
+.category-root-link { color: #24563e; text-decoration: none; font-size: 1.08rem; }
+.category-root-link:hover,.category-child-list a:hover { color: var(--pet-primary); text-decoration: underline; }
+.category-child-list { border-left: 2px solid #deeadf; padding-left: 12px; }
+.category-child-list li + li { margin-top: 8px; }
+.category-child-list a { display: flex; align-items: baseline; font-size: .83rem; color: #526b5e; text-decoration: none; line-height: 1.6; }
+.category-all-link { color: var(--pet-primary); text-decoration: none; font-size: .78rem; font-weight: 650; padding-top: 8px; }
+.catalog-category-branch { margin-top: 4px; }
+.catalog-screen .catalog-parent { font-weight: 650; }
+.catalog-children { border-left: 2px solid #e1ebe2; margin: 4px 0 10px 18px; padding-left: 8px; }
+.catalog-screen .catalog-child { font-size: .8rem; line-height: 1.5; padding: .6rem .65rem; }
+.is-selected-branch > .catalog-children { border-left-color: #4b8a68; }
+.category-child-name { padding-left: 12px; }
+.brand-description { max-width: 350px; min-width: 150px; white-space: normal; overflow-wrap: anywhere; }

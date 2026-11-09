@@ -3,6 +3,7 @@ package com.petshop.repository;
 
 import com.petshop.entity.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,6 +18,10 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
 
     // Find a category by its code
     Optional<Category> findByCode(String code);
+    Optional<Category> findByCodeIgnoreCase(String code);
+
+    @EntityGraph(attributePaths = "parentCategory")
+    List<Category> findAllByOrderBySortOrderAscNameAscIdAsc();
 
     // Get active root categories ordered by sort order
     List<Category> findByParentCategoryIsNullAndIsActiveTrueOrderBySortOrderAsc();

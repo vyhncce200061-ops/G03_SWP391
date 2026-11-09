@@ -48,7 +48,7 @@
                             <label class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
                             <select class="form-select" th:field="*{categoryId}" th:classappend="${#fields.hasErrors('categoryId')} ? 'is-invalid'">
                                 <option value="">-- Chọn danh mục --</option>
-                                <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+                                <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.optionLabel}"></option>
                             </select>
                             <div class="invalid-feedback" th:if="${#fields.hasErrors('categoryId')}" th:errors="*{categoryId}"></div>
                         </div>

@@ -1,109 +1,62 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout/admin-layout}">
-<head>
-    <title th:text="${category.id == null ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'} + ' - PetShop'">Danh mục - PetShop</title>
-</head>
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/admin-layout}">
+<head><title th:text="${categoryId == null ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'} + ' - PetShop'">Danh mục - PetShop</title></head>
 <body>
-<div layout:fragment="content" class="py-5 bg-light-subtle min-vh-100">
-    <div class="container">
-
-        <div class="mb-4">
-            <h2 class="fw-bold text-dark"
-                th:text="${category.id == null ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'}">
-                Thêm danh mục
-            </h2>
-            <p class="text-muted">Nhập thông tin danh mục sản phẩm.</p>
-        </div>
-
-
-
-        <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-body p-4">
-                <form th:object="${category}"
-                      th:action="${category.id == null
-                          ? '/admin/categories/create'
-                          : '/admin/categories/update/' + category.id}"
-                      method="post">
-
-                    <div class="mb-3">
-                        <label for="code" class="form-label fw-semibold">
-                            Mã danh mục <span class="text-danger">*</span>
-                        </label>
-                        <input id="code" type="text" th:field="*{code}"
-                               class="form-control" maxlength="50"
-                               placeholder="Ví dụ: FOOD, TOYS" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="name" class="form-label fw-semibold">
-                            Tên danh mục <span class="text-danger">*</span>
-                        </label>
-                        <input id="name" type="text" th:field="*{name}"
-                               class="form-control" maxlength="150"
-                               placeholder="Nhập tên danh mục" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="description" class="form-label fw-semibold">
-                            Mô tả
-                        </label>
-                        <textarea id="description" th:field="*{description}"
-                                  class="form-control" rows="3"
-                                  placeholder="Mô tả danh mục"></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="parentCategory" class="form-label fw-semibold">
-                            Danh mục cha
-                        </label>
-                        <select id="parentCategory" name="parentCategory.id"
-                                class="form-select">
-                            <option value="">-- Không có danh mục cha --</option>
-                            <option th:each="parent : ${categories}"
-                                    th:if="${category.id == null or parent.id != category.id}"
-                                    th:value="${parent.id}"
-                                    th:text="${parent.name}"
-                                    th:selected="${category.parentCategory != null
-                                        and category.parentCategory.id == parent.id}">
-                            </option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="sortOrder" class="form-label fw-semibold">
-                            Thứ tự hiển thị
-                        </label>
-                        <input id="sortOrder" type="number" th:field="*{sortOrder}"
-                               class="form-control" min="0" value="0">
-                    </div>
-
-                    <div class="mb-4 form-check">
-                        <input id="isActive" type="checkbox" th:field="*{isActive}"
-                               class="form-check-input">
-                        <label for="isActive" class="form-check-label">
-                            Đang hoạt động
-                        </label>
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-success px-4">
-                            <i class="bi bi-save me-1"></i>
-                            <span th:text="${category.id == null ? 'Thêm danh mục' : 'Lưu thay đổi'}">
-                                Lưu
-                            </span>
-                        </button>
-
-                        <a th:href="@{/admin/categories}"
-                           class="btn btn-outline-secondary px-4">
-                            Quay lại
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
+<div layout:fragment="content">
+    <div class="mb-4">
+        <h1 class="h4" th:text="${categoryId == null ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'}"></h1>
+        <p class="text-muted mb-0">Danh mục gồm hai cấp: danh mục cha và danh mục con.</p>
     </div>
+    <div class="card shadow-sm"><div class="card-body p-4">
+        <form th:object="${categoryForm}" method="post"
+              th:action="${categoryId == null} ? @{/admin/categories/create} : @{/admin/categories/update/{id}(id=${categoryId})}">
+            <div class="alert alert-danger" role="alert" th:if="${#fields.hasGlobalErrors()}">
+                <p class="mb-0" th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="code" class="form-label fw-semibold">Mã danh mục <span class="text-danger">*</span></label>
+                    <input id="code" th:field="*{code}" class="form-control" th:errorclass="is-invalid" maxlength="50" placeholder="Ví dụ: THUC-AN-HAT" required>
+                    <div class="invalid-feedback" th:errors="*{code}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="name" class="form-label fw-semibold">Tên danh mục <span class="text-danger">*</span></label>
+                    <input id="name" th:field="*{name}" class="form-control" th:errorclass="is-invalid" maxlength="150" placeholder="Nhập tên danh mục" required>
+                    <div class="invalid-feedback" th:errors="*{name}"></div>
+                </div>
+                <div class="col-md-8">
+                    <label for="parentId" class="form-label fw-semibold">Danh mục cha</label>
+                    <select id="parentId" th:field="*{parentId}" class="form-select" th:errorclass="is-invalid" th:disabled="${parentLocked}" aria-describedby="parentHelp">
+                        <option value="">Không có — tạo danh mục cha</option>
+                        <option th:each="parent : ${parentCategories}" th:value="${parent.id}" th:text="${parent.optionLabel}"></option>
+                    </select>
+                    <input th:if="${parentLocked}" type="hidden" name="parentId" value="">
+                    <div class="invalid-feedback" th:errors="*{parentId}"></div>
+                    <div id="parentHelp" class="form-text" th:text="${parentLocked
+                        ? 'Danh mục này đang có danh mục con nên phải giữ ở cấp cha.'
+                        : 'Để trống để tạo danh mục cha. Chọn một danh mục cha để tạo danh mục con.'}"></div>
+                </div>
+                <div class="col-md-4">
+                    <label for="sortOrder" class="form-label fw-semibold">Thứ tự hiển thị <span class="text-danger">*</span></label>
+                    <input id="sortOrder" type="number" th:field="*{sortOrder}" class="form-control" th:errorclass="is-invalid" min="0" max="2147483647" required>
+                    <div class="invalid-feedback" th:errors="*{sortOrder}"></div>
+                </div>
+                <div class="col-12">
+                    <label for="description" class="form-label fw-semibold">Mô tả</label>
+                    <textarea id="description" th:field="*{description}" class="form-control" th:errorclass="is-invalid" rows="3" maxlength="1000"></textarea>
+                    <div class="invalid-feedback" th:errors="*{description}"></div>
+                </div>
+                <div class="col-12">
+                    <div class="form-check"><input id="isActive" type="checkbox" th:field="*{isActive}" class="form-check-input"><label for="isActive" class="form-check-label">Đang hoạt động</label></div>
+                    <p class="form-text mb-0">Danh mục ngừng hoạt động sẽ không xuất hiện trong menu cửa hàng. Ngừng danh mục cha sẽ ẩn cả nhánh khỏi menu, không đổi trạng thái bán của sản phẩm.</p>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-4">
+                <button type="submit" class="btn btn-success px-4"><i class="bi bi-save me-1" aria-hidden="true"></i><span th:text="${categoryId == null ? 'Thêm danh mục' : 'Lưu thay đổi'}"></span></button>
+                <a th:href="@{/admin/categories}" class="btn btn-outline-secondary px-4">Quay lại</a>
+            </div>
+        </form>
+    </div></div>
 </div>
-</body>
-</html>
+</body></html>

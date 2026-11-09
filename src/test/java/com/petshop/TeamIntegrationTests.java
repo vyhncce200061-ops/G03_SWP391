@@ -157,13 +157,13 @@ class TeamIntegrationTests {
 
     @Test void categoryWithoutParentAndBrandCrudRemainUsable() throws Exception {
         mvc.perform(post("/admin/categories/create").with(user(new CustomUserDetails(admin))).with(csrf())
-                .param("code", "new-" + key).param("name", "New category").param("parentCategory.id", ""))
+                .param("code", "new-" + key).param("name", "New category").param("parentId", ""))
                 .andExpect(redirectedUrl("/admin/categories"));
         Category created = categories.findByCode("new-" + key).orElseThrow();
         assertNull(created.getParentCategory());
         mvc.perform(post("/admin/categories/update/" + created.getId()).with(user(new CustomUserDetails(admin))).with(csrf())
-                .param("code", created.getCode()).param("name", created.getName()).param("parentCategory.id", created.getId().toString()))
-                .andExpect(redirectedUrl("/admin/categories/edit/" + created.getId())).andExpect(flash().attributeExists("errorMessage"));
+                .param("code", created.getCode()).param("name", created.getName()).param("parentId", created.getId().toString()))
+                .andExpect(status().isOk()).andExpect(model().attributeHasErrors("categoryForm"));
         assertNull(categories.findById(created.getId()).orElseThrow().getParentCategory());
         mvc.perform(get("/admin/categories/edit/" + created.getId()).with(user(new CustomUserDetails(admin))))
                 .andExpect(status().isOk());

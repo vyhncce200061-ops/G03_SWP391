@@ -25,6 +25,8 @@
             </a>
         </div>
 
+        <p class="text-muted">Danh mục con nằm ngay dưới danh mục cha. Lọc theo cha sẽ bao gồm sản phẩm của các danh mục con.</p>
+
         <!-- Success message -->
 
 
@@ -50,6 +52,7 @@
                             <th>ID</th>
                             <th>Mã danh mục</th>
                             <th>Tên danh mục</th>
+                            <th>Danh mục cha</th>
                             <th>Mô tả</th>
                             <th>Thứ tự</th>
                             <th>Trạng thái</th>
@@ -60,7 +63,7 @@
                         <tbody>
 
                         <!-- Category rows -->
-                        <tr th:each="cat : ${categories}">
+                        <tr th:each="cat : ${categories}" th:attr="data-category-id=${cat.id},data-parent-id=${cat.parentId}">
 
                             <td th:text="${cat.id}"></td>
 
@@ -69,8 +72,11 @@
                                       th:text="${cat.code}"></span>
                             </td>
 
-                            <td class="fw-semibold"
-                                th:text="${cat.name}"></td>
+                            <td>
+                                <div class="fw-semibold" th:classappend="${cat.parentId != null} ? 'category-child-name'"><i th:if="${cat.parentId != null}" class="bi bi-arrow-return-right me-2" aria-hidden="true"></i><span th:text="${cat.name}"></span></div>
+                                <span class="small text-muted" th:text="${cat.parentId == null ? 'Danh mục cha' : 'Danh mục con'}"></span>
+                            </td>
+                            <td th:text="${cat.parentId == null ? '—' : cat.parentName}"></td>
 
                             <td>
                                 <span th:text="${cat.description != null
@@ -91,6 +97,7 @@
                                       class="badge rounded-pill bg-secondary-subtle text-secondary">
                                     Ngừng hoạt động
                                 </span>
+                                <small th:if="${cat.isActive and !cat.parentActive}" class="d-block text-muted mt-1">Cha đang ngừng hoạt động</small>
                             </td>
 
                             <!-- Actions -->
@@ -150,7 +157,7 @@
 
                         <!-- Empty state -->
                         <tr th:if="${#lists.isEmpty(categories)}">
-                            <td colspan="7" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <i class="bi bi-inbox display-5 text-muted"></i>
 
                                 <p class="text-muted mt-3 mb-2">

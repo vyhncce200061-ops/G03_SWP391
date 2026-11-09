@@ -1,229 +1,77 @@
-
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout/admin-layout}">
-
-<head>
-    <title>Quản lý thương hiệu</title>
-</head>
-
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/admin-layout}">
+<head><title>Quản lý thương hiệu - PetShop</title></head>
 <body>
-<div layout:fragment="content" class="container py-5">
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="text-body">Quản lý thương hiệu</h2>
-        </div>
-        <a th:href="@{/admin/dashboard}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Trang quản trị
-        </a>
+<div layout:fragment="content">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div><h1 class="h4 mb-1">Quản lý thương hiệu</h1><p class="text-muted mb-0">Quản lý tên, mô tả và trạng thái thương hiệu.</p></div>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#brandModal"
+                data-brand-title="Thêm thương hiệu" data-brand-submit="Thêm thương hiệu"
+                th:attr="data-brand-action=@{/admin/brands/create}">
+            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Thêm thương hiệu
+        </button>
     </div>
-
-    <!-- Create brand -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-header text-body">
-            <i class="bi bi-plus-circle me-2"></i>Thêm thương hiệu
-        </div>
-
-        <div class="card-body">
-            <form th:action="@{/admin/brands/create}"
-                  th:object="${brand}" method="post">
-
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">
-                            Tên thương hiệu *
-                        </label>
-                        <input type="text" class="form-control"
-                               th:field="*{name}" maxlength="150"
-                               placeholder="Ví dụ: Royal Canin" required>
-                    </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">
-                            Đường dẫn logo
-                        </label>
-                        <input type="text" class="form-control"
-                               th:field="*{logoUrl}" maxlength="1000"
-                               placeholder="/images/brands/logo.png">
-                    </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Mô tả</label>
-                        <input type="text" class="form-control"
-                               th:field="*{description}" maxlength="1000"
-                               placeholder="Thông tin thương hiệu">
-                    </div>
-
-                    <div class="col-12">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-plus-lg me-1"></i>Thêm thương hiệu
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Brand list -->
     <div class="card shadow-sm">
-        <div class="card-header bg-white">
-            <strong>Danh sách thương hiệu</strong>
-            <span class="badge bg-secondary ms-2"
-                  th:text="${#lists.size(brands)}">0</span>
+        <div class="card-header bg-white"><strong>Danh sách thương hiệu</strong><span class="badge bg-secondary ms-2" th:text="${#lists.size(brands)}">0</span></div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>ID</th><th>Tên thương hiệu</th><th>Mô tả</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                <tbody>
+                <tr th:each="brand : ${brands}" th:attr="data-brand-id=${brand.id}">
+                    <td th:text="${brand.id}"></td>
+                    <td class="fw-semibold" th:text="${brand.name}"></td>
+                    <td class="brand-description" th:text="${#strings.isEmpty(brand.description) ? 'Chưa có mô tả' : brand.description}"></td>
+                    <td><span class="badge" th:classappend="${brand.isActive ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}"
+                              th:text="${brand.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}"></span></td>
+                    <td><div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#brandModal"
+                                data-brand-title="Chỉnh sửa thương hiệu" data-brand-submit="Lưu thay đổi"
+                                th:attr="data-brand-action=@{/admin/brands/update/{id}(id=${brand.id})},data-brand-name=${brand.name},data-brand-description=${brand.description}">
+                            <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa
+                        </button>
+                        <form th:action="@{/admin/brands/toggle-status/{id}(id=${brand.id})}" method="post">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" th:text="${brand.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'}"></button>
+                        </form>
+                        <form th:action="@{/admin/brands/delete/{id}(id=${brand.id})}" method="post" onsubmit="return confirm('Bạn có chắc muốn xóa thương hiệu này?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Xóa</button>
+                        </form>
+                    </div></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(brands)}"><td colspan="5" class="text-center text-muted py-5">Chưa có thương hiệu nào. Chọn “Thêm thương hiệu” để bắt đầu.</td></tr>
+                </tbody>
+            </table>
         </div>
-
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                    <tr>
-                        <th>ID</th>
-                        <th>Logo</th>
-                        <th>Tên thương hiệu</th>
-                        <th>Mô tả</th>
-                        <th>Trạng thái</th>
-                        <th style="min-width: 280px">Thao tác</th>
-                    </tr>
-                    </thead>
-
-                    <tbody>
-                    <tr th:each="brand : ${brands}">
-                        <td th:text="${brand.id}">1</td>
-
-                        <td>
-                            <img th:if="${brand.logoUrl != null
-                                         and !brand.logoUrl.isBlank()}"
-                                 th:src="${brand.logoUrl}"
-                                 alt="Logo"
-                                 style="width:50px;height:50px;object-fit:contain">
-
-                            <span th:if="${brand.logoUrl == null
-                                          or brand.logoUrl.isBlank()}"
-                                  class="text-muted">Chưa có logo</span>
-                        </td>
-
-                        <td class="fw-semibold" th:text="${brand.name}">
-                            Royal Canin
-                        </td>
-
-                        <td th:text="${brand.description != null
-                                      and !brand.description.isBlank()
-                                      ? brand.description : 'Chưa có mô tả'}">
-                            Mô tả
-                        </td>
-
-                        <td>
-                            <span th:if="${brand.isActive}"
-                                  class="badge bg-success">Đang hoạt động</span>
-                            <span th:unless="${brand.isActive}"
-                                  class="badge bg-secondary">Ngừng hoạt động</span>
-                        </td>
-
-                        <td>
-                            <div class="d-flex flex-wrap gap-2">
-
-                                <button type="button"
-                                        class="btn btn-sm btn-primary"
-                                        data-bs-toggle="modal"
-                                        th:attr="data-bs-target='#editBrand' + ${brand.id}">
-                                    <i class="bi bi-pencil-square"></i> Sửa
-                                </button>
-
-                                <form th:action="@{/admin/brands/toggle-status/{id}(id=${brand.id})}"
-                                      method="post">
-                                    <button type="submit"
-                                            class="btn btn-sm"
-                                            th:classappend="${brand.isActive}
-                                                ? ' btn-warning' : ' btn-success'"
-                                            th:text="${brand.isActive}
-                                                ? 'Ngừng hoạt động' : 'Kích hoạt'">
-                                        Trạng thái
-                                    </button>
-                                </form>
-
-                                <form th:action="@{/admin/brands/delete/{id}(id=${brand.id})}"
-                                      method="post"
-                                      onsubmit="return confirm('Em có chắc muốn xóa thương hiệu này?');">
-                                    <button type="submit"
-                                            class="btn btn-sm btn-danger">
-                                        <i class="bi bi-trash"></i> Xóa
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr th:if="${#lists.isEmpty(brands)}">
-                        <td colspan="6" class="text-center text-muted py-4">
-                            Chưa có thương hiệu nào.
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+    </div>
+    <div class="modal fade" id="brandModal" tabindex="-1" aria-labelledby="brandModalTitle" aria-hidden="true" th:attr="data-open=${brandModalOpen}">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <form id="brandForm" th:object="${brandForm}" method="post"
+                      th:action="${editingBrandId == null} ? @{/admin/brands/create} : @{/admin/brands/update/{id}(id=${editingBrandId})}">
+                    <div class="modal-header">
+                        <h2 class="modal-title h5" id="brandModalTitle" th:text="${editingBrandId == null ? 'Thêm thương hiệu' : 'Chỉnh sửa thương hiệu'}"></h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="brandName" class="form-label fw-semibold">Tên thương hiệu <span class="text-danger">*</span></label>
+                            <input id="brandName" th:field="*{name}" class="form-control" th:errorclass="is-invalid" maxlength="150" placeholder="Ví dụ: Royal Canin" required>
+                            <div class="invalid-feedback" th:errors="*{name}"></div>
+                        </div>
+                        <div>
+                            <label for="brandDescription" class="form-label fw-semibold">Mô tả</label>
+                            <textarea id="brandDescription" th:field="*{description}" class="form-control" th:errorclass="is-invalid" maxlength="1000" rows="4" placeholder="Thông tin thương hiệu"></textarea>
+                            <div class="invalid-feedback" th:errors="*{description}"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button id="brandSubmit" type="submit" class="btn btn-success" th:text="${editingBrandId == null ? 'Thêm thương hiệu' : 'Lưu thay đổi'}"></button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-
-    <!-- Edit modals -->
-    <div th:each="brand : ${brands}">
-        <div class="modal fade"
-             th:id="'editBrand' + ${brand.id}"
-             tabindex="-1" aria-hidden="true">
-
-            <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content">
-
-                    <form th:action="@{/admin/brands/update/{id}(id=${brand.id})}"
-                          method="post">
-
-                        <div class="modal-header">
-                            <h5 class="modal-title">Sửa thương hiệu</h5>
-                            <button type="button" class="btn-close"
-                                    data-bs-dismiss="modal"></button>
-                        </div>
-
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label class="form-label">Tên thương hiệu *</label>
-                                <input type="text" name="name"
-                                       class="form-control"
-                                       th:value="${brand.name}"
-                                       maxlength="150" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Đường dẫn logo</label>
-                                <input type="text" name="logoUrl"
-                                       class="form-control"
-                                       th:value="${brand.logoUrl}"
-                                       maxlength="1000">
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Mô tả</label>
-                                <textarea name="description"
-                                          class="form-control" rows="3"
-                                          maxlength="1000"
-                                          th:text="${brand.description}"></textarea>
-                            </div>
-                        </div>
-
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary"
-                                    data-bs-dismiss="modal">Hủy</button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save me-1"></i>Lưu thay đổi
-                            </button>
-                        </div>
-
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
 </div>
-</body>
-</html>
+<th:block layout:fragment="custom-js"><script th:src="@{/js/admin-brand.js}" defer></script></th:block>
+</body></html>
