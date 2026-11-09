@@ -15,7 +15,7 @@ public class HomeController {
     @GetMapping({"/", "/home"})
     public String index(Model model) {
         model.addAttribute("featuredProducts", catalogService.getFeaturedProducts(8));
-        model.addAttribute("categories", catalogService.getAllCategories());
+        model.addAttribute("categories", catalogService.getActiveCategoryTree());
         return "guest/home";
     }
 

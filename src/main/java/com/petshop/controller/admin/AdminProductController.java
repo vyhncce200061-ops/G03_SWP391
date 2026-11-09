@@ -4,6 +4,7 @@ import com.petshop.config.security.CustomUserDetails;
 import com.petshop.dto.catalog.ProductFormDto;
 import com.petshop.entity.enums.ProductStatus;
 import com.petshop.service.CatalogService;
+import com.petshop.service.CategoryManageService;
 import com.petshop.service.ProductManageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class AdminProductController {
     private final ProductManageService products;
     private final CatalogService catalog;
+    private final CategoryManageService categories;
 
     @ModelAttribute("productBasePath")
     public String productBasePath() { return "/admin/products"; }
@@ -90,7 +92,8 @@ public class AdminProductController {
     }
 
     private String form(Model model) {
-        model.addAttribute("categories", catalog.getAllCategories());
+        ProductFormDto dto = (ProductFormDto) model.getAttribute("productForm");
+        model.addAttribute("categories", categories.productOptions(dto.getCategoryId()));
         model.addAttribute("brands", catalog.getAllBrands());
         return "staff/product-form";
     }

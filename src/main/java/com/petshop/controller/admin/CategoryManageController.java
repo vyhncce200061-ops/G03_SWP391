@@ -1,277 +1,114 @@
-
 package com.petshop.controller.admin;
 
-import com.petshop.entity.Category;
-import com.petshop.repository.CategoryRepository;
+import com.petshop.dto.catalog.CategoryFormDto;
+import com.petshop.service.CategoryManageService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import java.util.Optional;
 
 @Controller
 @RequestMapping("/admin/categories")
 @RequiredArgsConstructor
 public class CategoryManageController {
+    private final CategoryManageService categories;
 
-    private final CategoryRepository categoryRepository;
+    @InitBinder("categoryForm")
+    public void bindForm(WebDataBinder binder) {
+        binder.setAllowedFields("code", "name", "description", "parentId", "sortOrder", "isActive");
+        binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
+    }
 
-    // Display all categories
     @GetMapping
     public String listCategories(Model model) {
-        model.addAttribute("categories", categoryRepository.findAll());
+        model.addAttribute("categories", categories.listCategories());
         return "admin/category-list";
     }
 
-    // Display the form to create a category
     @GetMapping("/create")
     public String showCreateForm(Model model) {
-        model.addAttribute("category", new Category());
-        model.addAttribute("categories", categoryRepository.findAll());
-        return "admin/category-form";
+        model.addAttribute("categoryForm", new CategoryFormDto());
+        return form(model, null);
     }
 
-    // Save a new category
-    @PostMapping("/create")
-    public String createCategory(
-            @ModelAttribute Category category,
-            RedirectAttributes redirectAttributes) {
-
-        String code = category.getCode() == null
-                ? "" : category.getCode().trim();
-
-        String name = category.getName() == null
-                ? "" : category.getName().trim();
-
-        if (code.isEmpty() || name.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Category code and name are required."
-            );
-            return "redirect:/admin/categories/create";
-        }
-
-        if (categoryRepository.existsByCode(code)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Category code already exists."
-            );
-            return "redirect:/admin/categories/create";
-        }
-
-        category.setCode(code);
-        category.setName(name);
-        category.setId(null);
-        try {
-            normalizeCategory(category, null);
-        } catch (IllegalArgumentException ex) {
-            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
-            return "redirect:/admin/categories/create";
-        }
-
-        if (category.getSortOrder() == null) {
-            category.setSortOrder(0);
-        }
-
-        if (category.getIsActive() == null) {
-            category.setIsActive(true);
-        }
-
-        categoryRepository.save(category);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "Category created successfully."
-        );
-
-        return "redirect:/admin/categories";
-    }
-
-    // Display the form to edit a category
     @GetMapping("/edit/{id}")
-    public String showEditForm(
-            @PathVariable Integer id,
-            Model model,
-            RedirectAttributes redirectAttributes) {
-
-        Optional<Category> optionalCategory =
-                categoryRepository.findById(id);
-
-        if (optionalCategory.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Category not found."
-            );
+    public String showEditForm(@PathVariable Integer id, Model model, RedirectAttributes redirect) {
+        try {
+            model.addAttribute("categoryForm", categories.editForm(id));
+            return form(model, id);
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
             return "redirect:/admin/categories";
         }
+    }
 
-        model.addAttribute("category", optionalCategory.get());
-        model.addAttribute("categories", categoryRepository.findAll());
+    @PostMapping("/create")
+    public String createCategory(@Valid @ModelAttribute("categoryForm") CategoryFormDto dto,
+                                 BindingResult errors, Model model, RedirectAttributes redirect) {
+        return save(null, dto, errors, model, redirect);
+    }
 
+    @PostMapping("/update/{id}")
+    public String updateCategory(@PathVariable Integer id,
+                                 @Valid @ModelAttribute("categoryForm") CategoryFormDto dto,
+                                 BindingResult errors, Model model, RedirectAttributes redirect) {
+        try {
+            categories.editForm(id);
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
+            return "redirect:/admin/categories";
+        }
+        return save(id, dto, errors, model, redirect);
+    }
+
+    private String save(Integer id, CategoryFormDto dto, BindingResult errors, Model model,
+                        RedirectAttributes redirect) {
+        if (errors.hasErrors()) return form(model, id);
+        try {
+            categories.save(id, dto);
+        } catch (IllegalArgumentException ex) {
+            errors.reject("category.invalid", ex.getMessage());
+            return form(model, id);
+        } catch (DataIntegrityViolationException ex) {
+            errors.reject("category.conflict", "Không thể lưu. Mã có thể đã tồn tại hoặc danh mục cha vừa thay đổi. Vui lòng kiểm tra lại.");
+            return form(model, id);
+        }
+        redirect.addFlashAttribute("successMessage", id == null ? "Thêm danh mục thành công." : "Cập nhật danh mục thành công.");
+        return "redirect:/admin/categories";
+    }
+
+    private String form(Model model, Integer id) {
+        model.addAttribute("categoryId", id);
+        model.addAttribute("parentCategories", categories.parentOptions(id));
+        model.addAttribute("parentLocked", categories.hasChildren(id));
         return "admin/category-form";
     }
 
-    // Update an existing category
-    @PostMapping("/update/{id}")
-    public String updateCategory(
-            @PathVariable Integer id,
-            @ModelAttribute Category formCategory,
-            RedirectAttributes redirectAttributes) {
-
-        Optional<Category> optionalCategory =
-                categoryRepository.findById(id);
-
-        if (optionalCategory.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Category not found."
-            );
-            return "redirect:/admin/categories";
-        }
-
-        String code = formCategory.getCode() == null
-                ? "" : formCategory.getCode().trim();
-
-        String name = formCategory.getName() == null
-                ? "" : formCategory.getName().trim();
-
-        if (code.isEmpty() || name.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Category code and name are required."
-            );
-            return "redirect:/admin/categories/edit/" + id;
-        }
-
-        Optional<Category> duplicate =
-                categoryRepository.findByCode(code);
-
-        if (duplicate.isPresent()
-                && !duplicate.get().getId().equals(id)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Category code already exists."
-            );
-            return "redirect:/admin/categories/edit/" + id;
-        }
-
-        Category category = optionalCategory.get();
-
-        formCategory.setCode(code);
-        formCategory.setName(name);
-        try {
-            normalizeCategory(formCategory, id);
-        } catch (IllegalArgumentException ex) {
-            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
-            return "redirect:/admin/categories/edit/" + id;
-        }
-
-        category.setCode(code);
-        category.setName(name);
-        category.setDescription(formCategory.getDescription());
-        category.setSortOrder(
-                formCategory.getSortOrder() == null
-                        ? 0 : formCategory.getSortOrder()
-        );
-        category.setParentCategory(formCategory.getParentCategory());
-        category.setIsActive(Boolean.TRUE.equals(formCategory.getIsActive()));
-
-        categoryRepository.save(category);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "Category updated successfully."
-        );
-
-        return "redirect:/admin/categories";
-    }
-
-    private void normalizeCategory(Category form, Integer id) {
-        if (form.getCode().length() > 50 || form.getName().length() > 150
-                || (form.getDescription() != null && form.getDescription().length() > 1000)
-                || (form.getSortOrder() != null && form.getSortOrder() < 0)) {
-            throw new IllegalArgumentException("Mã tối đa 50 ký tự, tên tối đa 150, mô tả tối đa 1000; thứ tự không được âm.");
-        }
-        Integer parentId = form.getParentCategory() == null ? null : form.getParentCategory().getId();
-        if (parentId == null) {
-            form.setParentCategory(null);
-            return;
-        }
-        Category parent = categoryRepository.findById(parentId)
-                .orElseThrow(() -> new IllegalArgumentException("Danh mục cha không tồn tại."));
-        if (parentId.equals(id) || parent.getParentCategory() != null
-                || (id != null && categoryRepository.existsByParentCategory_Id(id))) {
-            throw new IllegalArgumentException("Danh mục chỉ có hai cấp; không được tự làm cha hoặc tạo vòng lặp.");
-        }
-        form.setParentCategory(parent);
-    }
-
-    // Activate or deactivate a category
     @PostMapping("/toggle-status/{id}")
-    public String toggleCategoryStatus(
-            @PathVariable Integer id,
-            RedirectAttributes redirectAttributes) {
-
-        Optional<Category> optionalCategory =
-                categoryRepository.findById(id);
-
-        if (optionalCategory.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Category not found."
-            );
-            return "redirect:/admin/categories";
+    public String toggleCategoryStatus(@PathVariable Integer id, RedirectAttributes redirect) {
+        try {
+            categories.toggleStatus(id);
+            redirect.addFlashAttribute("successMessage", "Cập nhật trạng thái danh mục thành công.");
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
         }
-
-        Category category = optionalCategory.get();
-        category.setIsActive(!Boolean.TRUE.equals(category.getIsActive()));
-        categoryRepository.save(category);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "Category status updated successfully."
-        );
-
         return "redirect:/admin/categories";
     }
 
-    // Soft delete: deactivate the category without deleting database data
     @PostMapping("/delete/{id}")
-    public String deleteCategory(
-            @PathVariable Integer id,
-            RedirectAttributes redirectAttributes) {
-
-        Optional<Category> optionalCategory =
-                categoryRepository.findById(id);
-
-        if (optionalCategory.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Category not found."
-            );
-            return "redirect:/admin/categories";
+    public String deleteCategory(@PathVariable Integer id, RedirectAttributes redirect) {
+        try {
+            categories.deactivate(id);
+            redirect.addFlashAttribute("successMessage", "Danh mục đã ngừng hoạt động.");
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
         }
-
-        Category category = optionalCategory.get();
-
-        if (Boolean.FALSE.equals(category.getIsActive())) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "This category is already inactive."
-            );
-            return "redirect:/admin/categories";
-        }
-
-        category.setIsActive(false);
-        categoryRepository.save(category);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "Category deactivated successfully."
-        );
-
         return "redirect:/admin/categories";
     }
 }

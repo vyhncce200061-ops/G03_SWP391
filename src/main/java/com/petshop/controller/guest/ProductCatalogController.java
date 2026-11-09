@@ -132,7 +132,9 @@ public class ProductCatalogController {
         // Gửi dữ liệu sang giao diện
         model.addAttribute("productPage", productPage);
         model.addAttribute("filter", filter);
-        model.addAttribute("categories", catalogService.getAllCategories());
+        List<Category> categories = catalogService.getAllCategories();
+        model.addAttribute("categories", categories);
+        model.addAttribute("categoryTree", catalogService.getActiveCategoryTree());
         model.addAttribute("brands", catalogService.getAllBrands());
 
         model.addAttribute("keyword", keyword != null ? keyword : "");
@@ -143,7 +145,7 @@ public class ProductCatalogController {
         Integer selectedId = categoryId;
 
         if (selectedId == null && categoryCode != null) {
-            selectedId = catalogService.getAllCategories()
+            selectedId = categories
                     .stream()
                     .filter(c -> categoryCode.equals(c.getCode()))
                     .map(Category::getId)
@@ -152,6 +154,10 @@ public class ProductCatalogController {
         }
 
         model.addAttribute("selectedCategoryId", selectedId);
+        Integer chosenId = selectedId;
+        model.addAttribute("selectedParentCategoryId", categories.stream()
+                .filter(c -> c.getId().equals(chosenId) && c.getParentCategory() != null)
+                .map(c -> c.getParentCategory().getId()).findFirst().orElse(null));
 
         // Giữ lại các lựa chọn bộ lọc
         model.addAttribute("selectedPetType",

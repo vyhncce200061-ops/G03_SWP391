@@ -54,22 +54,22 @@
                                 Tất cả sản phẩm
                             </a>
 
-                            <!-- DANH SÁCH DANH MỤC -->
-                            <a th:each="category : ${categories}"
-                               th:href="@{/products(categoryId=${category.id})}"
-                               class="list-group-item list-group-item-action
-                                      border-0 rounded-3 mb-1"
-                               th:classappend="${selectedCategoryId != null
-                                   and selectedCategoryId.toString()
-                                   == category.id.toString()}
-                                   ? ' active bg-success text-body'">
-
-                                <i class="bi bi-tag me-2"></i>
-
-                                <span th:text="${category.name}">
-                                    Tên danh mục
-                                </span>
-                            </a>
+                            <div class="catalog-category-branch" th:each="category : ${categoryTree}"
+                                 th:attr="data-category-id=${category.id}"
+                                 th:classappend="${selectedCategoryId == category.id or selectedParentCategoryId == category.id} ? 'is-selected-branch'">
+                                <a th:href="@{/products(categoryId=${category.id})}" class="list-group-item list-group-item-action border-0 rounded-3 catalog-parent"
+                                   th:classappend="${selectedCategoryId == category.id} ? 'active'" th:attr="aria-current=${selectedCategoryId == category.id ? 'page' : null}">
+                                    <i class="bi bi-folder2 me-2" aria-hidden="true"></i><span th:text="${category.name}"></span>
+                                </a>
+                                <ul class="catalog-children list-unstyled" th:unless="${#lists.isEmpty(category.children)}">
+                                    <li th:each="child : ${category.children}">
+                                        <a th:href="@{/products(categoryId=${child.id})}" class="list-group-item list-group-item-action border-0 rounded-3 catalog-child"
+                                           th:classappend="${selectedCategoryId == child.id} ? 'active'" th:attr="data-category-id=${child.id},aria-current=${selectedCategoryId == child.id ? 'page' : null}">
+                                            <i class="bi bi-arrow-return-right me-2" aria-hidden="true"></i><span th:text="${child.name}"></span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
 
                         </div>
                     </div>

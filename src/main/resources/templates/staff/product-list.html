@@ -29,7 +29,7 @@
                     <select name="categoryId" class="form-select">
                         <option value="">Tất cả danh mục</option>
                         <option th:each="category : ${categories}" th:value="${category.id}"
-                                th:text="${category.name}"
+                                th:text="${category.parentCategory == null ? category.name : category.parentCategory.name + ' / ' + category.name}"
                                 th:selected="${selectedCategoryId != null and selectedCategoryId == category.id}">
                         </option>
                     </select>
@@ -83,7 +83,7 @@
                         <div class="fw-semibold" th:text="${p.name}">Tên SP</div>
                         <div class="small text-muted" th:text="${p.slug}">slug</div>
                     </td>
-                    <td th:text="${p.category != null ? p.category.name : '-'}">Danh mục</td>
+                    <td th:text="${p.category == null ? '-' : (p.category.parentCategory == null ? p.category.name : p.category.parentCategory.name + ' / ' + p.category.name)}">Danh mục</td>
 
                     <!-- Pet Type Badges -->
                     <td class="text-center">

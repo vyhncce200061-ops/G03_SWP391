@@ -7,6 +7,7 @@ import com.petshop.entity.Product;
 import com.petshop.entity.ProductVariant;
 import com.petshop.entity.enums.ProductStatus;
 import com.petshop.service.CatalogService;
+import com.petshop.service.CategoryManageService;
 import com.petshop.service.ProductManageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class ProductManageController {
 
     private final ProductManageService productManageService;
     private final CatalogService catalogService;
+    private final CategoryManageService categories;
 
     @ModelAttribute("productBasePath")
     public String productBasePath() { return "/staff/products"; }
@@ -57,7 +59,7 @@ public class ProductManageController {
         if (!model.containsAttribute("productForm")) {
             model.addAttribute("productForm", new ProductFormDto());
         }
-        model.addAttribute("categories", catalogService.getAllCategories());
+        model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
         model.addAttribute("brands", catalogService.getAllBrands());
         return "staff/product-form";
     }
@@ -70,7 +72,7 @@ public class ProductManageController {
                               Model model,
                               RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
-            model.addAttribute("categories", catalogService.getAllCategories());
+            model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
             model.addAttribute("brands", catalogService.getAllBrands());
             return "staff/product-form";
         }
@@ -81,7 +83,7 @@ public class ProductManageController {
             return "redirect:/staff/products";
         } catch (IllegalArgumentException e) {
             model.addAttribute("errorMessage", e.getMessage());
-            model.addAttribute("categories", catalogService.getAllCategories());
+            model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
             model.addAttribute("brands", catalogService.getAllBrands());
             return "staff/product-form";
         }
@@ -92,7 +94,7 @@ public class ProductManageController {
     public String editForm(@PathVariable Long id, Model model) {
         Product product = productManageService.findById(id);
         model.addAttribute("productForm", ProductFormDto.fromEntity(product));
-        model.addAttribute("categories", catalogService.getAllCategories());
+        model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
         model.addAttribute("brands", catalogService.getAllBrands());
         return "staff/product-form";
     }
@@ -107,7 +109,7 @@ public class ProductManageController {
                                 RedirectAttributes redirectAttributes) {
         form.setId(id);
         if (bindingResult.hasErrors()) {
-            model.addAttribute("categories", catalogService.getAllCategories());
+            model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
             model.addAttribute("brands", catalogService.getAllBrands());
             return "staff/product-form";
         }
@@ -118,7 +120,7 @@ public class ProductManageController {
             return "redirect:/staff/products";
         } catch (IllegalArgumentException e) {
             model.addAttribute("errorMessage", e.getMessage());
-            model.addAttribute("categories", catalogService.getAllCategories());
+            model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
             model.addAttribute("brands", catalogService.getAllBrands());
             return "staff/product-form";
         }

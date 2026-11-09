@@ -17,7 +17,7 @@
                     <p class="lead text-muted mb-4">Khám phá bộ sưu tập thức ăn, đồ chơi và phụ kiện cao cấp dành riêng cho chó mèo. Cam kết chất lượng, giao hàng nhanh chóng trên toàn quốc.</p>
                     <div class="d-flex gap-3">
                         <a th:href="@{/products}" class="btn btn-success btn-lg px-4">Mua sắm ngay</a>
-                        <a th:href="@{/products}" class="btn btn-outline-secondary btn-lg px-4">Xem danh mục</a>
+                        <a th:href="@{/#homeCategories}" class="btn btn-outline-secondary btn-lg px-4">Xem danh mục</a>
                     </div>
                 </div>
                 <div class="col-lg-6 text-center mt-4 mt-lg-0">
@@ -27,51 +27,32 @@
         </div>
     </section>
 
-    <!-- Danh mục nổi bật -->
-    <section class="py-5 bg-light">
+    <section id="homeCategories" class="py-5" aria-labelledby="homeCategoriesTitle">
         <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold">Danh Mục Nổi Bật</h2>
-                <p class="text-muted">Bạn đang cần gì?</p>
+            <div class="text-center mb-4">
+                <h2 id="homeCategoriesTitle">Mua sắm theo danh mục</h2>
+                <p class="text-muted">Chọn nhóm sản phẩm hoặc danh mục con phù hợp với thú cưng.</p>
             </div>
-
-            <div class="row g-4">
-                <div class="col-6 col-md-3">
-                    <a th:href="@{/products(categoryCode='THUC-AN')}" class="text-decoration-none">
-                        <div class="card h-100 border-0 shadow-sm text-center p-3 rounded-4 overflow-hidden">
-                            <div class="ratio ratio-16x9 mb-3 rounded-3 overflow-hidden" style="background: url('https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=400&auto=format&fit=crop&q=80') center/cover;"></div>
-                            <h6 class="fw-bold text-dark mb-0">Thức Ăn & Pate</h6>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-lg-3" th:each="category : ${categories}">
+                    <div class="card category-card h-100" th:attr="data-category-id=${category.id}">
+                        <div class="card-body">
+                            <div class="category-eyebrow"><i class="bi bi-folder2 me-1" aria-hidden="true"></i>Danh mục cha</div>
+                            <h3 class="h6 mt-2 mb-3"><a class="category-root-link" th:href="@{/products(categoryId=${category.id})}" th:text="${category.name}"></a></h3>
+                            <th:block th:unless="${#lists.isEmpty(category.children)}">
+                                <p class="category-child-label">Danh mục con</p>
+                                <ul class="category-child-list list-unstyled mb-3">
+                                    <li th:each="child : ${category.children}"><a th:href="@{/products(categoryId=${child.id})}" th:attr="data-category-id=${child.id}"><i class="bi bi-arrow-return-right me-2" aria-hidden="true"></i><span th:text="${child.name}"></span></a></li>
+                                </ul>
+                            </th:block>
+                            <a class="category-all-link mt-auto" th:href="@{/products(categoryId=${category.id})}" th:attr="aria-label=${'Xem tất cả ' + category.name}">Xem tất cả <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></a>
                         </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-3">
-                    <a th:href="@{/products(categoryCode='DO-CHOI')}" class="text-decoration-none">
-                        <div class="card h-100 border-0 shadow-sm text-center p-3 rounded-4 overflow-hidden">
-                            <div class="ratio ratio-16x9 mb-3 rounded-3 overflow-hidden" style="background: url('https://images.unsplash.com/photo-1535930891776-0c2dfb7fda1a?w=400&auto=format&fit=crop&q=80') center/cover;"></div>
-                            <h6 class="fw-bold text-dark mb-0">Đồ Chơi</h6>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-3">
-                    <a th:href="@{/products(categoryCode='PHU-KIEN')}" class="text-decoration-none">
-                        <div class="card h-100 border-0 shadow-sm text-center p-3 rounded-4 overflow-hidden">
-                            <div class="ratio ratio-16x9 mb-3 rounded-3 overflow-hidden" style="background: url('https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=400&auto=format&fit=crop&q=80') center/cover;"></div>
-                            <h6 class="fw-bold text-dark mb-0">Phụ Kiện</h6>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-3">
-                    <a th:href="@{/products(categoryCode='CAT-VE-SINH')}" class="text-decoration-none">
-                        <div class="card h-100 border-0 shadow-sm text-center p-3 rounded-4 overflow-hidden">
-                            <div class="ratio ratio-16x9 mb-3 rounded-3 overflow-hidden" style="background: url('https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&auto=format&fit=crop&q=80') center/cover;"></div>
-                            <h6 class="fw-bold text-dark mb-0">Vệ Sinh & Sức Khỏe</h6>
-                        </div>
-                    </a>
+                    </div>
                 </div>
             </div>
+            <p class="text-center text-muted mb-0" th:if="${#lists.isEmpty(categories)}">Chưa có danh mục để hiển thị.</p>
         </div>
     </section>
-
 
     <!-- Sản phẩm nổi bật -->
     <section class="py-5 bg-white">
@@ -87,7 +68,7 @@
                 <div class="col-12 col-sm-6 col-lg-3"
                      th:each="product : ${featuredProducts}">
 
-                    <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
+                    <div class="card h-100 border shadow-sm rounded-3 overflow-hidden" th:attr="data-product-id=${product.id}">
 
                         <!-- Ảnh sản phẩm lấy từ database -->
                         <a th:href="@{/products/{slug}(slug=${product.slug})}"
@@ -130,10 +111,8 @@
                             <!-- Giá bán từ database -->
                             <div class="mb-2">
                             <span th:if="${product.minPrice != null}"
-                                  class="text-danger fw-bold fs-5"
-                                  th:text="${product.maxPrice != null and product.minPrice.compareTo(product.maxPrice) != 0
-                                      ? #numbers.formatDecimal(product.minPrice, 0, 'POINT', 0, 'COMMA') + ' - ' + #numbers.formatDecimal(product.maxPrice, 0, 'POINT', 0, 'COMMA') + ' đ'
-                                      : #numbers.formatDecimal(product.minPrice, 0, 'POINT', 0, 'COMMA') + ' đ'}">
+                                  class="text-danger fw-bold fs-5 featured-price"
+                                  th:text="${#numbers.formatDecimal(product.minPrice, 0, 'POINT', 0, 'COMMA') + ' đ'}">
                                 Giá sản phẩm
                             </span>
 

@@ -1,199 +1,116 @@
-
 package com.petshop.controller.admin;
 
+import com.petshop.dto.catalog.BrandFormDto;
 import com.petshop.entity.Brand;
 import com.petshop.repository.BrandRepository;
 import com.petshop.repository.ProductRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import java.util.Optional;
 
 @Controller
 @RequestMapping("/admin/brands")
 @RequiredArgsConstructor
 public class BrandManageController {
-
     private final BrandRepository brandRepository;
     private final ProductRepository productRepository;
 
-    // Display all brands
+    @InitBinder("brandForm")
+    public void bindForm(WebDataBinder binder) {
+        binder.setAllowedFields("name", "description");
+        binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
+    }
+
     @GetMapping
     public String listBrands(Model model) {
-        model.addAttribute(
-                "brands",
-                brandRepository.findAllByOrderByNameAsc()
-        );
-        model.addAttribute("brand", new Brand());
+        model.addAttribute("brandForm", new BrandFormDto());
+        return view(model, null, false);
+    }
+
+    @PostMapping("/create")
+    public String createBrand(@Valid @ModelAttribute("brandForm") BrandFormDto form,
+                              BindingResult errors, Model model, RedirectAttributes redirect) {
+        if (!errors.hasFieldErrors("name") && brandRepository.existsByNameIgnoreCase(form.getName())) {
+            errors.rejectValue("name", "brand.duplicate", "Tên thương hiệu đã tồn tại.");
+        }
+        if (errors.hasErrors()) return view(model, null, true);
+        Brand brand = Brand.builder().name(form.getName()).description(form.getDescription()).isActive(true).build();
+        return save(brand, errors, model, redirect, null);
+    }
+
+    @PostMapping("/update/{id}")
+    public String updateBrand(@PathVariable Integer id, @Valid @ModelAttribute("brandForm") BrandFormDto form,
+                              BindingResult errors, Model model, RedirectAttributes redirect) {
+        Brand brand = brandRepository.findById(id).orElse(null);
+        if (brand == null) {
+            redirect.addFlashAttribute("errorMessage", "Thương hiệu không tồn tại.");
+            return "redirect:/admin/brands";
+        }
+        if (!errors.hasFieldErrors("name") && brandRepository.existsByNameIgnoreCaseAndIdNot(form.getName(), id)) {
+            errors.rejectValue("name", "brand.duplicate", "Tên thương hiệu đã tồn tại.");
+        }
+        if (errors.hasErrors()) return view(model, id, true);
+        brand.setName(form.getName());
+        brand.setDescription(form.getDescription());
+        // Logo is no longer edited here; preserve any legacy value and the current status.
+        return save(brand, errors, model, redirect, id);
+    }
+
+    private String save(Brand brand, BindingResult errors, Model model, RedirectAttributes redirect, Integer id) {
+        try {
+            brandRepository.saveAndFlush(brand);
+        } catch (DataIntegrityViolationException ex) {
+            errors.rejectValue("name", "brand.conflict", "Không thể lưu thương hiệu. Vui lòng kiểm tra tên trùng và thử lại.");
+            return view(model, id, true);
+        }
+        redirect.addFlashAttribute("successMessage", id == null ? "Thêm thương hiệu thành công." : "Cập nhật thương hiệu thành công.");
+        return "redirect:/admin/brands";
+    }
+
+    private String view(Model model, Integer id, boolean open) {
+        model.addAttribute("brands", brandRepository.findAllByOrderByNameAsc());
+        model.addAttribute("editingBrandId", id);
+        model.addAttribute("brandModalOpen", open);
         return "admin/brand-list";
     }
 
-    // Create a new brand
-    @PostMapping("/create")
-    public String createBrand(
-            @ModelAttribute Brand brand,
-            RedirectAttributes redirectAttributes) {
-
-        String name = brand.getName() == null
-                ? "" : brand.getName().trim();
-
-        if (name.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Brand name is required."
-            );
-            return "redirect:/admin/brands";
-        }
-
-        if (brandRepository.existsByNameIgnoreCase(name)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Brand name already exists."
-            );
-            return "redirect:/admin/brands";
-        }
-
-        brand.setId(null);
-        brand.setName(name);
-        brand.setIsActive(true);
-
-        brandRepository.save(brand);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "Brand created successfully."
-        );
-
-        return "redirect:/admin/brands";
-    }
-
-    // Update an existing brand
-    @PostMapping("/update/{id}")
-    public String updateBrand(
-            @PathVariable Integer id,
-            @ModelAttribute Brand formBrand,
-            RedirectAttributes redirectAttributes) {
-
-        Optional<Brand> optionalBrand =
-                brandRepository.findById(id);
-
-        if (optionalBrand.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Brand not found."
-            );
-            return "redirect:/admin/brands";
-        }
-
-        String name = formBrand.getName() == null
-                ? "" : formBrand.getName().trim();
-
-        if (name.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Brand name is required."
-            );
-            return "redirect:/admin/brands";
-        }
-
-        if (brandRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Brand name already exists."
-            );
-            return "redirect:/admin/brands";
-        }
-
-        Brand brand = optionalBrand.get();
-        brand.setName(name);
-        brand.setDescription(formBrand.getDescription());
-        brand.setLogoUrl(formBrand.getLogoUrl());
-
-        brandRepository.save(brand);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "Brand updated successfully."
-        );
-
-        return "redirect:/admin/brands";
-    }
-
-    // Activate or deactivate a brand
     @PostMapping("/toggle-status/{id}")
-    public String toggleBrandStatus(
-            @PathVariable Integer id,
-            RedirectAttributes redirectAttributes) {
-
-        Optional<Brand> optionalBrand =
-                brandRepository.findById(id);
-
-        if (optionalBrand.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Brand not found."
-            );
-            return "redirect:/admin/brands";
+    public String toggleBrandStatus(@PathVariable Integer id, RedirectAttributes redirect) {
+        Brand brand = brandRepository.findById(id).orElse(null);
+        if (brand == null) {
+            redirect.addFlashAttribute("errorMessage", "Thương hiệu không tồn tại.");
+        } else {
+            brand.setIsActive(!Boolean.TRUE.equals(brand.getIsActive()));
+            brandRepository.save(brand);
+            redirect.addFlashAttribute("successMessage", "Cập nhật trạng thái thương hiệu thành công.");
         }
-
-        Brand brand = optionalBrand.get();
-        brand.setIsActive(
-                !Boolean.TRUE.equals(brand.getIsActive())
-        );
-
-        brandRepository.save(brand);
-
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "Brand status updated successfully."
-        );
-
         return "redirect:/admin/brands";
     }
 
-    // Delete a brand if no products use it
     @PostMapping("/delete/{id}")
-    public String deleteBrand(
-            @PathVariable Integer id,
-            RedirectAttributes redirectAttributes) {
-
-        Optional<Brand> optionalBrand =
-                brandRepository.findById(id);
-
-        if (optionalBrand.isEmpty()) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Brand not found."
-            );
+    public String deleteBrand(@PathVariable Integer id, RedirectAttributes redirect) {
+        Brand brand = brandRepository.findById(id).orElse(null);
+        if (brand == null) {
+            redirect.addFlashAttribute("errorMessage", "Thương hiệu không tồn tại.");
             return "redirect:/admin/brands";
         }
-
         if (productRepository.existsByBrand_Id(id)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Cannot delete this brand because products are using it. Deactivate it instead."
-            );
+            redirect.addFlashAttribute("errorMessage", "Thương hiệu đang có sản phẩm sử dụng. Bạn có thể ngừng hoạt động thay vì xóa.");
             return "redirect:/admin/brands";
         }
-
         try {
-            brandRepository.delete(optionalBrand.get());
-
-            redirectAttributes.addFlashAttribute(
-                    "successMessage",
-                    "Brand deleted successfully."
-            );
-        } catch (DataIntegrityViolationException e) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Cannot delete this brand because it is being used by other data."
-            );
+            brandRepository.delete(brand);
+            redirect.addFlashAttribute("successMessage", "Xóa thương hiệu thành công.");
+        } catch (DataIntegrityViolationException ex) {
+            redirect.addFlashAttribute("errorMessage", "Không thể xóa thương hiệu đang được dữ liệu khác sử dụng.");
         }
-
         return "redirect:/admin/brands";
     }
 }

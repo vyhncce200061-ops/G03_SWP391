@@ -50,7 +50,11 @@ public class ProductManageServiceImpl implements ProductManageService {
             if (keyword != null && !keyword.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
             }
-            if (categoryId != null) predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+            if (categoryId != null) {
+                var category = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
+                var parent = category.join("parentCategory", jakarta.persistence.criteria.JoinType.LEFT);
+                predicates.add(cb.or(cb.equal(category.get("id"), categoryId), cb.equal(parent.get("id"), categoryId)));
+            }
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         }, pageable);
 
@@ -61,6 +65,9 @@ public class ProductManageServiceImpl implements ProductManageService {
             }
             if (product.getCategory() != null) {
                 product.getCategory().getName();
+                if (product.getCategory().getParentCategory() != null) {
+                    product.getCategory().getParentCategory().getName();
+                }
             }
             if (product.getBrand() != null) {
                 product.getBrand().getName();

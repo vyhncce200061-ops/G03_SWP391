@@ -2,6 +2,7 @@ package com.petshop.service.impl;
 
 import com.petshop.dto.catalog.ProductFilterDto;
 import com.petshop.dto.catalog.ProductSummaryDto;
+import com.petshop.dto.catalog.CategoryViewDto;
 import com.petshop.entity.Brand;
 import com.petshop.entity.Category;
 import com.petshop.entity.Product;
@@ -11,6 +12,7 @@ import com.petshop.entity.enums.ProductStatus;
 import com.petshop.entity.enums.ProductVariantStatus;
 import com.petshop.repository.*;
 import com.petshop.service.CatalogService;
+import com.petshop.service.CategoryManageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -29,7 +31,7 @@ import java.util.stream.Collectors;
 public class CatalogServiceImpl implements CatalogService {
 
     private final ProductRepository productRepository;
-    private final CategoryRepository categoryRepository;
+    private final CategoryManageService categoryManageService;
     private final BrandRepository brandRepository;
     private final ProductImageRepository imageRepository;
     private final ProductVariantRepository variantRepository;
@@ -81,13 +83,13 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional(readOnly = true)
     public List<Category> getAllCategories() {
-        return categoryRepository.findByIsActiveTrueOrderBySortOrderAsc();
+        return categoryManageService.activeCategories();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Category> getActiveCategoryTree() {
-        return categoryRepository.findAllActiveHierarchy();
+    public List<CategoryViewDto> getActiveCategoryTree() {
+        return categoryManageService.activeTree();
     }
 
     @Override
@@ -158,7 +160,11 @@ public class CatalogServiceImpl implements CatalogService {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             predicates.add(cb.equal(root.get("status"), ProductStatus.ACTIVE));
             if (keyword != null && !keyword.isBlank()) predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
-            if (categoryId != null) predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+            if (categoryId != null) {
+                var category = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
+                var parent = category.join("parentCategory", jakarta.persistence.criteria.JoinType.LEFT);
+                predicates.add(cb.or(cb.equal(category.get("id"), categoryId), cb.equal(parent.get("id"), categoryId)));
+            }
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         }, pageable);
     }
