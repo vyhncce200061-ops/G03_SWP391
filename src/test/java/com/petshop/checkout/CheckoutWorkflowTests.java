@@ -28,6 +28,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
+        "vnpay.tmn-code=", "vnpay.hash-secret=", "vnpay.return-url=",
         "spring.jpa.properties.hibernate.hbm2ddl.create_namespaces=true",
         "spring.datasource.url=jdbc:h2:mem:checkoutworkflow;DB_CLOSE_DELAY=-1;MODE=MSSQLServer;DATABASE_TO_UPPER=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
 })

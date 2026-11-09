@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties = {"vnpay.tmn-code=", "vnpay.hash-secret=", "vnpay.return-url="})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
