@@ -6,7 +6,8 @@
 <div layout:fragment="content">
     <div class="mb-4">
         <h1 class="h4" th:text="${categoryId == null ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'}"></h1>
-        <p class="text-muted mb-0">Danh mục gồm hai cấp: danh mục cha và danh mục con.</p>
+        <p th:if="${categoryId == null}" class="text-muted mb-0">Để tạo danh mục cha, giữ lựa chọn <strong>Không có — tạo danh mục cha</strong> ở bên dưới. Để tạo danh mục con, chọn tên danh mục cha.</p>
+        <p th:unless="${categoryId == null}" class="text-muted mb-0">Danh mục gồm hai cấp: danh mục cha và danh mục con.</p>
     </div>
     <div class="card shadow-sm"><div class="card-body p-4">
         <form th:object="${categoryForm}" method="post"
@@ -17,7 +18,7 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label for="code" class="form-label fw-semibold">Mã danh mục <span class="text-danger">*</span></label>
-                    <input id="code" th:field="*{code}" class="form-control" th:errorclass="is-invalid" maxlength="50" placeholder="Ví dụ: THUC-AN-HAT" required>
+                    <input id="code" th:field="*{code}" class="form-control" th:errorclass="is-invalid" maxlength="50" placeholder="Ví dụ: THUC-AN hoặc THUC-AN-HAT" required>
                     <div class="invalid-feedback" th:errors="*{code}"></div>
                 </div>
                 <div class="col-md-6">

@@ -96,7 +96,7 @@ class CatalogHierarchyTests {
         assertTrue(m.find()); return m.group();
     }
 
-    @Test void homepageShowsOnlyMinimumActiveSkuPriceAndRealParentChildGroups() throws Exception {
+    @Test void homepageShowsMinimumActiveSkuPriceAndOnlyParentCategoryCards() throws Exception {
         childProduct.setIsFeatured(true); products.saveAndFlush(childProduct);
         variants.saveAndFlush(ProductVariant.builder().product(childProduct).skuCode(key + "max").variantName("Large")
                 .price(new BigDecimal("990000")).stockQuantity(5).build());
@@ -109,7 +109,8 @@ class CatalogHierarchyTests {
         String html = result.getResponse().getContentAsString();
         var m = Pattern.compile("(?s)data-product-id=\"" + childProduct.getId() + "\".*?class=\"[^\"]*featured-price[^\"]*\"[^>]*>(.*?)</span>").matcher(html);
         assertTrue(m.find()); assertEquals("125.000 đ", m.group(1).strip());
-        assertThat(html).contains("Danh mục cha", "Danh mục con", root.getName(), child.getName()).doesNotContain(inactiveChild.getName());
+        assertThat(html).contains(root.getName(), otherRoot.getName(), "class=\"category-cover\"")
+                .doesNotContain(child.getName(), sibling.getName(), inactiveChild.getName(), "Danh mục cha", "Danh mục con");
     }
 
     @Test void categoryListKeepsChildrenUnderTheirParentAndDisplaysTheRelationship() throws Exception {
@@ -209,7 +210,9 @@ class CatalogHierarchyTests {
         mvc.perform(post("/admin/categories/toggle-status/" + root.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
                 .andExpect(redirectedUrl("/admin/categories"));
         String restored = mvc.perform(get("/")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(restored).contains(child.getName()).doesNotContain(inactiveChild.getName());
+        assertThat(restored).contains(root.getName()).doesNotContain(child.getName(), inactiveChild.getName());
+        String catalog = mvc.perform(get("/products")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(catalog).contains(child.getName()).doesNotContain(inactiveChild.getName());
     }
 
     @ParameterizedTest @ValueSource(strings = {"/admin/products/", "/staff/products/"})
