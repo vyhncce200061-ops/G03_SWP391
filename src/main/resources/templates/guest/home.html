@@ -31,23 +31,23 @@
         <div class="container">
             <div class="text-center mb-4">
                 <h2 id="homeCategoriesTitle">Mua sắm theo danh mục</h2>
-                <p class="text-muted">Chọn nhóm sản phẩm hoặc danh mục con phù hợp với thú cưng.</p>
+                <p class="text-muted">Khám phá sản phẩm dành cho thú cưng của bạn.</p>
             </div>
-            <div class="row g-3">
-                <div class="col-12 col-sm-6 col-lg-3" th:each="category : ${categories}">
-                    <div class="card category-card h-100" th:attr="data-category-id=${category.id}">
-                        <div class="card-body">
-                            <div class="category-eyebrow"><i class="bi bi-folder2 me-1" aria-hidden="true"></i>Danh mục cha</div>
-                            <h3 class="h6 mt-2 mb-3"><a class="category-root-link" th:href="@{/products(categoryId=${category.id})}" th:text="${category.name}"></a></h3>
-                            <th:block th:unless="${#lists.isEmpty(category.children)}">
-                                <p class="category-child-label">Danh mục con</p>
-                                <ul class="category-child-list list-unstyled mb-3">
-                                    <li th:each="child : ${category.children}"><a th:href="@{/products(categoryId=${child.id})}" th:attr="data-category-id=${child.id}"><i class="bi bi-arrow-return-right me-2" aria-hidden="true"></i><span th:text="${child.name}"></span></a></li>
-                                </ul>
-                            </th:block>
-                            <a class="category-all-link mt-auto" th:href="@{/products(categoryId=${category.id})}" th:attr="aria-label=${'Xem tất cả ' + category.name}">Xem tất cả <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></a>
+            <div class="row g-3 justify-content-center">
+                <div class="col-6 col-md-4 col-lg-3" th:each="category : ${categories}">
+                    <a class="card category-card h-100" th:href="@{/products(categoryId=${category.id})}" th:attr="data-category-id=${category.id}">
+                        <div class="category-media" th:switch="${category.code}">
+                            <img th:case="'THUC-AN'" th:src="@{/images/categories/food.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'CAT-VE-SINH'" th:src="@{/images/categories/litter.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'DO-CHOI'" th:src="@{/images/categories/toys.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'PHU-KIEN'" th:src="@{/images/categories/accessories.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'CHAM-SOC'" th:src="@{/images/categories/grooming.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'CHUONG-NEM'" th:src="@{/images/categories/beds.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'Y-TE'" th:src="@{/images/categories/health.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="*" th:src="@{/images/hero-pets.svg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
                         </div>
-                    </div>
+                        <h3 class="category-title" th:text="${category.name}"></h3>
+                    </a>
                 </div>
             </div>
             <p class="text-center text-muted mb-0" th:if="${#lists.isEmpty(categories)}">Chưa có danh mục để hiển thị.</p>

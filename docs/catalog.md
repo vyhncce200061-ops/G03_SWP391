@@ -4,6 +4,8 @@ Homepage hiển thị một giá bán: giá thấp nhất trong các SKU đang h
 
 Form thêm và sửa thương hiệu dùng chung popup, gồm tên và mô tả. Tên được bỏ khoảng trắng đầu/cuối, kiểm tra bắt buộc, trùng tên không phân biệt hoa/thường, tối đa 150 ký tự; mô tả tối đa 1000 ký tự. Nhập sai sẽ mở lại popup và giữ dữ liệu. Trường logo cũ trong database được giữ nguyên, không cần chạy SQL.
 
+Homepage hiển thị thẻ có hình và tên danh mục cha. Danh mục con vẫn nằm trong bộ lọc trang sản phẩm; bấm vào thẻ cha lấy sản phẩm của cả nhánh. Ảnh được lưu trong static; danh mục mới chưa có ảnh riêng dùng hình thú cưng mặc định.
+
 Danh mục sử dụng cấu trúc hai cấp hiện có:
 
 - Không chọn cha: danh mục cấp cha. Chọn một danh mục cấp cha: danh mục con.
