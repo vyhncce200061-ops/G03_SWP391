@@ -85,6 +85,11 @@
             picture.addEventListener('error', fallback, {once:true});
             if (picture.complete && !picture.naturalWidth) fallback();
         }
+        for (const logo of document.querySelectorAll('img[data-brand-logo]')) {
+            const hideBrokenLogo = () => { logo.hidden = true; };
+            logo.addEventListener('error', hideBrokenLogo, {once:true});
+            if (logo.complete && !logo.naturalWidth) hideBrokenLogo();
+        }
         if (date) date.textContent = new Intl.DateTimeFormat('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',timeZone:'Asia/Ho_Chi_Minh'}).format(new Date());
         const pet = (new URLSearchParams(window.location.search).get('petType') || '').trim().toUpperCase();
         for (const link of document.querySelectorAll('[data-store-nav]')) {

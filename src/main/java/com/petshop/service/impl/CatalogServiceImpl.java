@@ -100,6 +100,14 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<Brand> getBrandOptions(Integer selectedId) {
+        return brandRepository.findAllByOrderByNameAsc().stream()
+                .filter(brand -> Boolean.TRUE.equals(brand.getIsActive()) || brand.getId().equals(selectedId))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProductSummaryDto> getFeaturedProducts(int limit) {
         if (limit <= 0) return List.of();
         Pageable pageable = PageRequest.of(0, limit);

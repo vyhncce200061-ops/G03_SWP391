@@ -20,6 +20,10 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     Optional<Category> findByCode(String code);
     Optional<Category> findByCodeIgnoreCase(String code);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT c FROM Category c WHERE c.id = :id")
+    Optional<Category> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Integer id);
+
     @EntityGraph(attributePaths = "parentCategory")
     List<Category> findAllByOrderBySortOrderAscNameAscIdAsc();
 

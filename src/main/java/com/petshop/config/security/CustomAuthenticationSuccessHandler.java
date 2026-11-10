@@ -35,10 +35,7 @@ public class CustomAuthenticationSuccessHandler extends SavedRequestAwareAuthent
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
         if (authentication.getPrincipal() instanceof CustomUserDetails principal && principal.getId() != null) {
-            userRepository.findById(principal.getId()).ifPresent(user -> {
-                user.setLastLoginAt(LocalDateTime.now());
-                userRepository.save(user);
-            });
+            userRepository.recordLogin(principal.getId(), LocalDateTime.now());
         }
 
         Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();

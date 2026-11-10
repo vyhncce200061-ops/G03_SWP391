@@ -107,7 +107,8 @@ public class ProductManageServiceImpl implements ProductManageService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên"));
         Category category = categoryRepository.findById(form.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục"));
-        Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId()).orElse(null) : null;
+        Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thương hiệu đã chọn.")) : null;
 
         Product product = new Product();
         mapFormToProduct(form, product, category, brand, staff);
@@ -134,7 +135,8 @@ public class ProductManageServiceImpl implements ProductManageService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên"));
         Category category = categoryRepository.findById(form.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục"));
-        Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId()).orElse(null) : null;
+        Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thương hiệu đã chọn.")) : null;
 
         if (form.getPrimaryImageId() != null && product.getImages().stream().noneMatch(i -> i.getId().equals(form.getPrimaryImageId()))) {
             throw new IllegalArgumentException("Ảnh chính phải thuộc sản phẩm đang sửa.");
@@ -272,6 +274,17 @@ public class ProductManageServiceImpl implements ProductManageService {
 
                 String newFileName = UUID.randomUUID() + fileExtension;
                 Path path = Paths.get(uploadDir + newFileName);
+
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override
+                            public void afterCompletion(int status) {
+                                if (status != STATUS_COMMITTED) {
+                                    try { Files.deleteIfExists(path); }
+                                    catch (IOException error) { log.warn("Could not remove uncommitted product image {}", path, error); }
+                                }
+                            }
+                        });
 
                 try (var input = file.getInputStream()) {
                     Files.copy(input, path, StandardCopyOption.REPLACE_EXISTING);

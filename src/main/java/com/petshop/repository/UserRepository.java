@@ -17,6 +17,11 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     boolean existsByEmail(String email);
     boolean existsByPhone(String phone);
 
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("UPDATE User u SET u.lastLoginAt = :time, u.updatedAt = :time WHERE u.id = :id")
+    void recordLogin(@org.springframework.data.repository.query.Param("id") Long id,
+                     @org.springframework.data.repository.query.Param("time") java.time.LocalDateTime time);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);

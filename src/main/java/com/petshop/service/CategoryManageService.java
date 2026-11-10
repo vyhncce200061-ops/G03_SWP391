@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CategoryManageService {
     private final CategoryRepository categories;
+    private final jakarta.persistence.EntityManager entityManager;
 
     public List<CategoryViewDto> listCategories() {
         return flatten(tree(false));
@@ -77,6 +78,10 @@ public class CategoryManageService {
 
     @Transactional
     public Integer save(Integer id, CategoryFormDto form) {
+        // Lock the edited category and the proposed parent in one stable order.
+        // Re-read their levels after a concurrent move before checking the tree.
+        java.util.stream.Stream.of(id, form.getParentId()).filter(Objects::nonNull)
+                .distinct().sorted().forEach(this::lockCategory);
         Category category = id == null ? new Category() : requireCategory(id);
         categories.findByCodeIgnoreCase(form.getCode()).filter(c -> !c.getId().equals(id))
                 .ifPresent(c -> { throw new IllegalArgumentException("Mã danh mục đã tồn tại."); });
@@ -104,14 +109,14 @@ public class CategoryManageService {
 
     @Transactional
     public void toggleStatus(Integer id) {
-        Category category = requireCategory(id);
+        Category category = lockCategory(id);
         category.setIsActive(!Boolean.TRUE.equals(category.getIsActive()));
         categories.save(category);
     }
 
     @Transactional
     public void deactivate(Integer id) {
-        Category category = requireCategory(id);
+        Category category = lockCategory(id);
         if (Boolean.FALSE.equals(category.getIsActive())) {
             throw new IllegalArgumentException("Danh mục này đã ngừng hoạt động.");
         }
@@ -122,6 +127,13 @@ public class CategoryManageService {
     private Category requireCategory(Integer id) {
         return categories.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Danh mục không tồn tại."));
+    }
+
+    private Category lockCategory(Integer id) {
+        Category category = categories.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Danh mục không tồn tại."));
+        entityManager.refresh(category, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return category;
     }
 
     private List<CategoryViewDto> tree(boolean activeOnly) {

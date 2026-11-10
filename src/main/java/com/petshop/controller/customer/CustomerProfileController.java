@@ -93,10 +93,7 @@ public class CustomerProfileController {
         }
 
         try {
-            userService.updateProfile(userDetails.getId(), request);
-            if (avatarFile != null && !avatarFile.isEmpty()) {
-                userService.updateAvatar(userDetails.getId(), avatarFile);
-            }
+            userService.updateProfile(userDetails.getId(), request, avatarFile);
             refreshPrincipal(userDetails.getId());
             redirectAttributes.addFlashAttribute("successMessage", "Cập nhật thông tin cá nhân thành công!");
         } catch (IllegalArgumentException | IllegalStateException e) {

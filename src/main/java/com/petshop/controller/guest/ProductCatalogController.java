@@ -226,7 +226,11 @@ public class ProductCatalogController {
                             PageRequest.of(0, 5)
                     );
 
-            productSuggestions.addAll(productPage.getContent());
+            for (ProductSummaryDto product : productPage.getContent()) {
+                if (productSuggestions.stream().noneMatch(existing -> existing.getId().equals(product.getId()))) {
+                    productSuggestions.add(product);
+                }
+            }
 
             if (productSuggestions.size() >= 5) {
                 break;
@@ -307,6 +311,7 @@ public class ProductCatalogController {
     // Chuyển nhanh đến danh sách sản phẩm theo danh mục
     @GetMapping("/categories/{code}")
     public String categoryShortcut(@PathVariable String code) {
-        return "redirect:/products?categoryCode=" + code;
+        return "redirect:" + org.springframework.web.util.UriComponentsBuilder.fromPath("/products")
+                .queryParam("categoryCode", "{code}").encode().buildAndExpand(code).toUriString();
     }
 }
