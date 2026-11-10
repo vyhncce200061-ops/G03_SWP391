@@ -72,7 +72,7 @@
                         <p class="text-secondary small mb-3">
                             <i class="bi bi-geo-alt me-1 text-danger"></i>
                             <span th:text="|${addr.addressLine}, ${addr.ward}, ${addr.district}, ${addr.province}|">
-                                Khu phố 6, Đại học FPT, P. Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh
+                                Địa chỉ nhận hàng
                             </span>
                         </p>
 
@@ -142,11 +142,11 @@
                         <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <label class="form-label small fw-semibold">Tỉnh / Thành phố <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" th:field="*{province}" required placeholder="TP. Hồ Chí Minh">
+                                <input type="text" class="form-control" th:field="*{province}" required placeholder="TP. Cần Thơ">
                             </div>
                             <div class="col-6">
                                 <label class="form-label small fw-semibold">Quận / Huyện <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" th:field="*{district}" required placeholder="Thủ Đức">
+                                <input type="text" class="form-control" th:field="*{district}" required placeholder="Nhập quận/huyện">
                             </div>
                         </div>
 
@@ -203,11 +203,11 @@
                             </div>
                             <div class="col-sm-6">
                                 <label class="form-label small fw-semibold">Tỉnh / Thành phố <span class="text-danger">*</span></label>
-                                <input type="text" name="province" id="editProvince" class="form-control" required placeholder="TP. Hồ Chí Minh">
+                                <input type="text" name="province" id="editProvince" class="form-control" required placeholder="TP. Cần Thơ">
                             </div>
                             <div class="col-sm-6">
                                 <label class="form-label small fw-semibold">Quận / Huyện <span class="text-danger">*</span></label>
-                                <input type="text" name="district" id="editDistrict" class="form-control" required placeholder="Thủ Đức">
+                                <input type="text" name="district" id="editDistrict" class="form-control" required placeholder="Nhập quận/huyện">
                             </div>
                             <div class="col-12">
                                 <label class="form-label small fw-semibold">Phường / Xã <span class="text-danger">*</span></label>
