@@ -4,9 +4,12 @@ import com.petshop.config.security.CustomUserDetails;
 import com.petshop.controller.customer.VnPayController;
 import com.petshop.entity.User;
 import com.petshop.service.VnPayService;
+import com.petshop.service.VNPayReturnWaitService;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
+import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.servlet.ModelAndView;
 
 import java.util.Map;
 import java.util.Optional;
@@ -17,31 +20,40 @@ import static org.mockito.Mockito.*;
 
 class VnPayControllerTests {
     VnPayService service = mock(VnPayService.class);
-    VnPayController controller = new VnPayController(service);
+    VNPayReturnWaitService waitService = mock(VNPayReturnWaitService.class);
+    VnPayController controller = new VnPayController(service, waitService);
 
     @Test
     void anonymousReturnRequiresLoginWithoutInspectingOrder() {
-        assertThat(controller.paymentReturn(new MockHttpServletRequest(), null,
-                new RedirectAttributesModelMap())).isEqualTo("redirect:/login");
+        DeferredResult<ModelAndView> result = controller.paymentReturn(new MockHttpServletRequest(), null,
+                new RedirectAttributesModelMap());
+        assertThat(((ModelAndView) result.getResult()).getViewName()).isEqualTo("redirect:/login");
         verifyNoInteractions(service);
     }
 
     @Test
     void ownerReturnReadsOnlyAndRedirectsToExistingDetail() {
         CustomUserDetails principal = new CustomUserDetails(User.builder().id(7L).status("ACTIVE").build());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("vnp_TxnRef", "TXN-TEST-1");
         when(service.findOwnedOrderIdForReturn(anyMap(), eq(7L))).thenReturn(Optional.of(10L));
-        assertThat(controller.paymentReturn(new MockHttpServletRequest(), principal,
-                new RedirectAttributesModelMap())).isEqualTo("redirect:/customer/orders/10");
+        DeferredResult<ModelAndView> expected = new DeferredResult<>();
+        when(waitService.waitForResult(10L, 7L, "TXN-TEST-1")).thenReturn(expected);
+        assertThat(controller.paymentReturn(request, principal,
+                new RedirectAttributesModelMap())).isSameAs(expected);
         verify(service, never()).processIpn(anyMap());
+        verify(waitService).waitForResult(10L, 7L, "TXN-TEST-1");
     }
 
     @Test
     void invalidOrNonOwnerReturnRevealsNoOrderIdentifier() {
         CustomUserDetails principal = new CustomUserDetails(User.builder().id(8L).status("ACTIVE").build());
         when(service.findOwnedOrderIdForReturn(anyMap(), eq(8L))).thenReturn(Optional.empty());
-        assertThat(controller.paymentReturn(new MockHttpServletRequest(), principal,
-                new RedirectAttributesModelMap())).isEqualTo("redirect:/customer/orders");
+        DeferredResult<ModelAndView> result = controller.paymentReturn(new MockHttpServletRequest(), principal,
+                new RedirectAttributesModelMap());
+        assertThat(((ModelAndView) result.getResult()).getViewName()).isEqualTo("redirect:/customer/orders");
         verify(service, never()).processIpn(anyMap());
+        verifyNoInteractions(waitService);
     }
 
     @Test
