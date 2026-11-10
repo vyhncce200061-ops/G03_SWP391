@@ -1,6 +1,7 @@
 package com.petshop.service.impl;
 
 import com.petshop.dto.catalog.ProductFormDto;
+import com.petshop.exception.ResourceNotFoundException;
 import com.petshop.entity.*;
 import com.petshop.entity.enums.ProductStatus;
 import com.petshop.repository.*;
@@ -88,7 +89,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Transactional(readOnly = true)
     public Product findById(Long id) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm."));
         // Trigger lazy loading for variants and images
         product.getVariants().size();
         product.getImages().size();
@@ -124,7 +125,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     public Product updateProduct(Long id, ProductFormDto form, Long staffId) {
         validateForm(form);
         Product product = productRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm."));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm."));
         entityManager.refresh(product, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
 
         if (!product.getSlug().equals(form.getSlug()) && productRepository.existsBySlug(form.getSlug())) {
@@ -166,6 +167,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional
     public ProductVariant addVariant(Long productId, ProductVariant variant) {
+        com.petshop.util.VndMoney.requireNonNegativeWhole(variant.getPrice(), "Giá bán");
         Product product = findById(productId);
         if (variantRepository.existsBySkuCode(variant.getSkuCode())) {
             throw new IllegalArgumentException("Mã SKU đã tồn tại.");
@@ -178,8 +180,9 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional
     public ProductVariant updateVariant(Long variantId, ProductVariant updateData) {
+        com.petshop.util.VndMoney.requireNonNegativeWhole(updateData.getPrice(), "Giá bán");
         ProductVariant variant = variantRepository.findByIdForUpdate(variantId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy biến thể"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy biến thể."));
         variant.setVariantName(updateData.getVariantName());
         variant.setPrice(updateData.getPrice());
         variant.setLowStockThreshold(updateData.getLowStockThreshold());
@@ -191,7 +194,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Transactional(readOnly = true)
     public ProductVariant findVariantById(Long variantId) {
         return variantRepository.findById(variantId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy biến thể: " + variantId));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy biến thể."));
     }
 
     @Override

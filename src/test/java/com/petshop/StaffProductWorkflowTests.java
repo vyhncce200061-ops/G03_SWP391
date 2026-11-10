@@ -169,4 +169,64 @@ class StaffProductWorkflowTests {
             assertThat(files.collect(java.util.stream.Collectors.toSet())).isEqualTo(before);
         }
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"/admin/products,ADMIN,100", "/staff/products,STAFF,100", "/staff/stock-imports,STAFF,100",
+            "/admin/products,ADMIN,1", "/staff/products,STAFF,1", "/staff/stock-imports,STAFF,1"})
+    void extremePageOffsetsRenderWithoutServerErrorsAndKeepFilters(String path, String role, String size) throws Exception {
+        User actor=role.equals("ADMIN") ? adminActor() : staff;
+        mvc.perform(get(path).param("page","2147483647").param("size",size).param("keyword","Product")
+                        .with(user(new CustomUserDetails(actor))))
+                .andExpect(status().isOk());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "/admin/products/9223372036854775807/edit,ADMIN",
+            "/staff/products/9223372036854775807/edit,STAFF",
+            "/staff/products/9223372036854775807/variants,STAFF",
+            "/staff/products/9223372036854775807/variants/create,STAFF",
+            "/staff/stock-imports/9223372036854775807,STAFF",
+            "/staff/stock-imports/items/9223372036854775807/edit,STAFF"})
+    void missingResourcesReturn404InsteadOfServerErrors(String path, String role) throws Exception {
+        User actor=role.equals("ADMIN") ? adminActor() : staff;
+        mvc.perform(get(path).with(user(new CustomUserDetails(actor)))).andExpect(status().isNotFound());
+    }
+
+    @Test void missingSkuAndWrongProductSkuReturn404WithoutChangingTheSku() throws Exception {
+        Product other=products.saveAndFlush(Product.builder().name("Other product").slug("other-"+UUID.randomUUID())
+                .category(product.getCategory()).createdBy(staff).build());
+        var principal=user(new CustomUserDetails(staff));
+        mvc.perform(get("/staff/products/"+product.getId()+"/variants/9223372036854775807/edit").with(principal))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/staff/products/"+other.getId()+"/variants/"+variant.getId()+"/edit").with(principal))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/staff/products/variants/"+variant.getId()+"/edit").with(principal).with(csrf())
+                        .param("productId",other.getId().toString()).param("skuCode",sku).param("variantName","Unwanted change")
+                        .param("price","19500").param("status","ACTIVE").param("lowStockThreshold","5"))
+                .andExpect(status().isNotFound());
+        assertThat(variants.findById(variant.getId()).orElseThrow().getVariantName()).isEqualTo("Small");
+    }
+
+    @Test void malformedPriceCannotBeSavedWhileStoredWholeDongScaleCanBeEdited() throws Exception {
+        String path="/staff/products/variants/"+variant.getId()+"/edit";
+        var principal=user(new CustomUserDetails(staff));
+        mvc.perform(post(path).with(principal).with(csrf()).param("productId",product.getId().toString())
+                        .param("skuCode",sku).param("variantName","Small").param("price","19500.50")
+                        .param("status","ACTIVE").param("lowStockThreshold","5"))
+                .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("Giá bán phải là số nguyên đồng")));
+        assertThat(variants.findById(variant.getId()).orElseThrow().getPrice()).isEqualByComparingTo("19500");
+        mvc.perform(post(path).with(principal).with(csrf()).param("productId",product.getId().toString())
+                        .param("skuCode",sku).param("variantName","Small").param("price","19500.00")
+                        .param("status","ACTIVE").param("lowStockThreshold","5"))
+                .andExpect(status().is3xxRedirection());
+    }
+
+    private User adminActor() {
+        return new TransactionTemplate(transactionManager).execute(tx -> {
+            Role role=roles.findByCode("ADMIN").orElseGet(() -> roles.save(Role.builder().code("ADMIN").name("Admin").build()));
+            return users.saveAndFlush(User.builder().role(role).fullName("Boundary Admin")
+                    .email(UUID.randomUUID()+"@admin.test").passwordHash("unused").build());
+        });
+    }
 }

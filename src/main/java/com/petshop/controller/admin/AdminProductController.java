@@ -8,7 +8,6 @@ import com.petshop.service.CategoryManageService;
 import com.petshop.service.ProductManageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -33,7 +32,7 @@ public class AdminProductController {
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "10") int size, Model model) {
         model.addAttribute("products", products.searchProducts(keyword, categoryId,
-                PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)))));
+                com.petshop.util.PageRequests.bounded(page, size)));
         model.addAttribute("keyword", keyword);
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("categories", catalog.getAllCategories());

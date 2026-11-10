@@ -63,7 +63,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Giá Trị Giảm <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" th:field="*{discountValue}" class="form-control"
+                            <input type="number" th:step="${voucherForm.discountType != null and voucherForm.discountType.name() == 'FIXED' ? '1' : '0.01'}" th:field="*{discountValue}" class="form-control"
                                    placeholder="VD: 15 (cho 15%) hoặc 50000 (cho 50k)" th:classappend="${#fields.hasErrors('discountValue')} ? 'is-invalid'">
                             <div class="invalid-feedback" th:errors="*{discountValue}"></div>
                         </div>
@@ -72,13 +72,13 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Giá Trị Đơn Tối Thiểu (VNĐ) <span class="text-danger">*</span></label>
-                            <input type="number" step="1000" th:field="*{minOrderAmount}" class="form-control"
+                            <input type="number" step="1" min="0" th:field="*{minOrderAmount}" class="form-control"
                                    placeholder="0 nếu không yêu cầu" th:classappend="${#fields.hasErrors('minOrderAmount')} ? 'is-invalid'">
                             <div class="invalid-feedback" th:errors="*{minOrderAmount}"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Mức Giảm Tối Đa (VNĐ)</label>
-                            <input type="number" step="1000" th:field="*{maxDiscountAmount}" class="form-control"
+                            <input type="number" step="1" min="1" th:field="*{maxDiscountAmount}" class="form-control"
                                    placeholder="Để trống nếu không giới hạn (với %)">
                         </div>
                     </div>
@@ -131,5 +131,8 @@
         </div>
     </div>
 </div>
+<th:block layout:fragment="admin-js">
+    <script th:src="@{/js/voucher-form.js}" defer></script>
+</th:block>
 </body>
 </html>

@@ -172,6 +172,9 @@ public class CartServiceImpl implements CartService {
     }
 
     private String productAvailabilityMessage(ProductVariant variant) {
+        if (!com.petshop.util.VndMoney.isWhole(variant.getPrice())) {
+            return "Giá sản phẩm chưa hợp lệ. Vui lòng liên hệ cửa hàng.";
+        }
         if (variant.getStatus() != ProductVariantStatus.ACTIVE
                 || variant.getProduct().getStatus() != ProductStatus.ACTIVE) {
             return "Sản phẩm hiện đang tạm dừng bán.";

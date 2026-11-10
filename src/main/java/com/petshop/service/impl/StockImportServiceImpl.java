@@ -4,6 +4,7 @@ import com.petshop.entity.ProductVariant;
 import com.petshop.entity.StockImport;
 import com.petshop.entity.StockImportItem;
 import com.petshop.entity.User;
+import com.petshop.exception.ResourceNotFoundException;
 import com.petshop.repository.ProductVariantRepository;
 import com.petshop.repository.StockImportItemRepository;
 import com.petshop.repository.StockImportRepository;
@@ -99,7 +100,7 @@ public class StockImportServiceImpl implements StockImportService {
     @Transactional(readOnly = true)
     public StockImport getStockImportDetail(Long id) {
         return stockImportRepository.findByIdWithDetails(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phiếu nhập kho: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiếu nhập kho."));
     }
 
     @Override
@@ -111,7 +112,7 @@ public class StockImportServiceImpl implements StockImportService {
     @Transactional(readOnly = true)
     public StockImportItem getImportItemById(Long itemId) {
         var item = stockImportItemRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mặt hàng trong phiếu nhập."));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mặt hàng trong phiếu nhập."));
         item.getVariant().getProduct().getName();
         item.getStockImport().getImportCode();
         return item;
@@ -129,7 +130,7 @@ public class StockImportServiceImpl implements StockImportService {
             throw new IllegalArgumentException("Tài khoản không có quyền nhập kho.");
         }
         var item = stockImportItemRepository.findByIdForUpdate(form.getItemId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mặt hàng trong phiếu nhập."));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mặt hàng trong phiếu nhập."));
         entityManager.refresh(item, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (!item.getStockImport().getId().equals(form.getImportId())) {
             throw new IllegalArgumentException("Mặt hàng không thuộc phiếu nhập đã chọn.");

@@ -3,33 +3,50 @@ package com.petshop.config.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Base64;
 import java.util.Date;
 
 /**
- * Bao's signed email-registration tokens. Login remains session-based.
+ * Encrypted email-registration tokens. Login remains session-based.
  */
 @Service
 public class JwtService {
 
     private final SecretKey key;
-    public JwtService(@Value("${app.jwt.secret:}") String secret) {
-        // With no local key, links remain valid only until this application restarts.
-        this.key = secret == null || secret.isBlank() ? Jwts.SIG.HS256.key().build()
-                : Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    public JwtService(@Value("${app.jwt.registration-encryption-key:${REGISTRATION_ENCRYPTION_KEY:}}") String encodedKey) {
+        // A private persistent key keeps links valid across application restarts.
+        if (encodedKey == null || encodedKey.isBlank()) {
+            this.key = Jwts.ENC.A256GCM.key().build();
+        } else {
+            byte[] bytes;
+            try {
+                bytes = Base64.getDecoder().decode(encodedKey.strip());
+            } catch (IllegalArgumentException error) {
+                throw new IllegalArgumentException("app.jwt.registration-encryption-key phải là Base64 của 32 byte.");
+            }
+            if (bytes.length != 32) {
+                throw new IllegalArgumentException("app.jwt.registration-encryption-key phải là Base64 của 32 byte.");
+            }
+            this.key = new SecretKeySpec(bytes, "AES");
+        }
     }
 
-    /** Returns claims if the token is valid, otherwise throws JwtException. */
+    /** Only authenticated encrypted payloads are accepted; legacy signed links are rejected. */
     public Claims parse(String token) throws JwtException {
-        return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+        var encrypted = Jwts.parser().decryptWith(key).build().parseEncryptedClaims(token);
+        if (!"dir".equals(encrypted.getHeader().getAlgorithm())
+                || !"A256GCM".equals(encrypted.getHeader().getEncryptionAlgorithm())) {
+            throw new io.jsonwebtoken.UnsupportedJwtException("Unsupported registration token encryption");
+        }
+        return encrypted.getPayload();
     }
 
-    /** Short-lived signed token carrying pending registration data for email confirmation. */
+    /** Short-lived encrypted pending registration data for email confirmation. */
     public String generateRegistrationToken(String fullName, String email, String phone,
                                             String passwordHash, long ttlMs) {
         Date now = new Date();
@@ -41,7 +58,7 @@ public class JwtService {
                 .claim("pwd", passwordHash)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + ttlMs))
-                .signWith(key)
+                .encryptWith(key, Jwts.ENC.A256GCM)
                 .compact();
     }
 

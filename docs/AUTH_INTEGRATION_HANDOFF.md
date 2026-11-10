@@ -20,7 +20,7 @@ Xóa 146 file trong src/test/main vì đây là bản sao source/resource cũ, k
 
 application-local.yml trên máy đã được đổi sang SMTP Bảo cung cấp. Xác thực SMTP và STARTTLS thành công, không gửi mail thật trong phép thử kết nối. File này chứa bí mật riêng, bị loại khỏi Git và JAR; không gửi kèm source cho nhóm. Thành viên khác tự tạo file từ application-local.yml.example hoặc dùng biến môi trường MAIL_USERNAME/MAIL_PASSWORD (cũng nhận SMTP_USERNAME/SMTP_PASSWORD).
 
-JWT_SECRET hoặc app.jwt.secret trong file local cần là chuỗi ngẫu nhiên ít nhất 32 ký tự để link đăng ký sống qua lần restart. Máy hiện tại đã có khóa riêng. Nếu để trống, ứng dụng dùng khóa tạm trong bộ nhớ; restart làm link đăng ký trước đó mất hiệu lực. Không chia sẻ một khóa mẫu cố định.
+Link đăng ký hiện dùng JWE mã hóa. Cấu hình app.jwt.registration-encryption-key trong file local (hoặc REGISTRATION_ENCRYPTION_KEY) bằng Base64 của 32 byte ngẫu nhiên; xem [hướng dẫn cấu hình](registration-and-vnd.md). Khóa JWT_SECRET/app.jwt.secret cũ không còn dùng cho link đăng ký. Máy hiện tại đã có khóa mã hóa riêng; khóa không đưa lên Git. Nếu để trống, ứng dụng dùng khóa tạm và link đăng ký mất hiệu lực khi restart. Link đăng ký kiểu cũ chưa kích hoạt cần gửi lại; tài khoản đã kích hoạt và token quên mật khẩu không thay đổi.
 
 Không thêm migration/cột/bảng trong lần gộp auth này. GitHub ft/auth gốc còn dùng baseline schema cũ: trước khi chạy bản gộp, nhóm cần dùng database bootstrap đã sửa hoặc áp dụng các migration đã bàn giao trước đây trong database/migrations theo README. Không chạy script tạo lại database lên dữ liệu cần giữ. Những migration này thuộc các sửa lỗi trước lần gộp hiện tại.
 

@@ -8,7 +8,8 @@ public final class PageRequests {
 
     public static PageRequest bounded(int page, int size) {
         int safeSize = Math.max(1, Math.min(100, size));
-        int safePage = Math.min(Math.max(0, page), Integer.MAX_VALUE / safeSize);
+        // Also leave room for the one-based page number rendered by the templates.
+        int safePage = Math.min(Math.max(0, page), (Integer.MAX_VALUE - 1) / safeSize);
         return PageRequest.of(safePage, safeSize);
     }
 }
