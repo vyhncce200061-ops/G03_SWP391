@@ -1,13 +1,11 @@
 <!DOCTYPE html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main-layout}">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Đang chờ xác nhận thanh toán</title>
-    <link rel="stylesheet" th:href="@{/css/vendor/bootstrap.min.css}">
 </head>
 <body>
-<main class="container py-5">
+<div layout:fragment="content" class="container py-5">
     <div class="card mx-auto" style="max-width: 620px;">
         <div class="card-body p-4">
             <h1 class="h4">Đang chờ xác nhận thanh toán</h1>
@@ -33,6 +31,6 @@
             </a>
         </div>
     </div>
-</main>
+</div>
 </body>
 </html>

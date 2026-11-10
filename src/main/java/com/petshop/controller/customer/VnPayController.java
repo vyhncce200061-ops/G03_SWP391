@@ -33,22 +33,6 @@ public class VnPayController {
         }
     }
 
-//    @GetMapping("/payment/vnpay-return")
-//    public String paymentReturn(HttpServletRequest request,
-//                                @AuthenticationPrincipal CustomUserDetails principal,
-//                                RedirectAttributes attributes) {
-//        // /payment/** is public for VNPay's IPN; the browser page still requires an owner.
-//        if (principal == null) return "redirect:/login";
-//        Optional<Long> orderId = vnPayService.findOwnedOrderIdForReturn(request.getParameterMap(), principal.getId());
-//        if (orderId.isEmpty()) {
-//            attributes.addFlashAttribute("errorMessage", "Không thể xác minh kết quả thanh toán.");
-//            return "redirect:/customer/orders";
-//        }
-//        attributes.addFlashAttribute("successMessage",
-//                "Đã nhận kết quả từ VNPay. Trạng thái chính thức của đơn được cập nhật sau khi hệ thống nhận IPN hợp lệ.");
-//        return "redirect:/customer/orders/" + orderId.get();
-//    }
-
     @GetMapping("/payment/vnpay-return")
     public DeferredResult<ModelAndView> paymentReturn(
             HttpServletRequest request,
