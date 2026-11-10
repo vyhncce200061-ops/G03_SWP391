@@ -14,4 +14,5 @@ public class VnPayProperties {
     private String tmnCode = "";
     private String hashSecret = "";
     private String returnUrl = "";
+    private boolean sandboxReturnConfirmationEnabled = false;
 }
