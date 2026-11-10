@@ -123,46 +123,27 @@
                                 Chọn voucher trong ví
                             </label>
 
-                            <select id="wallet-voucher"
-                                    class="form-select mb-2"
-                                    aria-describedby="voucher-help">
+                            <select id="wallet-voucher" class="form-select mb-2" aria-describedby="voucher-help">
                                 <option value="">Không chọn / nhập mã bên dưới</option>
 
                                 <option th:each="item : ${walletVouchers}"
                                         th:with="enoughAmount=${quote.subtotal.compareTo(item.voucher.minOrderAmount) >= 0}"
                                         th:value="${item.voucher.code}"
                                         th:disabled="${!item.available or !enoughAmount}"
-                                        th:text="${item.voucher.code + ' — ' + item.voucher.title
-                    + (!item.available
-                        ? ' (' + item.availabilityLabel + ')'
-                        : (!enoughAmount
-                            ? ' (Chưa đạt giá trị đơn tối thiểu)'
-                            : ''))}">
+                                        th:text="${item.voucher.code + ' - ' + item.voucher.title
+                                        + (!item.available ? ' (' + item.availabilityLabel + ')' : (!enoughAmount ? ' (Chưa đạt giá trị đơn tối thiểu)' : ''))}">
                                 </option>
                             </select>
 
-                            <p th:if="${#lists.isEmpty(walletVouchers)}"
-                               class="small text-muted mb-2">
-                                Ví của bạn chưa có voucher. Bạn vẫn có thể nhập mã bên dưới.
+                            <p th:if="${#lists.isEmpty(walletVouchers)}" class="small text-muted mb-2">
+                                Chưa có voucher được lưu. Có thể nhập mã bên dưới.
                             </p>
 
-                            <label for="voucherCode" class="form-label small">
-                                Mã giảm giá
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   th:field="*{voucherCode}"
-                                   maxlength="50"
-                                   autocomplete="off"
-                                   placeholder="Chọn từ ví hoặc nhập mã"
-                                   aria-describedby="voucher-help">
-
-                            <div id="voucher-help" class="form-text">
-                                Mỗi đơn dùng một mã. Bạn có thể nhập mã hợp lệ chưa lưu vào ví.
-                            </div>
+                            <label for="voucherCode" class="form-label small">Mã giảm giá</label>
+                            <input id="voucherCode" type="text" class="form-control" th:field="*{voucherCode}" maxlength="50"
+                                   autocomplete="off" placeholder="Nhập mã voucher" aria-describedby="voucher-help">
+                            <div id="voucher-help" class="form-text">Mỗi đơn chỉ được dùng một mã.</div>
                         </div>
-
 
 
                         <div class="d-flex justify-content-between mb-2">
