@@ -42,6 +42,7 @@ class VnPayControllerTests {
         assertThat(controller.paymentReturn(request, principal,
                 new RedirectAttributesModelMap())).isSameAs(expected);
         verify(service, never()).processIpn(anyMap());
+        verify(service).confirmSandboxReturn(anyMap(), eq(7L));
         verify(waitService).waitForResult(10L, 7L, "TXN-TEST-1");
     }
 
@@ -61,5 +62,17 @@ class VnPayControllerTests {
         when(service.processIpn(anyMap())).thenThrow(new IllegalStateException("database unavailable"));
         assertThat(controller.ipn(new MockHttpServletRequest())).isEqualTo(
                 Map.of("RspCode", "99", "Message", "Unable to process callback"));
+    }
+
+    @Test
+    void sandboxConfirmationFailureStillWaitsForVerifiedIpnAfterRollback() {
+        CustomUserDetails principal = new CustomUserDetails(User.builder().id(7L).status("ACTIVE").build());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("vnp_TxnRef", "TXN-TEST-1");
+        when(service.findOwnedOrderIdForReturn(anyMap(), eq(7L))).thenReturn(Optional.of(10L));
+        doThrow(new IllegalStateException("transaction rolled back")).when(service).confirmSandboxReturn(anyMap(), eq(7L));
+        DeferredResult<ModelAndView> result = new DeferredResult<>();
+        when(waitService.waitForResult(10L, 7L, "TXN-TEST-1")).thenReturn(result);
+        assertThat(controller.paymentReturn(request, principal, new RedirectAttributesModelMap())).isSameAs(result);
     }
 }

@@ -24,3 +24,7 @@ petshop:
 app:
   jwt:
     secret: ""
+
+# Bat rieng cho demo Sandbox localhost de xac nhan ket qua Return da ky.
+vnpay:
+  sandbox-return-confirmation-enabled: ${VNPAY_SANDBOX_RETURN_CONFIRMATION_ENABLED:false}

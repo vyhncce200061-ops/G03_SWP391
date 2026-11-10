@@ -5,6 +5,7 @@ import com.petshop.service.VnPayService;
 import com.petshop.service.VNPayReturnWaitService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +19,7 @@ import java.util.Optional;
 
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class VnPayController {
     private final VnPayService vnPayService;
     private final VNPayReturnWaitService vnPayReturnWaitService;
@@ -60,6 +62,11 @@ public class VnPayController {
         // đã qua bước xác minh chữ ký và quyền sở hữu bên trên.
         String transactionCode = request.getParameter("vnp_TxnRef");
 
+        try {
+            vnPayService.confirmSandboxReturn(request.getParameterMap(), principal.getId());
+        } catch (RuntimeException ex) {
+            log.warn("Unable to confirm Sandbox Return for order {}", orderId.get(), ex);
+        }
         return vnPayReturnWaitService.waitForResult(
                 orderId.get(),
                 principal.getId(),

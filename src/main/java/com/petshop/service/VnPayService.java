@@ -26,7 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/** VNPay 2.1 Sandbox integration. Only a verified server IPN mutates payment state. */
+/** VNPay Sandbox with verified IPN and optional local-demo Return confirmation. */
 @Service
 @RequiredArgsConstructor
 public class VnPayService {
@@ -117,31 +117,29 @@ public class VnPayService {
         if (verified.isEmpty()) return response("97", "Invalid Checksum");
         Map<String, String> fields = verified.get();
         if (!validCallbackFields(fields)) return response("99", "Invalid request");
+        return applyVerifiedResult(fields, null, "VNPay IPN");
+    }
+
+    @Transactional
+    public void confirmSandboxReturn(Map<String, String[]> requestParameters, Long customerId) {
+        if (!properties.isSandboxReturnConfirmationEnabled() || customerId == null) return;
+        Optional<Map<String, String>> verified = verifiedFields(requestParameters);
+        if (verified.isEmpty() || !validCallbackFields(verified.get())) return;
+        Map<String, String> fields = verified.get();
+        if (!"00".equals(fields.get("vnp_ResponseCode")) || !"00".equals(fields.get("vnp_TransactionStatus"))) return;
+        applyVerifiedResult(fields, customerId, "VNPay Sandbox Return");
+    }
+
+    private Map<String, String> applyVerifiedResult(Map<String, String> fields, Long customerId, String source) {
         Optional<Long> orderId = transactionRepository.findOrderIdByTransactionCode(fields.get("vnp_TxnRef"));
         if (orderId.isEmpty()) return response("01", "Order not found");
 
         // Every cancellation, staff change and IPN locks the same order before reading transactions.
         Order order = orderRepository.findByIdForUpdate(orderId.get()).orElse(null);
         if (order == null) return response("01", "Order not found");
+        if (customerId != null && !customerId.equals(order.getCustomer().getId())) return response("01", "Order not found");
         PaymentTransaction transaction = transactionRepository.findByTransactionCode(fields.get("vnp_TxnRef")).orElse(null);
         if (!matchesTransaction(transaction, order, fields)) return response("04", "Invalid Amount");
-
-        if (transaction.getTransactionStatus() != TransactionStatus.PENDING
-                || order.getOrderStatus() != OrderStatus.PENDING_PAYMENT
-                || order.getPaymentStatus() != PaymentStatus.UNPAID) {
-            // A replay/late success never reopens an order or reserves its stock again.
-            recordLateSuccess(transaction, fields);
-            return response("02", "Order already confirmed");
-        }
-
-        if (transaction.getExpiresAt() == null || !transaction.getExpiresAt().isAfter(LocalDateTime.now())) {
-            orderService.cancelPendingPaymentOrder(order.getId(), CancelType.PAYMENT_EXPIRED,
-                    "Hết thời gian thanh toán VNPay");
-            recordCallback(transaction, fields);
-            recordLateSuccess(transaction, fields);
-            transactionRepository.save(transaction);
-            return response("02", "Order already confirmed");
-        }
 
         boolean success = "00".equals(fields.get("vnp_ResponseCode"))
                 && "00".equals(fields.get("vnp_TransactionStatus"));
@@ -151,6 +149,23 @@ public class VnPayService {
         }
         if (success && transactionRepository.existsByProviderTransactionIdAndIdNot(providerId, transaction.getId())) {
             return response("99", "Invalid transaction");
+        }
+
+        if (transaction.getTransactionStatus() != TransactionStatus.PENDING
+                || order.getOrderStatus() != OrderStatus.PENDING_PAYMENT
+                || order.getPaymentStatus() != PaymentStatus.UNPAID) {
+            // A replay/late success never reopens an order or reserves its stock again.
+            recordLateSuccess(transaction, fields, source);
+            return response("02", "Order already confirmed");
+        }
+
+        if (transaction.getExpiresAt() == null || !transaction.getExpiresAt().isAfter(LocalDateTime.now())) {
+            orderService.cancelPendingPaymentOrder(order.getId(), CancelType.PAYMENT_EXPIRED,
+                    "Hết thời gian thanh toán VNPay");
+            recordCallback(transaction, fields);
+            recordLateSuccess(transaction, fields, source);
+            transactionRepository.save(transaction);
+            return response("02", "Order already confirmed");
         }
 
         if (success) {
@@ -163,8 +178,8 @@ public class VnPayService {
             orderRepository.save(order);
             historyRepository.save(OrderStatusHistory.builder().order(order)
                     .oldStatus(OrderStatus.PENDING_PAYMENT).newStatus(order.getOrderStatus())
-                    .reason(stockAllocated ? "VNPay IPN xác nhận thanh toán thành công"
-                            : "VNPay đã thanh toán; chưa đủ tồn kho, cần nhân viên bổ sung hàng và xác nhận đơn.").build());
+                    .reason(stockAllocated ? source + " xác nhận thanh toán thành công"
+                            : source + " đã thanh toán; chưa đủ tồn kho, cần nhân viên bổ sung hàng và xác nhận đơn.").build());
         } else {
             boolean cancelledAtGateway = "24".equals(fields.get("vnp_ResponseCode"));
             orderService.cancelPendingPaymentOrder(order.getId(), cancelledAtGateway
@@ -180,7 +195,7 @@ public class VnPayService {
         return response("00", "Confirm Success");
     }
 
-    /** Browser Return is informational and read-only, even when its signature is valid. */
+    /** Resolves a verified Return for its owner without changing payment state. */
     @Transactional(readOnly = true)
     public Optional<Long> findOwnedOrderIdForReturn(Map<String, String[]> requestParameters, Long customerId) {
         if (customerId == null) return Optional.empty();
@@ -251,8 +266,8 @@ public class VnPayService {
         transaction.setCallbackReceivedAt(LocalDateTime.now());
     }
 
-    private void recordLateSuccess(PaymentTransaction transaction, Map<String, String> fields) {
-        String reconciliationReason = "IPN VNPay thành công đến sau khi đơn đã đóng; cần đối soát với VNPay.";
+    private void recordLateSuccess(PaymentTransaction transaction, Map<String, String> fields, String source) {
+        String reconciliationReason = source + " thành công đến sau khi đơn đã đóng; cần đối soát với VNPay.";
         if (transaction.getTransactionStatus() != TransactionStatus.SUCCESS
                 && "00".equals(fields.get("vnp_ResponseCode")) && "00".equals(fields.get("vnp_TransactionStatus"))
                 && !reconciliationReason.equals(transaction.getFailureReason())) {

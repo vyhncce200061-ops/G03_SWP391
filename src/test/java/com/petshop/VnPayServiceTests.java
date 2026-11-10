@@ -9,6 +9,8 @@ import com.petshop.service.VnPayService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -342,6 +344,252 @@ class VnPayServiceTests {
         assertThat(service.findOwnedOrderIdForReturn(query, 7L)).isEmpty();
         assertThat(service.findOwnedOrderIdForReturn(vector(), null)).isEmpty();
         verifyNoInteractions(transactions, orders, histories, orderService);
+    }
+
+    @Test
+    void sandboxReturnConfirmationIsDisabledByDefaultAndDoesNotInspectTransactions() {
+        assertThat(properties.isSandboxReturnConfirmationEnabled()).isFalse();
+        service.confirmSandboxReturn(vector(), 7L);
+        assertPending();
+        verifyNoInteractions(transactions, orders, histories, orderService);
+    }
+
+    @Test
+    void enabledSandboxReturnStillRequiresAuthenticationAndUntamperedSingleValuedFields() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        service.confirmSandboxReturn(vector(), null);
+        var tampered = vector();
+        tampered.put("vnp_Amount", new String[]{"1"});
+        service.confirmSandboxReturn(tampered, 7L);
+        var duplicate = vector();
+        duplicate.put("vnp_TxnRef", new String[]{"TXN-TEST-1", "OTHER-ORDER"});
+        service.confirmSandboxReturn(duplicate, 7L);
+        var unsigned = vector();
+        unsigned.remove("vnp_SecureHash");
+        service.confirmSandboxReturn(unsigned, 7L);
+        assertPending();
+        verifyNoInteractions(transactions, orders, histories, orderService);
+    }
+
+    @Test
+    void enabledSandboxReturnRejectsEvenSignedWrongTerminalBeforeDatabaseAccess() throws Exception {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        var query = vector();
+        query.put("vnp_TmnCode", new String[]{"OTHER-MERCHANT"});
+        service.confirmSandboxReturn(signed(query), 7L);
+        assertPending();
+        verifyNoInteractions(transactions, orders, histories, orderService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"00/02", "24/02", "51/00"})
+    void sandboxReturnRequiresBothSuccessCodesAndLeavesOtherResultsForIpn(String codes) throws Exception {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        var query = vector();
+        query.put("vnp_ResponseCode", new String[]{codes.split("/")[0]});
+        query.put("vnp_TransactionStatus", new String[]{codes.split("/")[1]});
+        service.confirmSandboxReturn(signed(query), 7L);
+        assertPending();
+        verifyNoInteractions(transactions, orders, histories, orderService);
+    }
+
+    @Test
+    void sandboxReturnRechecksOwnerUnderTheOrderLockBeforeReadingOrChangingTransaction() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        when(transactions.findOrderIdByTransactionCode("TXN-TEST-1")).thenReturn(Optional.of(10L));
+        when(orders.findByIdForUpdate(10L)).thenReturn(Optional.of(order));
+        service.confirmSandboxReturn(vector(), 8L);
+        assertPending();
+        var locked = inOrder(transactions, orders);
+        locked.verify(transactions).findOrderIdByTransactionCode("TXN-TEST-1");
+        locked.verify(orders).findByIdForUpdate(10L);
+        verify(transactions, never()).findByTransactionCode(anyString());
+        verify(transactions, never()).save(any());
+        verify(orders, never()).save(any());
+        verifyNoInteractions(histories, orderService);
+    }
+
+    @Test
+    void sandboxReturnWithUnknownReferenceDoesNotCreateOrExposeAnOrder() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        service.confirmSandboxReturn(vector(), 7L);
+        assertPending();
+        verifyNoInteractions(orders, histories, orderService);
+        verify(transactions, never()).save(any());
+    }
+
+    @Test
+    void signedSandboxReturnWithWrongAmountDoesNotConfirmPayment() throws Exception {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        var query = vector();
+        query.put("vnp_Amount", new String[]{"100"});
+        service.confirmSandboxReturn(signed(query), 7L);
+        assertPending();
+        verify(transactions, never()).save(any());
+        verify(orders, never()).save(any());
+        verifyNoInteractions(histories, orderService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"internal", "codOrder", "codTransaction", "reference", "customer", "transactionAmount"})
+    void sandboxReturnOnlyAcceptsItsMatchingSandboxVnpayTransaction(String mismatch) {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        switch (mismatch) {
+            case "internal" -> transaction.setPaymentEnvironment(PaymentEnvironment.INTERNAL);
+            case "codOrder" -> order.setPaymentMethod(PaymentMethod.COD);
+            case "codTransaction" -> transaction.setPaymentMethod(PaymentMethod.COD);
+            case "reference" -> transaction.setProviderOrderReference("DIFFERENT-REFERENCE");
+            case "customer" -> transaction.setCustomer(User.builder().id(8L).build());
+            case "transactionAmount" -> transaction.setAmount(new BigDecimal("1"));
+            default -> throw new AssertionError("Unknown mismatch");
+        }
+        service.confirmSandboxReturn(vector(), 7L);
+        assertPending();
+        verify(transactions, never()).save(any());
+        verify(orders, never()).save(any());
+        verifyNoInteractions(histories, orderService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "0000", "not-numeric"})
+    void sandboxReturnRejectsInvalidProviderTransactionNumbersBeforePaymentMutation(String providerId) throws Exception {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        var query = vector();
+        query.put("vnp_TransactionNo", new String[]{providerId});
+        service.confirmSandboxReturn(signed(query), 7L);
+        assertPending();
+        verify(transactions, never()).save(any());
+        verify(orders, never()).save(any());
+        verifyNoInteractions(histories, orderService);
+    }
+
+    @Test
+    void sandboxReturnCannotReuseAnExistingProviderTransactionNumber() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        when(transactions.existsByProviderTransactionIdAndIdNot("123456", 20L)).thenReturn(true);
+        service.confirmSandboxReturn(vector(), 7L);
+        assertPending();
+        verify(transactions, never()).save(any());
+        verify(orders, never()).save(any());
+        verifyNoInteractions(histories, orderService);
+    }
+
+    @Test
+    void sandboxReturnThenRepeatedIpnConfirmsOnlyOnceWithAnAccurateSource() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        when(orderService.deductPaidVnpayStock(10L)).thenReturn(true);
+        service.confirmSandboxReturn(vector(), 7L);
+        assertThat(service.processIpn(vector())).containsEntry("RspCode", "02");
+        service.confirmSandboxReturn(vector(), 7L);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(transaction.getTransactionStatus()).isEqualTo(TransactionStatus.SUCCESS);
+        assertThat(transaction.getSignatureVerified()).isTrue();
+        assertThat(transaction.getProviderTransactionId()).isEqualTo("123456");
+        assertThat(transaction.getPaidAt()).isNotNull();
+        verify(histories).save(argThat(history -> history.getReason().startsWith("VNPay Sandbox Return")
+                && history.getNewStatus() == OrderStatus.CONFIRMED));
+        verify(transactions).save(transaction);
+        verify(orderService).deductPaidVnpayStock(10L);
+    }
+
+    @Test
+    void ipnThenSandboxReturnDoesNotApplyPaymentOrInventoryTwice() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        when(orderService.deductPaidVnpayStock(10L)).thenReturn(true);
+        assertThat(service.processIpn(vector())).containsEntry("RspCode", "00");
+        service.confirmSandboxReturn(vector(), 7L);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(transaction.getTransactionStatus()).isEqualTo(TransactionStatus.SUCCESS);
+        verify(histories).save(argThat(history -> history.getReason().startsWith("VNPay IPN")));
+        verify(transactions).save(transaction);
+        verify(orderService).deductPaidVnpayStock(10L);
+    }
+
+    @Test
+    void paidSandboxReturnWithoutEnoughStockKeepsPaymentAndWaitsForStaff() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        when(orderService.deductPaidVnpayStock(10L)).thenReturn(false);
+        service.confirmSandboxReturn(vector(), 7L);
+        service.confirmSandboxReturn(vector(), 7L);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING_CONFIRMATION);
+        assertThat(transaction.getTransactionStatus()).isEqualTo(TransactionStatus.SUCCESS);
+        verify(orderService).deductPaidVnpayStock(10L);
+        verify(histories).save(argThat(history -> history.getReason().startsWith("VNPay Sandbox Return")
+                && history.getNewStatus() == OrderStatus.PENDING_CONFIRMATION));
+    }
+
+    @Test
+    void sandboxReturnForCancelledOrderRecordsReconciliationAndNeverReopensIt() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        order.setOrderStatus(OrderStatus.CANCELLED);
+        order.setPaymentStatus(PaymentStatus.CANCELLED);
+        transaction.setTransactionStatus(TransactionStatus.CANCELLED);
+        service.confirmSandboxReturn(vector(), 7L);
+        service.confirmSandboxReturn(vector(), 7L);
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
+        assertThat(transaction.getTransactionStatus()).isEqualTo(TransactionStatus.CANCELLED);
+        assertThat(transaction.getFailureReason()).startsWith("VNPay Sandbox Return").contains("đối soát");
+        verify(transactions).save(transaction);
+        verify(orders, never()).save(any());
+        verifyNoInteractions(histories, orderService);
+    }
+
+    @Test
+    void expiredSandboxReturnUsesSharedCancellationWithoutAllocatingStock() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        transaction.setExpiresAt(LocalDateTime.now().minusSeconds(1));
+        doAnswer(invocation -> {
+            order.setOrderStatus(OrderStatus.CANCELLED);
+            order.setPaymentStatus(PaymentStatus.CANCELLED);
+            transaction.setTransactionStatus(TransactionStatus.EXPIRED);
+            return null;
+        }).when(orderService).cancelPendingPaymentOrder(eq(10L), eq(CancelType.PAYMENT_EXPIRED), anyString());
+        service.confirmSandboxReturn(vector(), 7L);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(transaction.getTransactionStatus()).isEqualTo(TransactionStatus.EXPIRED);
+        assertThat(transaction.getFailureReason()).contains("đối soát");
+        verify(orderService).cancelPendingPaymentOrder(eq(10L), eq(CancelType.PAYMENT_EXPIRED), anyString());
+        verify(orderService, never()).deductPaidVnpayStock(anyLong());
+        verifyNoInteractions(histories);
+        verify(orders, never()).save(any());
+    }
+
+    @Test
+    void ownerLookupStaysReadOnlyEvenWhenSandboxReturnConfirmationIsEnabled() {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        when(transactions.findByTransactionCode("TXN-TEST-1")).thenReturn(Optional.of(transaction));
+        assertThat(service.findOwnedOrderIdForReturn(vector(), 7L)).contains(10L);
+        assertPending();
+        verify(transactions, never()).save(any());
+        verifyNoInteractions(orders, histories, orderService);
+    }
+
+    @Test
+    void closedSandboxOrderRejectsZeroProviderIdBeforeRecordingLateSuccess() throws Exception {
+        properties.setSandboxReturnConfirmationEnabled(true);
+        mockCallbackLookup();
+        order.setOrderStatus(OrderStatus.CANCELLED);
+        transaction.setTransactionStatus(TransactionStatus.CANCELLED);
+        var callback = vector();
+        callback.put("vnp_TransactionNo", new String[]{"0"});
+        service.confirmSandboxReturn(signed(callback), 7L);
+        verify(transactions, never()).save(any());
+        assertThat(transaction.getFailureReason()).isNull();
+        assertThat(transaction.getCallbackReceivedAt()).isNull();
+        verifyNoInteractions(orderService, histories);
     }
 
     private void assertPending() {
