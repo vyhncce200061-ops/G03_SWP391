@@ -14,6 +14,10 @@ import java.util.List;
 @Repository
 public interface BrandRepository extends JpaRepository<Brand, Integer> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM Brand b WHERE b.id = :id")
+    java.util.Optional<Brand> findByIdForUpdate(@Param("id") Integer id);
+
     boolean existsByNameIgnoreCase(String name);
 
     boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);

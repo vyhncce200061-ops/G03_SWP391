@@ -277,10 +277,11 @@ class CatalogHierarchyTests {
         assertThat(result.getResponse().getContentAsString()).contains(root.getName() + " / " + child.getName() + " (ngừng hiển thị)");
     }
 
-    @Test void brandFormLivesInOneModalAndDoesNotContainLogoControls() throws Exception {
+    @Test void brandLogoUploadLivesInTheSharedModalWithoutTrustingSubmittedUrls() throws Exception {
         String html = adminGet("/admin/brands").getResponse().getContentAsString();
         assertThat(html).contains("id=\"brandModal\"", "data-brand-action=\"/admin/brands/create\"", "/js/admin-brand.js")
-                .doesNotContain("logoUrl", "Đường dẫn logo", "Chưa có logo");
+                .contains("name=\"logoFile\"", "enctype=\"multipart/form-data\"", "id=\"brandLogoPreview\"")
+                .doesNotContain("name=\"logoUrl\"", "Đường dẫn logo");
         assertThat(html.split("id=\"brandForm\"", -1)).hasSize(2);
         assertThat(html.indexOf("id=\"brandForm\"")).isGreaterThan(html.indexOf("id=\"brandModal\""));
     }

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.web.multipart.MultipartFile;
 
 @Getter
 @Setter
@@ -14,4 +15,7 @@ public class BrandFormDto {
 
     @Size(max = 1000, message = "Mô tả tối đa 1000 ký tự.")
     private String description;
+
+    private MultipartFile logoFile;
+    private boolean removeLogo;
 }

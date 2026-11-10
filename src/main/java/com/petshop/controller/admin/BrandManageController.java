@@ -1,9 +1,8 @@
 package com.petshop.controller.admin;
 
 import com.petshop.dto.catalog.BrandFormDto;
-import com.petshop.entity.Brand;
 import com.petshop.repository.BrandRepository;
-import com.petshop.repository.ProductRepository;
+import com.petshop.service.BrandManageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
@@ -20,11 +19,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequiredArgsConstructor
 public class BrandManageController {
     private final BrandRepository brandRepository;
-    private final ProductRepository productRepository;
+    private final BrandManageService brandService;
 
     @InitBinder("brandForm")
     public void bindForm(WebDataBinder binder) {
-        binder.setAllowedFields("name", "description");
+        binder.setAllowedFields("name", "description", "logoFile", "removeLogo");
         binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
     }
 
@@ -41,15 +40,13 @@ public class BrandManageController {
             errors.rejectValue("name", "brand.duplicate", "Tên thương hiệu đã tồn tại.");
         }
         if (errors.hasErrors()) return view(model, null, true);
-        Brand brand = Brand.builder().name(form.getName()).description(form.getDescription()).isActive(true).build();
-        return save(brand, errors, model, redirect, null);
+        return save(form, errors, model, redirect, null);
     }
 
     @PostMapping("/update/{id}")
     public String updateBrand(@PathVariable Integer id, @Valid @ModelAttribute("brandForm") BrandFormDto form,
                               BindingResult errors, Model model, RedirectAttributes redirect) {
-        Brand brand = brandRepository.findById(id).orElse(null);
-        if (brand == null) {
+        if (!brandRepository.existsById(id)) {
             redirect.addFlashAttribute("errorMessage", "Thương hiệu không tồn tại.");
             return "redirect:/admin/brands";
         }
@@ -57,17 +54,20 @@ public class BrandManageController {
             errors.rejectValue("name", "brand.duplicate", "Tên thương hiệu đã tồn tại.");
         }
         if (errors.hasErrors()) return view(model, id, true);
-        brand.setName(form.getName());
-        brand.setDescription(form.getDescription());
-        // Logo is no longer edited here; preserve any legacy value and the current status.
-        return save(brand, errors, model, redirect, id);
+        return save(form, errors, model, redirect, id);
     }
 
-    private String save(Brand brand, BindingResult errors, Model model, RedirectAttributes redirect, Integer id) {
+    private String save(BrandFormDto form, BindingResult errors, Model model, RedirectAttributes redirect, Integer id) {
         try {
-            brandRepository.saveAndFlush(brand);
+            brandService.save(id, form, form.getLogoFile(), form.isRemoveLogo());
         } catch (DataIntegrityViolationException ex) {
             errors.rejectValue("name", "brand.conflict", "Không thể lưu thương hiệu. Vui lòng kiểm tra tên trùng và thử lại.");
+            return view(model, id, true);
+        } catch (IllegalArgumentException ex) {
+            errors.rejectValue(ex.getMessage().startsWith("Logo") ? "logoFile" : "name", "brand.invalid", ex.getMessage());
+            return view(model, id, true);
+        } catch (IllegalStateException ex) {
+            model.addAttribute("errorMessage", "Không thể lưu logo thương hiệu. Vui lòng thử lại.");
             return view(model, id, true);
         }
         redirect.addFlashAttribute("successMessage", id == null ? "Thêm thương hiệu thành công." : "Cập nhật thương hiệu thành công.");
@@ -78,38 +78,36 @@ public class BrandManageController {
         model.addAttribute("brands", brandRepository.findAllByOrderByNameAsc());
         model.addAttribute("editingBrandId", id);
         model.addAttribute("brandModalOpen", open);
+        model.addAttribute("currentLogoUrl", id == null ? null : brandRepository.findById(id).map(b -> b.getLogoUrl()).orElse(null));
         return "admin/brand-list";
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public String oversizedLogo(RedirectAttributes redirect) {
+        redirect.addFlashAttribute("errorMessage", "Logo vượt dung lượng tải lên. Vui lòng chọn ảnh tối đa 2 MB.");
+        return "redirect:/admin/brands";
     }
 
     @PostMapping("/toggle-status/{id}")
     public String toggleBrandStatus(@PathVariable Integer id, RedirectAttributes redirect) {
-        Brand brand = brandRepository.findById(id).orElse(null);
-        if (brand == null) {
-            redirect.addFlashAttribute("errorMessage", "Thương hiệu không tồn tại.");
-        } else {
-            brand.setIsActive(!Boolean.TRUE.equals(brand.getIsActive()));
-            brandRepository.save(brand);
+        try {
+            brandService.toggleStatus(id);
             redirect.addFlashAttribute("successMessage", "Cập nhật trạng thái thương hiệu thành công.");
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
         }
         return "redirect:/admin/brands";
     }
 
     @PostMapping("/delete/{id}")
     public String deleteBrand(@PathVariable Integer id, RedirectAttributes redirect) {
-        Brand brand = brandRepository.findById(id).orElse(null);
-        if (brand == null) {
-            redirect.addFlashAttribute("errorMessage", "Thương hiệu không tồn tại.");
-            return "redirect:/admin/brands";
-        }
-        if (productRepository.existsByBrand_Id(id)) {
-            redirect.addFlashAttribute("errorMessage", "Thương hiệu đang có sản phẩm sử dụng. Bạn có thể ngừng hoạt động thay vì xóa.");
-            return "redirect:/admin/brands";
-        }
         try {
-            brandRepository.delete(brand);
+            brandService.delete(id);
             redirect.addFlashAttribute("successMessage", "Xóa thương hiệu thành công.");
         } catch (DataIntegrityViolationException ex) {
             redirect.addFlashAttribute("errorMessage", "Không thể xóa thương hiệu đang được dữ liệu khác sử dụng.");
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
         }
         return "redirect:/admin/brands";
     }
