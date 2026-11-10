@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Đang chờ xác nhận thanh toán</title>
+    <link rel="stylesheet" th:href="@{/css/vendor/bootstrap.min.css}">
+</head>
+<body>
+<main class="container py-5">
+    <div class="card mx-auto" style="max-width: 620px;">
+        <div class="card-body p-4">
+            <h1 class="h4">Đang chờ xác nhận thanh toán</h1>
+
+            <p>
+                Hệ thống chưa nhận được kết quả thanh toán chính thức.
+                Vui lòng không thanh toán lại đơn hàng này.
+            </p>
+
+            <p class="text-muted">
+                Nếu bạn đã thanh toán, kết quả sẽ được cập nhật khi
+                hệ thống nhận được xác nhận từ VNPay.
+            </p>
+
+            <a class="btn btn-primary"
+               th:href="@{/customer/orders/{id}(id=${orderId})}">
+                Xem đơn hàng
+            </a>
+
+            <a class="btn btn-outline-secondary"
+               th:href="@{/customer/orders}">
+                Đơn hàng của tôi
+            </a>
+        </div>
+    </div>
+</main>
+</body>
+</html>

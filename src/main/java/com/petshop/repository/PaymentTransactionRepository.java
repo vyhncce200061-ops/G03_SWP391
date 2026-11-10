@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import com.petshop.entity.enums.TransactionStatus;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,4 +48,22 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
            "JOIN FETCH pt.order o " +
            "WHERE pt.transactionStatus = com.petshop.entity.enums.TransactionStatus.PENDING AND pt.expiresAt < :now")
     List<PaymentTransaction> findExpiredPendingTransactions(@Param("now") LocalDateTime now);
+
+    @Transactional(
+            readOnly = true,
+            propagation = Propagation.REQUIRES_NEW,
+            timeout = 2
+    )
+    @Query("""
+        SELECT p.transactionStatus
+        FROM PaymentTransaction p
+        WHERE p.transactionCode = :transactionCode
+          AND p.order.id = :orderId
+          AND p.order.customer.id = :customerId
+        """)
+    Optional<TransactionStatus> findStatusForReturn(
+            @Param("transactionCode") String transactionCode,
+            @Param("orderId") Long orderId,
+            @Param("customerId") Long customerId
+    );
 }
