@@ -47,8 +47,7 @@ public class AccountProfileController {
             RedirectAttributes redirect) {
         if (errors.hasErrors()) return profile(principal, model);
         try {
-            users.updateProfile(principal.getId(), form);
-            if (avatarFile != null && !avatarFile.isEmpty()) users.updateAvatar(principal.getId(), avatarFile);
+            users.updateProfile(principal.getId(), form, avatarFile);
             var auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.getPrincipal() instanceof CustomUserDetails) {
                 User updated = users.findById(principal.getId());
@@ -59,7 +58,7 @@ public class AccountProfileController {
                 SecurityContextHolder.getContext().setAuthentication(newAuth);
             }
             redirect.addFlashAttribute("successMessage", "Đã cập nhật hồ sơ.");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             redirect.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/account/profile";

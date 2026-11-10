@@ -81,6 +81,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    public void updateProfile(Long userId, ProfileUpdateRequestDto request, org.springframework.web.multipart.MultipartFile avatar) {
+        updateProfile(userId, request);
+        if (avatar != null && !avatar.isEmpty()) updateAvatar(userId, avatar);
+    }
+
+    @Override
+    @Transactional
     public void updateAvatar(Long userId, org.springframework.web.multipart.MultipartFile file) {
         if (file == null || file.isEmpty() || file.getSize() > 5L * 1024 * 1024) {
             throw new IllegalArgumentException("Chọn ảnh đại diện tối đa 5 MB.");
@@ -98,6 +105,16 @@ public class UserServiceImpl implements UserService {
             // Re-encode the image; never trust a client-supplied filename or extension.
             String name = "avatar_" + userId + "_" + java.util.UUID.randomUUID() + ".png";
             var target = directory.resolve(name);
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int status) {
+                            if (status != STATUS_COMMITTED) {
+                                try { java.nio.file.Files.deleteIfExists(target); }
+                                catch (java.io.IOException error) { log.warn("Could not remove uncommitted avatar {}", target, error); }
+                            }
+                        }
+                    });
             if (!javax.imageio.ImageIO.write(image, "png", target.toFile())) {
                 throw new IllegalStateException("Không thể lưu ảnh đại diện.");
             }

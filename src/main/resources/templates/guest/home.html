@@ -54,6 +54,23 @@
         </div>
     </section>
 
+    <section id="homeBrands" class="py-5 bg-white border-bottom"
+             th:if="${!#lists.isEmpty(brands)}" aria-labelledby="homeBrandsTitle">
+        <div class="container">
+            <div class="text-center mb-4">
+                <h2 id="homeBrandsTitle">Mua sắm theo thương hiệu</h2>
+            </div>
+            <div class="home-brand-grid">
+                <a class="home-brand-card" th:each="brand : ${brands}"
+                   th:href="@{/products(brandId=${brand.id})}" th:attr="data-brand-id=${brand.id}">
+                    <img th:if="${!#strings.isEmpty(brand.logoUrl)}" th:src="${brand.logoUrl}"
+                         alt="" class="home-brand-logo" loading="lazy" data-brand-logo>
+                    <span th:text="${brand.name}"></span>
+                </a>
+            </div>
+        </div>
+    </section>
+
     <!-- Sản phẩm nổi bật -->
     <section class="py-5 bg-white">
         <div class="container">

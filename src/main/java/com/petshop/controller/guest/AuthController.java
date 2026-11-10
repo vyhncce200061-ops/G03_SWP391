@@ -59,6 +59,8 @@ public class AuthController {
         try {
             authService.confirmRegistration(token);
             redirectAttributes.addFlashAttribute("successMessage", "Kích hoạt tài khoản thành công! Vui lòng đăng nhập.");
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Không thể kích hoạt bằng liên kết này. Vui lòng thử đăng nhập hoặc đăng ký lại.");
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }

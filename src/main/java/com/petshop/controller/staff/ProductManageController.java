@@ -59,9 +59,7 @@ public class ProductManageController {
         if (!model.containsAttribute("productForm")) {
             model.addAttribute("productForm", new ProductFormDto());
         }
-        model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
-        model.addAttribute("brands", catalogService.getAllBrands());
-        return "staff/product-form";
+        return productForm(model);
     }
 
     // ============ SAVE NEW PRODUCT ============
@@ -71,10 +69,9 @@ public class ProductManageController {
                               BindingResult bindingResult,
                               Model model,
                               RedirectAttributes redirectAttributes) {
+        form.setId(null);
         if (bindingResult.hasErrors()) {
-            model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
-            model.addAttribute("brands", catalogService.getAllBrands());
-            return "staff/product-form";
+            return productForm(model);
         }
 
         try {
@@ -83,9 +80,7 @@ public class ProductManageController {
             return "redirect:/staff/products";
         } catch (IllegalArgumentException e) {
             model.addAttribute("errorMessage", e.getMessage());
-            model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
-            model.addAttribute("brands", catalogService.getAllBrands());
-            return "staff/product-form";
+            return productForm(model);
         }
     }
 
@@ -94,9 +89,7 @@ public class ProductManageController {
     public String editForm(@PathVariable Long id, Model model) {
         Product product = productManageService.findById(id);
         model.addAttribute("productForm", ProductFormDto.fromEntity(product));
-        model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
-        model.addAttribute("brands", catalogService.getAllBrands());
-        return "staff/product-form";
+        return productForm(model);
     }
 
     // ============ UPDATE PRODUCT ============
@@ -109,9 +102,7 @@ public class ProductManageController {
                                 RedirectAttributes redirectAttributes) {
         form.setId(id);
         if (bindingResult.hasErrors()) {
-            model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
-            model.addAttribute("brands", catalogService.getAllBrands());
-            return "staff/product-form";
+            return productForm(model);
         }
 
         try {
@@ -120,9 +111,7 @@ public class ProductManageController {
             return "redirect:/staff/products";
         } catch (IllegalArgumentException e) {
             model.addAttribute("errorMessage", e.getMessage());
-            model.addAttribute("categories", categories.productOptions(((ProductFormDto) model.getAttribute("productForm")).getCategoryId()));
-            model.addAttribute("brands", catalogService.getAllBrands());
-            return "staff/product-form";
+            return productForm(model);
         }
     }
 
@@ -191,6 +180,7 @@ public class ProductManageController {
                              BindingResult bindingResult,
                              Model model,
                              RedirectAttributes redirectAttributes) {
+        form.setId(null);
         if (bindingResult.hasErrors()) {
             Product product = productManageService.findById(id);
             model.addAttribute("product", product);
@@ -218,6 +208,11 @@ public class ProductManageController {
                                 BindingResult bindingResult,
                                 Model model,
                                 RedirectAttributes redirectAttributes) {
+        ProductVariant existing = productManageService.findVariantById(vid);
+        if (!existing.getProduct().getId().equals(productId)) {
+            throw new IllegalArgumentException("SKU không thuộc sản phẩm này.");
+        }
+        form.setId(vid);
         if (bindingResult.hasErrors()) {
             Product product = productManageService.findById(productId);
             model.addAttribute("product", product);
@@ -225,9 +220,6 @@ public class ProductManageController {
         }
 
         try {
-            if (!productManageService.findVariantById(vid).getProduct().getId().equals(productId)) {
-                throw new IllegalArgumentException("SKU không thuộc sản phẩm này.");
-            }
             ProductVariant variant = form.toEntity();
             productManageService.updateVariant(vid, variant);
             redirectAttributes.addFlashAttribute("successMessage", "Cập nhật biến thể thành công!");
@@ -242,5 +234,17 @@ public class ProductManageController {
     public String lowStock(Model model) {
         model.addAttribute("lowStockVariants", productManageService.getLowStockVariants());
         return "staff/low-stock";
+    }
+
+    private String productForm(Model model) {
+        ProductFormDto dto = (ProductFormDto) model.getAttribute("productForm");
+        if (dto.getId() != null) {
+            ProductFormDto stored = ProductFormDto.fromEntity(productManageService.findById(dto.getId()));
+            dto.setExistingImageIds(stored.getExistingImageIds());
+            dto.setExistingImageUrls(stored.getExistingImageUrls());
+        }
+        model.addAttribute("categories", categories.productOptions(dto.getCategoryId()));
+        model.addAttribute("brands", catalogService.getBrandOptions(dto.getBrandId()));
+        return "staff/product-form";
     }
 }

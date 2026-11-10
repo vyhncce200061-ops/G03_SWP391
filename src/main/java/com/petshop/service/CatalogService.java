@@ -17,6 +17,7 @@ public interface CatalogService {
     List<Category> getAllCategories();
     List<CategoryViewDto> getActiveCategoryTree();
     List<Brand> getAllBrands();
+    List<Brand> getBrandOptions(Integer selectedId);
     List<ProductSummaryDto> getFeaturedProducts(int limit);
     Page<Product> filterProducts(String keyword, Long categoryId, Pageable pageable);
 }

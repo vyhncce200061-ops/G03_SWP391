@@ -93,8 +93,13 @@ public class AdminProductController {
 
     private String form(Model model) {
         ProductFormDto dto = (ProductFormDto) model.getAttribute("productForm");
+        if (dto.getId() != null) {
+            ProductFormDto stored = ProductFormDto.fromEntity(products.findById(dto.getId()));
+            dto.setExistingImageIds(stored.getExistingImageIds());
+            dto.setExistingImageUrls(stored.getExistingImageUrls());
+        }
         model.addAttribute("categories", categories.productOptions(dto.getCategoryId()));
-        model.addAttribute("brands", catalog.getAllBrands());
+        model.addAttribute("brands", catalog.getBrandOptions(dto.getBrandId()));
         return "staff/product-form";
     }
 }
