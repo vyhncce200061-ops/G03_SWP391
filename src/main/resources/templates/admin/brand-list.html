@@ -5,7 +5,7 @@
 <body>
 <div layout:fragment="content">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-        <div><h1 class="h4 mb-1">Quản lý thương hiệu</h1><p class="text-muted mb-0">Quản lý tên, mô tả và trạng thái thương hiệu.</p></div>
+        <div><h1 class="h4 mb-1">Quản lý thương hiệu</h1><p class="text-muted mb-0">Quản lý thông tin và logo thương hiệu.</p></div>
         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#brandModal"
                 data-brand-title="Thêm thương hiệu" data-brand-submit="Thêm thương hiệu"
                 th:attr="data-brand-action=@{/admin/brands/create}">
@@ -20,14 +20,17 @@
                 <tbody>
                 <tr th:each="brand : ${brands}" th:attr="data-brand-id=${brand.id}">
                     <td th:text="${brand.id}"></td>
-                    <td class="fw-semibold" th:text="${brand.name}"></td>
+                    <td><div class="brand-identity">
+                        <img th:if="${!#strings.isEmpty(brand.logoUrl)}" th:src="${brand.logoUrl}" alt="" class="brand-table-logo" data-brand-logo>
+                        <span class="fw-semibold" th:text="${brand.name}"></span>
+                    </div></td>
                     <td class="brand-description" th:text="${#strings.isEmpty(brand.description) ? 'Chưa có mô tả' : brand.description}"></td>
                     <td><span class="badge" th:classappend="${brand.isActive ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}"
                               th:text="${brand.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}"></span></td>
                     <td><div class="d-flex flex-wrap gap-2">
                         <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#brandModal"
                                 data-brand-title="Chỉnh sửa thương hiệu" data-brand-submit="Lưu thay đổi"
-                                th:attr="data-brand-action=@{/admin/brands/update/{id}(id=${brand.id})},data-brand-name=${brand.name},data-brand-description=${brand.description}">
+                                th:attr="data-brand-action=@{/admin/brands/update/{id}(id=${brand.id})},data-brand-name=${brand.name},data-brand-description=${brand.description},data-brand-logo=${brand.logoUrl}">
                             <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa
                         </button>
                         <form th:action="@{/admin/brands/toggle-status/{id}(id=${brand.id})}" method="post">
@@ -46,7 +49,7 @@
     <div class="modal fade" id="brandModal" tabindex="-1" aria-labelledby="brandModalTitle" aria-hidden="true" th:attr="data-open=${brandModalOpen}">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
-                <form id="brandForm" th:object="${brandForm}" method="post"
+                <form id="brandForm" th:object="${brandForm}" method="post" enctype="multipart/form-data"
                       th:action="${editingBrandId == null} ? @{/admin/brands/create} : @{/admin/brands/update/{id}(id=${editingBrandId})}">
                     <div class="modal-header">
                         <h2 class="modal-title h5" id="brandModalTitle" th:text="${editingBrandId == null ? 'Thêm thương hiệu' : 'Chỉnh sửa thương hiệu'}"></h2>
@@ -58,10 +61,25 @@
                             <input id="brandName" th:field="*{name}" class="form-control" th:errorclass="is-invalid" maxlength="150" placeholder="Ví dụ: Royal Canin" required>
                             <div class="invalid-feedback" th:errors="*{name}"></div>
                         </div>
-                        <div>
+                        <div class="mb-3">
                             <label for="brandDescription" class="form-label fw-semibold">Mô tả</label>
                             <textarea id="brandDescription" th:field="*{description}" class="form-control" th:errorclass="is-invalid" maxlength="1000" rows="4" placeholder="Thông tin thương hiệu"></textarea>
                             <div class="invalid-feedback" th:errors="*{description}"></div>
+                        </div>
+                        <div>
+                            <label for="brandLogoFile" class="form-label fw-semibold">Logo thương hiệu</label>
+                            <div class="brand-logo-preview mb-3" id="brandLogoPreviewBox" th:hidden="${#strings.isEmpty(currentLogoUrl)}">
+                                <img id="brandLogoPreview" th:src="${currentLogoUrl}" alt="Logo thương hiệu đang chọn"
+                                     th:attr="data-stored-src=${currentLogoUrl}">
+                            </div>
+                            <input id="brandLogoFile" th:field="*{logoFile}" type="file" class="form-control"
+                                   accept="image/png,image/jpeg,image/gif" th:errorclass="is-invalid" aria-describedby="brandLogoHelp">
+                            <div class="invalid-feedback" th:errors="*{logoFile}"></div>
+                            <div id="brandLogoHelp" class="form-text">PNG, JPG hoặc GIF, tối đa 2 MB và 4096 × 4096 px. Không chọn ảnh mới để giữ logo hiện tại.</div>
+                            <div class="form-check mt-3" id="brandRemoveLogoBox" th:hidden="${#strings.isEmpty(currentLogoUrl)}">
+                                <input id="brandRemoveLogo" th:field="*{removeLogo}" type="checkbox" class="form-check-input">
+                                <label for="brandRemoveLogo" class="form-check-label">Gỡ logo hiện tại</label>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">

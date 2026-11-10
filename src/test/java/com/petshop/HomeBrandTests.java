@@ -82,4 +82,23 @@ class HomeBrandTests {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(filtered).contains(textOnly.getName()).doesNotContain("href=\"/products/" + first.getSlug() + "\"");
     }
+
+    @Test void brandNameSearchWorksWithCombinedFilterAndUnbrandedProducts() throws Exception {
+        Brand target = brand("SearchOnly ", true, null);
+        Product matchingBrand = product(target, ProductStatus.ACTIVE, ProductVariantStatus.ACTIVE);
+        Product matchingName = product(null, ProductStatus.ACTIVE, ProductVariantStatus.ACTIVE);
+        matchingName.setName(target.getName() + " special item");
+        products.saveAndFlush(matchingName);
+        String query = target.getName().toLowerCase(java.util.Locale.ROOT);
+        String html = mvc.perform(get("/products").param("keyword", query)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("/products/" + matchingBrand.getSlug(), "/products/" + matchingName.getSlug());
+        String filtered = mvc.perform(get("/products").param("keyword", query).param("brandId", target.getId().toString()))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(filtered).contains("/products/" + matchingBrand.getSlug())
+                .doesNotContain("/products/" + matchingName.getSlug());
+        mvc.perform(get("/products/suggestions").param("keyword", query)).andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.products[*].id", org.hamcrest.Matchers.hasItem(matchingBrand.getId().intValue())));
+    }
 }

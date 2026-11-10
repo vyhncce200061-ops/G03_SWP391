@@ -43,9 +43,13 @@ public class CatalogServiceImpl implements CatalogService {
         Page<Product> products = productRepository.findAll((root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             predicates.add(cb.equal(root.get("status"), ProductStatus.ACTIVE));
-            if (filter.getKeyword() != null && !filter.getKeyword().isBlank())
-                predicates.add(cb.or(cb.like(cb.lower(root.get("name")), "%" + filter.getKeyword().trim().toLowerCase(java.util.Locale.ROOT) + "%"),
-                        cb.like(cb.lower(root.get("shortDescription")), "%" + filter.getKeyword().trim().toLowerCase(java.util.Locale.ROOT) + "%")));
+            if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
+                String keyword = "%" + filter.getKeyword().trim().toLowerCase(java.util.Locale.ROOT) + "%";
+                var brand = root.join("brand", jakarta.persistence.criteria.JoinType.LEFT);
+                predicates.add(cb.or(cb.like(cb.lower(root.get("name")), keyword),
+                        cb.like(cb.lower(root.get("shortDescription")), keyword),
+                        cb.like(cb.lower(brand.get("name")), keyword)));
+            }
             if (filter.getPetType() != null) predicates.add(cb.equal(root.get("petType"), filter.getPetType()));
             if (filter.getBrandId() != null) predicates.add(cb.equal(root.get("brand").get("id"), filter.getBrandId()));
             if (filter.getCategoryId() != null || (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank())) {
