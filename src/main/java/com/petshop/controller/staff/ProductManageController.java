@@ -12,7 +12,6 @@ import com.petshop.service.ProductManageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -44,7 +43,7 @@ public class ProductManageController {
                                @RequestParam(required = false) String keyword,
                                @RequestParam(required = false) Integer categoryId,
                                Model model) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
+        Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
         Page<Product> products = productManageService.searchProducts(keyword, categoryId, pageable);
         model.addAttribute("products", products);
         model.addAttribute("keyword", keyword);
@@ -157,7 +156,7 @@ public class ProductManageController {
     public String editVariantForm(@PathVariable Long id, @PathVariable Long vid, Model model) {
         Product product = productManageService.findById(id);
         ProductVariant variant = productManageService.findVariantById(vid);
-        if (!variant.getProduct().getId().equals(id)) throw new IllegalArgumentException("SKU không thuộc sản phẩm này.");
+        if (!variant.getProduct().getId().equals(id)) throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
 
         ProductVariantFormDto form = ProductVariantFormDto.builder()
                 .id(variant.getId())
@@ -210,7 +209,7 @@ public class ProductManageController {
                                 RedirectAttributes redirectAttributes) {
         ProductVariant existing = productManageService.findVariantById(vid);
         if (!existing.getProduct().getId().equals(productId)) {
-            throw new IllegalArgumentException("SKU không thuộc sản phẩm này.");
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
         }
         form.setId(vid);
         if (bindingResult.hasErrors()) {

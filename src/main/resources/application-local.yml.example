@@ -17,13 +17,13 @@ spring:
 
 petshop:
   mail-from: ${spring.mail.username}
-  public-base-url: http://localhost:8080
+  public-base-url: http://localhost:8081
 
-# Khong dung khoa vi du chung; tao khoa ngau nhien it nhat 32 ky tu tren may ban.
-# De trong: he thong tao khoa tam, link xac nhan dang ky het hieu luc khi restart.
+# Khoa Base64 tu 32 byte ngau nhien; khong dua khoa that len Git.
+# De trong: tao khoa tam, link dang ky khong con dung duoc sau khi restart.
 app:
   jwt:
-    secret: ""
+    registration-encryption-key: ${REGISTRATION_ENCRYPTION_KEY:}
 
 # Bat rieng cho demo Sandbox localhost de xac nhan ket qua Return da ky.
 vnpay:

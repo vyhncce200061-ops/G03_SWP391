@@ -30,6 +30,7 @@ public class ProductVariantFormDto {
     @NotNull(message = "Giá bán không được để trống")
     @DecimalMin(value = "0", inclusive = true, message = "Giá bán phải lớn hơn hoặc bằng 0")
     @Digits(integer = 16, fraction = 2, message = "Giá bán không hợp lệ")
+    @com.petshop.validation.WholeVnd(message = "Giá bán phải là số nguyên đồng")
     private BigDecimal price;
 
     @NotNull(message = "Ngưỡng cảnh báo không được để trống")

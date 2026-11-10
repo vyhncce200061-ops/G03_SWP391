@@ -614,6 +614,9 @@ public class OrderServiceImpl implements OrderService {
         if (amount == null || amount.signum() < 0 || amount.compareTo(MAX_AMOUNT) > 0) {
             throw new IllegalStateException(message);
         }
+        if (!com.petshop.util.VndMoney.isWhole(amount)) {
+            throw new IllegalStateException("Số tiền phải là số nguyên đồng. Vui lòng kiểm tra giá sản phẩm.");
+        }
     }
 
     private String cancellationReason(String reason, String fallback) {

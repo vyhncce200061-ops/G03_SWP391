@@ -11,7 +11,7 @@ public class ShippingFeeConfig {
     private final BigDecimal shippingFee;
 
     public ShippingFeeConfig(@Value("${petshop.shipping-fee:30000}") BigDecimal shippingFee) {
-        if (shippingFee.signum() < 0) throw new IllegalArgumentException("Phí giao hàng không được âm.");
+        com.petshop.util.VndMoney.requireNonNegativeWhole(shippingFee, "Phí giao hàng");
         this.shippingFee = shippingFee;
     }
 }

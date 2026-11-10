@@ -47,6 +47,10 @@ public class VoucherServiceImpl implements VoucherService {
         }
 
         BigDecimal safeSubtotal = (subtotal != null) ? subtotal : BigDecimal.ZERO;
+        if (!com.petshop.util.VndMoney.isWhole(safeSubtotal) || safeSubtotal.signum() < 0) {
+            return VoucherApplyResultDto.builder().valid(false)
+                    .message("Giá trị đơn hàng phải là số nguyên đồng và không được âm.").build();
+        }
 
         Voucher voucher = voucherRepository.findByCode(voucherCode.trim().toUpperCase())
                 .orElse(null);
@@ -123,8 +127,9 @@ public class VoucherServiceImpl implements VoucherService {
 
         BigDecimal discountAmount;
         if (voucher.getDiscountType() == DiscountType.PERCENT) {
+            // Quote and placement both use this calculation; round the discount once.
             BigDecimal rawDiscount = safeSubtotal.multiply(voucher.getDiscountValue())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP).setScale(2);
             if (voucher.getMaxDiscountAmount() != null && rawDiscount.compareTo(voucher.getMaxDiscountAmount()) > 0) {
                 discountAmount = voucher.getMaxDiscountAmount();
             } else {
@@ -132,6 +137,11 @@ public class VoucherServiceImpl implements VoucherService {
             }
         } else {
             discountAmount = voucher.getDiscountValue();
+        }
+
+        if (!com.petshop.util.VndMoney.isWhole(discountAmount)) {
+            return VoucherApplyResultDto.builder().valid(false)
+                    .message("Mức giảm bằng tiền phải là số nguyên đồng. Vui lòng liên hệ cửa hàng.").build();
         }
 
         if (discountAmount.compareTo(safeSubtotal) > 0) {
@@ -437,6 +447,8 @@ public class VoucherServiceImpl implements VoucherService {
             if (request.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
                 throw new IllegalArgumentException("Giảm giá theo phần trăm không được vượt quá 100%.");
             }
+        } else if (!com.petshop.util.VndMoney.isWhole(request.getDiscountValue())) {
+            throw new IllegalArgumentException("Giảm giá cố định phải là số nguyên đồng.");
         }
     }
 }

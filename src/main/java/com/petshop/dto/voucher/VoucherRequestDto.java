@@ -42,10 +42,12 @@ public class VoucherRequestDto {
     @NotNull(message = "Giá trị đơn hàng tối thiểu không được để trống")
     @DecimalMin(value = "0.0", message = "Giá trị đơn tối thiểu không được âm")
     @Digits(integer = 16, fraction = 2, message = "Số tiền tối đa 16 chữ số nguyên và 2 chữ số thập phân")
+    @com.petshop.validation.WholeVnd(message = "Giá trị đơn tối thiểu phải là số nguyên đồng")
     private BigDecimal minOrderAmount;
 
     @DecimalMin(value = "0.0", inclusive = false, message = "Mức giảm tối đa phải lớn hơn 0 hoặc để trống")
     @Digits(integer = 16, fraction = 2, message = "Số tiền tối đa 16 chữ số nguyên và 2 chữ số thập phân")
+    @com.petshop.validation.WholeVnd(message = "Mức giảm tối đa phải là số nguyên đồng")
     private BigDecimal maxDiscountAmount;
 
     @NotNull(message = "Ngày bắt đầu không được để trống")

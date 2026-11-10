@@ -46,6 +46,7 @@ class CheckoutWorkflowTests {
     @Autowired ProductVariantRepository variants;
     @Autowired VoucherRepository vouchers;
     @Autowired OrderRepository orders;
+    @Autowired com.petshop.service.VoucherService voucherService;
     private User customer;
     private CustomUserDetails principal;
     private ProductVariant first;
@@ -152,7 +153,7 @@ class CheckoutWorkflowTests {
 
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void paymentUrlFailureRollsBackOrderAndStockInsteadOfLeavingAnUnpayableOrder() throws Exception {
+    void fractionalStoredPriceCannotCreateOrderOrConsumeCartStock() throws Exception {
         first.setPrice(new BigDecimal("100000.25"));
         variants.saveAndFlush(first);
         long before = orders.count();
@@ -181,9 +182,48 @@ class CheckoutWorkflowTests {
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder validOrderPost() {
+        return validOrderPost(PaymentMethod.COD);
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder validOrderPost(PaymentMethod method) {
         return post("/checkout/place-order").param("recipientName", "Người nhận")
                 .param("recipientPhone", "0901234567").param("shippingProvince", "Hồ Chí Minh")
                 .param("shippingDistrict", "Quận 1").param("shippingWard", "Bến Nghé")
-                .param("shippingAddressLine", "12 Đường A").param("paymentMethod", "COD");
+                .param("shippingAddressLine", "12 Đường A").param("paymentMethod", method.name());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = PaymentMethod.class, names = {"COD", "VNPAY"})
+    void roundedPercentageQuoteMatchesThePersistedOrderAndSignedGatewayAmount(PaymentMethod method) throws Exception {
+        first.setPrice(new BigDecimal("18000.00"));variants.saveAndFlush(first);
+        carts.updateItemQuantity(customer.getId(), firstItem, 1);
+        String code="ROUND-"+UUID.randomUUID().toString().substring(0,8).toUpperCase();
+        voucherService.createVoucher(com.petshop.dto.voucher.VoucherRequestDto.builder().code(code).title("Rounding test")
+                .discountType(DiscountType.PERCENT).discountValue(new BigDecimal("3.33")).minOrderAmount(BigDecimal.ZERO)
+                .startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(1))
+                .totalUsageLimit(10).perCustomerLimit(1).build());
+        String oldCode=vnPayProperties.getTmnCode(), oldSecret=vnPayProperties.getHashSecret(), oldReturn=vnPayProperties.getReturnUrl();
+        try {
+            vnPayProperties.setTmnCode("TESTONLY");vnPayProperties.setHashSecret("synthetic-test-key");
+            vnPayProperties.setReturnUrl("https://example.test/payment/vnpay-return");
+            mvc.perform(post("/checkout/quote").with(user(principal)).with(csrf()).param("code",code))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.discountAmount").value(599))
+                    .andExpect(jsonPath("$.totalAmount").value(47401));
+            var response=mvc.perform(validOrderPost(method).param("voucherCode",code)
+                            .with(user(principal)).with(csrf())).andExpect(status().is3xxRedirection()).andReturn().getResponse();
+            var placed=orders.findByCustomerIdOrderByCreatedAtDesc(customer.getId(),org.springframework.data.domain.PageRequest.of(0,1)).getContent().get(0);
+            assertThat(placed.getDiscountAmount()).isEqualByComparingTo("599");
+            assertThat(placed.getTotalAmount()).isEqualByComparingTo("47401");
+            assertThat(placed.getStockDeducted()).isFalse();
+            if(method==PaymentMethod.VNPAY) {
+                assertThat(response.getRedirectedUrl()).startsWith("https://sandbox.vnpayment.vn/").contains("vnp_Amount=4740100&");
+                assertThat(placed.getOrderStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
+            } else {
+                assertThat(response.getRedirectedUrl()).startsWith("/checkout/success/");
+                assertThat(placed.getOrderStatus()).isEqualTo(OrderStatus.PENDING_CONFIRMATION);
+            }
+        } finally {
+            vnPayProperties.setTmnCode(oldCode);vnPayProperties.setHashSecret(oldSecret);vnPayProperties.setReturnUrl(oldReturn);
+        }
     }
 }

@@ -11,7 +11,7 @@
     const rows = new Map(Array.from(cartElement.querySelectorAll('[data-cart-item]'))
         .map(row => [row.dataset.cartItem, row]));
     const drafts = new Map();
-    const money = new Intl.NumberFormat('vi-VN', {maximumFractionDigits: 2});
+    const money = new Intl.NumberFormat('vi-VN', {maximumFractionDigits: 0});
     let sequence = 0;
     let processing = false;
     let refreshing = false;

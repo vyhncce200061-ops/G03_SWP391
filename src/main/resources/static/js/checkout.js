@@ -6,7 +6,7 @@
     const submit = document.getElementById('place-order');
     const status = document.getElementById('quote-status');
     const message = document.getElementById('quote-message');
-    const formatMoney = amount => new Intl.NumberFormat('vi-VN', {maximumFractionDigits: 2}).format(amount) + ' đ';
+    const formatMoney = amount => new Intl.NumberFormat('vi-VN', {maximumFractionDigits: 0}).format(amount) + ' đ';
     let version = 0;
     let timer;
     let pending = false;
