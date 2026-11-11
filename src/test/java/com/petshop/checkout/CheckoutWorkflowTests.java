@@ -214,7 +214,7 @@ class CheckoutWorkflowTests {
             var placed=orders.findByCustomerIdOrderByCreatedAtDesc(customer.getId(),org.springframework.data.domain.PageRequest.of(0,1)).getContent().get(0);
             assertThat(placed.getDiscountAmount()).isEqualByComparingTo("599");
             assertThat(placed.getTotalAmount()).isEqualByComparingTo("47401");
-            assertThat(placed.getStockDeducted()).isFalse();
+            assertThat(placed.getStockDeducted()).isEqualTo(method == PaymentMethod.VNPAY);
             if(method==PaymentMethod.VNPAY) {
                 assertThat(response.getRedirectedUrl()).startsWith("https://sandbox.vnpayment.vn/").contains("vnp_Amount=4740100&");
                 assertThat(placed.getOrderStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);

@@ -6,6 +6,8 @@ import com.petshop.entity.enums.*;
 import com.petshop.repository.*;
 import com.petshop.service.OrderService;
 import com.petshop.service.VnPayService;
+import com.petshop.service.OrderLocks;
+import com.petshop.service.RetryingTransactions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +39,7 @@ class VnPayServiceTests {
     @Mock OrderRepository orders;
     @Mock OrderStatusHistoryRepository histories;
     @Mock OrderService orderService;
+    @Mock OrderLocks orderLocks;
     VnPayProperties properties;
     VnPayService service;
     Order order;
@@ -48,7 +51,10 @@ class VnPayServiceTests {
         properties.setTmnCode("TESTCODE");
         properties.setHashSecret(SECRET);
         properties.setReturnUrl("http://localhost:8081/payment/vnpay-return");
-        service = new VnPayService(properties, transactions, orders, histories, orderService);
+        lenient().when(orderLocks.findForUpdate(anyLong())).thenAnswer(call -> orders.findByIdForUpdate(call.getArgument(0)));
+        var manager = mock(org.springframework.transaction.PlatformTransactionManager.class);
+        service = new VnPayService(properties, transactions, orders, histories, orderService, orderLocks,
+                new RetryingTransactions(manager));
         User customer = User.builder().id(7L).build();
         order = Order.builder().id(10L).orderCode("ORD-TEST").customer(customer)
                 .totalAmount(new BigDecimal("130000.00")).paymentMethod(PaymentMethod.VNPAY)
@@ -82,7 +88,9 @@ class VnPayServiceTests {
         assertThat(transaction.getExpiresAt()).isEqualTo(deadline);
         assertThat(transaction.getTransactionStatus()).isEqualTo(TransactionStatus.PENDING);
         verify(orders, never()).save(any());
-        verifyNoInteractions(orderService, histories);
+        verify(orderService, times(2)).reservePendingVnpayStock(10L);
+        verifyNoMoreInteractions(orderService);
+        verifyNoInteractions(histories);
     }
 
     @Test

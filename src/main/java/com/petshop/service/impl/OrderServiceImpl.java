@@ -7,6 +7,8 @@ import com.petshop.entity.enums.*;
 import com.petshop.repository.*;
 import com.petshop.service.OrderService;
 import com.petshop.service.VoucherService;
+import com.petshop.service.OrderLocks;
+import com.petshop.service.RetryingTransactions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -16,9 +18,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -47,15 +46,21 @@ public class OrderServiceImpl implements OrderService {
     private final VoucherRepository voucherRepository;
     private final VoucherService voucherService;
     private final PaymentTransactionRepository paymentTransactionRepository;
-    private final PlatformTransactionManager transactionManager;
+    private final OrderLocks orderLocks;
+    private final RetryingTransactions transactions;
+    private final jakarta.persistence.EntityManager entityManager;
     private final com.petshop.config.ShippingFeeConfig shippingFeeConfig;
 
     @Override
-    @Transactional
     public Order checkoutOrder(Long customerId, CheckoutSubmitDto request) {
+        return transactions.execute(() -> checkoutInTransaction(customerId, request));
+    }
+
+    private Order checkoutInTransaction(Long customerId, CheckoutSubmitDto request) {
         validateCheckout(request);
         User customer = userRepository.findByIdForUpdate(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Khách hàng không tồn tại."));
+        entityManager.refresh(customer, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (!"ACTIVE".equals(customer.getStatus()) || !"CUSTOMER".equals(customer.getRole().getCode())) {
             throw new IllegalArgumentException("Tài khoản không được phép đặt hàng.");
         }
@@ -98,6 +103,7 @@ public class OrderServiceImpl implements OrderService {
             }
             ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId())
                     .orElseThrow(() -> new IllegalArgumentException("Sản phẩm trong giỏ hàng không còn tồn tại."));
+            entityManager.refresh(variant, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             if (variant.getStatus() != ProductVariantStatus.ACTIVE
                     || variant.getProduct().getStatus() != ProductStatus.ACTIVE) {
                 throw new IllegalStateException("Sản phẩm '" + variant.getProduct().getName()
@@ -121,6 +127,7 @@ public class OrderServiceImpl implements OrderService {
             // under one lock, without rereading existing orders while holding it.
             voucher = voucherRepository.findByCodeForUpdate(requestedVoucherCode)
                     .orElseThrow(() -> new IllegalArgumentException("Mã giảm giá không tồn tại."));
+            entityManager.refresh(voucher, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             if (!voucher.getId().equals(requestedVoucherId)) {
                 throw new IllegalStateException("Mã giảm giá đã thay đổi. Vui lòng kiểm tra lại.");
             }
@@ -143,6 +150,15 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal shippingFee = shippingFeeConfig.getShippingFee();
         BigDecimal total = subtotal.subtract(discount).add(shippingFee);
         validateAmount(total, "Giá trị thanh toán vượt giới hạn cho phép.");
+        boolean reserveStock = request.getPaymentMethod() == PaymentMethod.VNPAY;
+        if (reserveStock) {
+            for (int i = 0; i < selectedItems.size(); i++) {
+                if (variantRepository.deductStockAtomic(variants.get(i).getId(), selectedItems.get(i).getQuantity()) != 1) {
+                    throw new IllegalStateException("Không đủ tồn kho để giữ hàng thanh toán VNPay.");
+                }
+                entityManager.refresh(variants.get(i));
+            }
+        }
         OrderStatus initialStatus = request.getPaymentMethod() == PaymentMethod.VNPAY
                 ? OrderStatus.PENDING_PAYMENT : OrderStatus.PENDING_CONFIRMATION;
         Order order = Order.builder()
@@ -157,7 +173,7 @@ public class OrderServiceImpl implements OrderService {
                 .customerNote(trimToNull(request.getCustomerNote()))
                 .subtotalAmount(subtotal).discountAmount(discount).shippingFee(shippingFee).totalAmount(total)
                 .orderStatus(initialStatus).paymentMethod(request.getPaymentMethod())
-                .paymentStatus(PaymentStatus.UNPAID).build();
+                .paymentStatus(PaymentStatus.UNPAID).stockDeducted(reserveStock).build();
         Order savedOrder = orderRepository.save(order);
         if (voucher != null) voucherService.markCustomerVoucherUsed(customerId, voucher.getId());
 
@@ -174,7 +190,6 @@ public class OrderServiceImpl implements OrderService {
             savedOrder.getItems().add(orderItem);
             purchasedVariantIds.add(variant.getId());
         }
-        savedOrder.setStockDeducted(false);
         saveHistory(savedOrder, null, initialStatus,
                 "Khách hàng tạo đơn hàng mới (" + request.getPaymentMethod() + ")", customer);
 
@@ -253,8 +268,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public void customerCancelOrder(Long orderId, Long customerId, String reason) {
+        transactions.run(() -> cancelByCustomerInTransaction(orderId, customerId, reason));
+    }
+
+    private void cancelByCustomerInTransaction(Long orderId, Long customerId, String reason) {
         Order order = lockOrder(orderId);
         requireOwner(order, customerId);
         List<PaymentTransaction> transactions = paymentTransactionRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
@@ -291,8 +309,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public void confirmOrder(Long orderId, Long staffId) {
+        transactions.run(() -> confirmInTransaction(orderId, staffId));
+    }
+
+    private void confirmInTransaction(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.PENDING_CONFIRMATION);
         boolean validCOD = order.getPaymentMethod() == PaymentMethod.COD
@@ -322,8 +343,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public void markPreparing(Long orderId, Long staffId) {
+        transactions.run(() -> prepareInTransaction(orderId, staffId));
+    }
+
+    private void prepareInTransaction(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.CONFIRMED);
         requirePaymentForFulfilment(order);
@@ -331,20 +355,45 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public boolean deductPaidVnpayStock(Long orderId) {
+        return transactions.execute(() -> deductPaidStockInTransaction(orderId));
+    }
+
+    private boolean deductPaidStockInTransaction(Long orderId) {
         Order order = lockOrder(orderId);
         if (order.getPaymentMethod() != PaymentMethod.VNPAY || order.getPaymentStatus() != PaymentStatus.PAID) {
             throw new IllegalStateException("Chỉ trừ tồn VNPay sau khi đã thanh toán.");
         }
+        return allocateVnpayStock(order);
+    }
+
+    @Override
+    public void reservePendingVnpayStock(Long orderId) {
+        transactions.run(() -> {
+            Order order = lockOrder(orderId);
+            boolean hasLiveAttempt = paymentTransactionRepository.findByOrderIdOrderByCreatedAtDesc(orderId).stream()
+                    .anyMatch(payment -> payment.getTransactionStatus() == TransactionStatus.PENDING
+                            && payment.getExpiresAt() != null && payment.getExpiresAt().isAfter(LocalDateTime.now()));
+            if (order.getPaymentMethod() != PaymentMethod.VNPAY || order.getOrderStatus() != OrderStatus.PENDING_PAYMENT
+                    || order.getPaymentStatus() != PaymentStatus.UNPAID || !hasLiveAttempt) {
+                throw new IllegalStateException("Đơn hàng không còn trong thời hạn thanh toán VNPay.");
+            }
+            if (!allocateVnpayStock(order)) {
+                throw new IllegalStateException("Không đủ tồn kho để giữ hàng thanh toán VNPay.");
+            }
+        });
+    }
+
+    private boolean allocateVnpayStock(Order order) {
         if (Boolean.TRUE.equals(order.getStockDeducted())) return true;
-        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
         items.sort(Comparator.comparing(item -> item.getVariant().getId()));
         if (items.isEmpty()) throw new IllegalStateException("Đơn hàng không có sản phẩm.");
         // Lock and validate every SKU before writing any deduction. A paid order
         // with insufficient stock is kept for staff resolution, never marked unpaid.
         for (OrderItem item : items) {
             ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId()).orElse(null);
+            if (variant != null) entityManager.refresh(variant, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             if (variant == null || item.getQuantity() == null || item.getQuantity() <= 0
                     || variant.getStatus() != ProductVariantStatus.ACTIVE
                     || variant.getProduct().getStatus() != ProductStatus.ACTIVE
@@ -360,8 +409,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public void markShipping(Long orderId, Long staffId) {
+        transactions.run(() -> shipInTransaction(orderId, staffId));
+    }
+
+    private void shipInTransaction(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.PREPARING);
         requirePaymentForFulfilment(order);
@@ -369,8 +421,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public void markCompleted(Long orderId, Long staffId) {
+        transactions.run(() -> completeInTransaction(orderId, staffId));
+    }
+
+    private void completeInTransaction(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.SHIPPING);
         requirePaymentForFulfilment(order);
@@ -383,8 +438,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public void staffRejectOrder(Long orderId, Long staffId, String rejectReason) {
+        transactions.run(() -> rejectInTransaction(orderId, staffId, rejectReason));
+    }
+
+    private void rejectInTransaction(Long orderId, Long staffId, String rejectReason) {
         if (rejectReason == null || rejectReason.isBlank()) {
             throw new IllegalArgumentException("Nhân viên từ chối đơn bắt buộc phải nhập lý do.");
         }
@@ -405,8 +463,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public void cancelPendingPaymentOrder(Long orderId, CancelType cancelType, String reason) {
+        transactions.run(() -> cancelPaymentInTransaction(orderId, cancelType, reason));
+    }
+
+    private void cancelPaymentInTransaction(Long orderId, CancelType cancelType, String reason) {
         if (cancelType != CancelType.PAYMENT_FAILED && cancelType != CancelType.PAYMENT_CANCELLED
                 && cancelType != CancelType.PAYMENT_EXPIRED) {
             throw new IllegalArgumentException("Loại hủy thanh toán không hợp lệ.");
@@ -428,10 +489,8 @@ public class OrderServiceImpl implements OrderService {
         // commits independently, so a batch never holds order A's SKU locks while
         // waiting for order B (which a customer or callback may already own).
         List<Long> orderIds = paymentTransactionRepository.findExpiredPendingOrderIds(now);
-        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         for (Long orderId : orderIds) {
-            transaction.executeWithoutResult(status -> cancelExpiredPendingPaymentOrder(orderId, now));
+            transactions.runNew(() -> cancelExpiredPendingPaymentOrder(orderId, now));
         }
     }
 
@@ -456,7 +515,7 @@ public class OrderServiceImpl implements OrderService {
         if (orderId == null) {
             throw new IllegalArgumentException("Không tìm thấy đơn hàng.");
         }
-        return orderRepository.findByIdForUpdate(orderId)
+        return orderLocks.findForUpdate(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
     }
 

@@ -38,6 +38,8 @@ public class VnPayService {
     private final OrderRepository orderRepository;
     private final OrderStatusHistoryRepository historyRepository;
     private final OrderService orderService;
+    private final OrderLocks orderLocks;
+    private final RetryingTransactions transactions;
 
     public boolean isConfigured() {
         if (properties.getTmnCode() == null || properties.getTmnCode().isBlank()
@@ -60,21 +62,27 @@ public class VnPayService {
         return new HashSet<>(transactionRepository.findResumableOrderIds(customerId, orderIds, LocalDateTime.now()));
     }
 
-    @Transactional
     public String resumePayment(Long orderId, Long customerId, String clientIp) {
-        Order order = orderRepository.findByIdForUpdate(orderId)
+        return transactions.execute(() -> resumeInTransaction(orderId, customerId, clientIp));
+    }
+
+    private String resumeInTransaction(Long orderId, Long customerId, String clientIp) {
+        Order order = orderLocks.findForUpdate(orderId)
                 .filter(o -> o.getCustomer().getId().equals(customerId))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
         // Reuse the existing attempt and its deadline; never create another order or reserve resources.
         return createPaymentUrl(order, clientIp);
     }
 
-    @Transactional
     public String createPaymentUrl(Order submittedOrder, String clientIp) {
+        return transactions.execute(() -> createUrlInTransaction(submittedOrder, clientIp));
+    }
+
+    private String createUrlInTransaction(Order submittedOrder, String clientIp) {
         if (!isConfigured()) {
             throw new IllegalStateException("VNPay Sandbox chưa được cấu hình. Vui lòng chọn COD.");
         }
-        Order order = orderRepository.findByIdForUpdate(submittedOrder.getId())
+        Order order = orderLocks.findForUpdate(submittedOrder.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
         if (order.getPaymentMethod() != PaymentMethod.VNPAY || order.getOrderStatus() != OrderStatus.PENDING_PAYMENT
                 || order.getPaymentStatus() != PaymentStatus.UNPAID) {
@@ -88,6 +96,9 @@ public class VnPayService {
                 || transaction.getAmount().compareTo(order.getTotalAmount()) != 0) {
             throw new IllegalStateException("Giao dịch VNPay hết hạn hoặc số tiền không hợp lệ.");
         }
+        // New orders already hold stock. A legacy pending order must acquire stock
+        // before another payment URL can be issued; its original deadline is retained.
+        orderService.reservePendingVnpayStock(order.getId());
         transaction.setProviderOrderReference(transaction.getTransactionCode());
         transactionRepository.save(transaction);
         Map<String, String> fields = new TreeMap<>();
@@ -111,8 +122,11 @@ public class VnPayService {
         return GATEWAY + "?" + canonical + "&vnp_SecureHash=" + sign(canonical);
     }
 
-    @Transactional
     public Map<String, String> processIpn(Map<String, String[]> requestParameters) {
+        return transactions.execute(() -> processIpnInTransaction(requestParameters));
+    }
+
+    private Map<String, String> processIpnInTransaction(Map<String, String[]> requestParameters) {
         Optional<Map<String, String>> verified = verifiedFields(requestParameters);
         if (verified.isEmpty()) return response("97", "Invalid Checksum");
         Map<String, String> fields = verified.get();
@@ -120,8 +134,11 @@ public class VnPayService {
         return applyVerifiedResult(fields, null, "VNPay IPN");
     }
 
-    @Transactional
     public void confirmSandboxReturn(Map<String, String[]> requestParameters, Long customerId) {
+        transactions.run(() -> confirmReturnInTransaction(requestParameters, customerId));
+    }
+
+    private void confirmReturnInTransaction(Map<String, String[]> requestParameters, Long customerId) {
         if (!properties.isSandboxReturnConfirmationEnabled() || customerId == null) return;
         Optional<Map<String, String>> verified = verifiedFields(requestParameters);
         if (verified.isEmpty() || !validCallbackFields(verified.get())) return;
@@ -135,7 +152,7 @@ public class VnPayService {
         if (orderId.isEmpty()) return response("01", "Order not found");
 
         // Every cancellation, staff change and IPN locks the same order before reading transactions.
-        Order order = orderRepository.findByIdForUpdate(orderId.get()).orElse(null);
+        Order order = orderLocks.findForUpdate(orderId.get()).orElse(null);
         if (order == null) return response("01", "Order not found");
         if (customerId != null && !customerId.equals(order.getCustomer().getId())) return response("01", "Order not found");
         PaymentTransaction transaction = transactionRepository.findByTransactionCode(fields.get("vnp_TxnRef")).orElse(null);

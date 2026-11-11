@@ -21,6 +21,7 @@ public interface OrderService {
     Order getOrderDetailForStaff(Long orderId);
     void confirmOrder(Long orderId, Long staffId);
     boolean deductPaidVnpayStock(Long orderId);
+    void reservePendingVnpayStock(Long orderId);
     void markPreparing(Long orderId, Long staffId);
     void markShipping(Long orderId, Long staffId);
     void markCompleted(Long orderId, Long staffId);
