@@ -114,6 +114,7 @@
                     <!-- VNPay Pending Payment Notice -->
                     <div th:if="${order.orderStatus.name() == 'PENDING_PAYMENT'}" class="text-muted small">
                         <i class="bi bi-info-circle me-1"></i> Đơn hàng đang chờ khách thanh toán qua VNPay. Hệ thống sẽ tự động xác nhận khi có kết quả.
+                        <span th:if="${order.stockDeducted}">Hàng đang được giữ trong thời hạn thanh toán; khi hủy hoặc hết hạn, hệ thống tự hoàn lượng đang giữ.</span>
                     </div>
 
                     <!-- Completed or Canceled Notice -->

@@ -5,7 +5,6 @@ import com.petshop.entity.Order;
 import com.petshop.entity.enums.PaymentMethod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Keep URL generation and order placement atomic if payment configuration/data is invalid. */
 @Service
@@ -13,9 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class CheckoutPlacementService {
     private final OrderService orderService;
     private final VnPayService vnPayService;
+    private final RetryingTransactions transactions;
 
-    @Transactional
     public Placement place(Long customerId, CheckoutSubmitDto form, String clientIp) {
+        return transactions.execute(() -> placeInTransaction(customerId, form, clientIp));
+    }
+
+    private Placement placeInTransaction(Long customerId, CheckoutSubmitDto form, String clientIp) {
         if (form.getPaymentMethod() == PaymentMethod.VNPAY && !vnPayService.isConfigured()) {
             throw new IllegalStateException("VNPay chưa được cấu hình. Vui lòng chọn COD.");
         }

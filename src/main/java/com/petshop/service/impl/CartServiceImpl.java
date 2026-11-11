@@ -15,8 +15,6 @@ import com.petshop.repository.ProductImageRepository;
 import com.petshop.repository.ProductVariantRepository;
 import com.petshop.repository.UserRepository;
 import com.petshop.service.CartService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +33,6 @@ public class CartServiceImpl implements CartService {
     private final ProductVariantRepository variantRepository;
     private final ProductImageRepository imageRepository;
     private final UserRepository userRepository;
-    private final EntityManager entityManager;
     private final com.petshop.config.ShippingFeeConfig shippingFeeConfig;
 
     @Override
@@ -133,14 +130,11 @@ public class CartServiceImpl implements CartService {
     }
 
     private Cart getOrCreateCartForUpdate(Long userId) {
-        return cartRepository.findByUserIdForUpdate(userId).orElseGet(() -> {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản người dùng."));
-            // The unique Cart.UserId constraint alone would turn concurrent first additions into a 500.
-            entityManager.lock(user, LockModeType.PESSIMISTIC_WRITE);
-            return cartRepository.findByUserIdForUpdate(userId)
-                    .orElseGet(() -> cartRepository.save(Cart.builder().user(user).build()));
-        });
+        // Same order as checkout and order changes, including simultaneous first-cart creation.
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản người dùng."));
+        return cartRepository.findByUserIdForUpdate(userId)
+                .orElseGet(() -> cartRepository.save(Cart.builder().user(user).build()));
     }
 
     private CartItem getOwnedItem(Cart cart, Long cartItemId) {

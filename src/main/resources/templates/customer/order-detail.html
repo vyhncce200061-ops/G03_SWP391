@@ -8,6 +8,9 @@
 <body>
 <div layout:fragment="content" class="py-5">
     <div class="container">
+        <div th:if="${order.paymentMethod.name() == 'VNPAY' and order.orderStatus.name() == 'PENDING_PAYMENT' and order.stockDeducted}" class="alert alert-info">
+            Hàng đang được giữ trong thời hạn thanh toán 15 phút kể từ khi đặt đơn. Tiếp tục thanh toán trong thời hạn này; hết hạn hoặc hủy đơn, hệ thống sẽ trả lại hàng đang giữ.
+        </div>
         <div th:if="${order.paymentMethod.name() == 'VNPAY' and order.paymentStatus.name() == 'PAID' and !order.stockDeducted}" class="alert alert-warning">
             Đã nhận thanh toán. Cửa hàng đang xử lý bổ sung hàng cho đơn của bạn. Bạn không cần thanh toán lại.
         </div>

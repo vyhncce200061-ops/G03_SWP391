@@ -13,8 +13,6 @@ import com.petshop.repository.CartRepository;
 import com.petshop.repository.ProductImageRepository;
 import com.petshop.repository.ProductVariantRepository;
 import com.petshop.repository.UserRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,7 +39,6 @@ class CartServiceRegressionTest {
     @Mock ProductVariantRepository variants;
     @Mock ProductImageRepository images;
     @Mock UserRepository users;
-    @Mock EntityManager entityManager;
     @Mock com.petshop.config.ShippingFeeConfig shippingFeeConfig;
     @InjectMocks CartServiceImpl service;
 
@@ -54,6 +51,7 @@ class CartServiceRegressionTest {
     void setUp() {
         lenient().when(shippingFeeConfig.getShippingFee()).thenReturn(new BigDecimal("30000"));
         user = User.builder().id(1L).build();
+        lenient().when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         cart = Cart.builder().id(10L).user(user).build();
         variant = ProductVariant.builder().id(20L)
                 .product(Product.builder().id(30L).name("Pet food").status(ProductStatus.ACTIVE).build())
@@ -194,11 +192,13 @@ class CartServiceRegressionTest {
     }
 
     @Test
-    void validQuantityUpdateLocksCartButDoesNotReserveOrSaveInventory() {
+    void validQuantityUpdateLocksCustomerBeforeCartButDoesNotReserveInventory() {
         CartDto result = service.updateItemQuantity(1L, 40L, 4);
         assertThat(result.getSelectedQuantity()).isEqualTo(4);
         assertThat(variant.getStockQuantity()).isEqualTo(10);
-        verify(carts).findByUserIdForUpdate(1L);
+        var locks=org.mockito.Mockito.inOrder(users,carts);
+        locks.verify(users).findByIdForUpdate(1L);
+        locks.verify(carts).findByUserIdForUpdate(1L);
         verify(items).save(item);
         verify(variants, never()).save(any());
     }
@@ -216,11 +216,12 @@ class CartServiceRegressionTest {
     @Test
     void concurrentFirstAdditionUsesUserLockBeforeCreatingCart() {
         when(carts.findByUserIdForUpdate(1L)).thenReturn(Optional.empty());
-        when(users.findById(1L)).thenReturn(Optional.of(user));
         when(carts.save(any())).thenReturn(cart);
         service.addItemToCart(1L, 20L, 1);
-        verify(entityManager).lock(user, LockModeType.PESSIMISTIC_WRITE);
-        verify(carts).save(any());
+        var locks=org.mockito.Mockito.inOrder(users,carts);
+        locks.verify(users).findByIdForUpdate(1L);
+        locks.verify(carts).findByUserIdForUpdate(1L);
+        locks.verify(carts).save(any());
         assertThat(variant.getStockQuantity()).isEqualTo(10);
     }
 

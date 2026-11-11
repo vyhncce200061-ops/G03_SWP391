@@ -46,6 +46,9 @@ class OrderWorkflowTests {
     @Autowired private VoucherRepository vouchers;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private EntityManager entityManager;
+    @Autowired private jakarta.persistence.EntityManagerFactory entityManagerFactory;
+    @Autowired private CartService cartService;
+    @Autowired private ProductManageService productManageService;
 
     @Test
     void codConfirmationRollsBackEverySkuIfOneDeductionFails() {
@@ -208,20 +211,25 @@ class OrderWorkflowTests {
     }
 
     @Test
-    void paidStockWriteFailureRollsBackAllSkuDeductions() {
+    void legacyPaidStockWriteFailureRollsBackAllSkuDeductions() {
         Fixture f = fixture(true, true, false);
         Long voucherId = voucher();
         CheckoutSubmitDto request = request(PaymentMethod.VNPAY);
         request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
         Order placed = orders.checkoutOrder(f.customerId(), request);
         inTransaction(() -> {
-            orderRepository.findById(placed.getId()).orElseThrow().setPaymentStatus(PaymentStatus.PAID);
+            // Old outstanding payment links did not reserve stock at checkout.
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(10);
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(10);
+            var legacy = orderRepository.findById(placed.getId()).orElseThrow();
+            legacy.setStockDeducted(false);
+            legacy.setPaymentStatus(PaymentStatus.PAID);
             return null;
         });
         doReturn(0).when(variants).deductStockAtomic(f.secondId(), 2);
         assertThrows(IllegalStateException.class, () -> orders.deductPaidVnpayStock(placed.getId()));
-        verify(variants).deductStockAtomic(f.firstId(), 2);
-        verify(variants).deductStockAtomic(f.secondId(), 2);
+        verify(variants, org.mockito.Mockito.times(2)).deductStockAtomic(f.firstId(), 2);
+        verify(variants, org.mockito.Mockito.times(2)).deductStockAtomic(f.secondId(), 2);
         assertEquals(1, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
         inTransaction(() -> {
             assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
@@ -333,12 +341,13 @@ class OrderWorkflowTests {
     }
 
     @Test
-    void vnpayCheckoutDoesNotDeductAndPaidAllocationIsIdempotent() {
+    void vnpayCheckoutReservesAndPaidSettlementDoesNotDeductAgain() {
         Fixture f = fixture(true, false, false);
         Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
         assertThrows(IllegalStateException.class, () -> orders.deductPaidVnpayStock(placed.getId()));
         inTransaction(() -> {
-            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertTrue(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
             orderRepository.findById(placed.getId()).orElseThrow().setPaymentStatus(PaymentStatus.PAID);
             return null;
         });
@@ -368,7 +377,7 @@ class OrderWorkflowTests {
     }
 
     @Test
-    void paidShortageDoesNotPartiallyDeductAndStaffCanConfirmAfterRestock() {
+    void legacyPaidShortageDoesNotPartiallyDeductAndStaffCanConfirmAfterRestock() {
         Long staffId = staffActor();
         Fixture f = fixture(true, true, false);
         Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
@@ -376,6 +385,8 @@ class OrderWorkflowTests {
             Order current = orderRepository.findById(placed.getId()).orElseThrow();
             current.setPaymentStatus(PaymentStatus.PAID);
             current.setOrderStatus(OrderStatus.PENDING_CONFIRMATION);
+            current.setStockDeducted(false);
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(10);
             variants.findById(f.secondId()).orElseThrow().setStockQuantity(0);
             return null;
         });
@@ -421,8 +432,9 @@ class OrderWorkflowTests {
         });
         assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy"));
         inTransaction(() -> {
-            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
             assertEquals(OrderStatus.PENDING_PAYMENT, orderRepository.findById(placed.getId()).orElseThrow().getOrderStatus());
+            assertTrue(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
             return null;
         });
     }
@@ -592,6 +604,123 @@ class OrderWorkflowTests {
             assertEquals(2, orderRepository.findById(placed.getId()).orElseThrow().getStatusHistories().size());
             return null;
         });
+    }
+
+    @Test
+    void vnpayReservationFailureRollsBackFirstSkuQuotaOrderAndSelectedCart() {
+        Fixture f=fixture(true,true,false);Long voucherId=voucher();
+        var form=request(PaymentMethod.VNPAY);form.setVoucherCode(vouchers.findById(voucherId).orElseThrow().getCode());
+        doReturn(0).when(variants).deductStockAtomic(f.secondId(),2);
+        assertThrows(IllegalStateException.class,()->orders.checkoutOrder(f.customerId(),form));
+        inTransaction(()->{
+            assertEquals(10,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10,variants.findById(f.secondId()).orElseThrow().getStockQuantity());
+            assertEquals(0,vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(0,orderRepository.countByCustomerId(f.customerId()));
+            assertEquals(3,cartItems.findByCartId(f.cartId()).size());return null;
+        });
+    }
+
+    @Test
+    void heldVnpayStockBlocksCodUntilCancellationReleasesIt() {
+        var staffId=staffActor();Fixture f=fixture(true,false,false);
+        inTransaction(()->{variants.findById(f.firstId()).orElseThrow().setStockQuantity(2);return null;});
+        var cod=orders.checkoutOrder(f.customerId(),request(PaymentMethod.COD));addFirstSkuAgain(f);
+        var online=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        assertThrows(IllegalStateException.class,()->orders.confirmOrder(cod.getId(),staffId));
+        orders.customerCancelOrder(online.getId(),f.customerId(),"Không tiếp tục thanh toán");
+        orders.confirmOrder(cod.getId(),staffId);
+        assertEquals(0,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertFalse(orderRepository.findById(online.getId()).orElseThrow().getStockDeducted());
+    }
+
+    @Test
+    void competingVnpayCheckoutsCanReserveTheLastUnitsOnlyOnce() throws Exception {
+        Fixture f=fixture(true,false,false);
+        Long secondCustomer=inTransaction(()->{
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(2);
+            var role=roles.findByCode("CUSTOMER").orElseThrow();
+            return users.save(User.builder().role(role).fullName("Second buyer").email(UUID.randomUUID()+"@test.invalid").passwordHash("unused").build()).getId();
+        });
+        cartService.addItemToCart(secondCustomer,f.firstId(),2);
+        java.util.function.Function<Long,Boolean> checkout=id->{
+            try{orders.checkoutOrder(id,request(PaymentMethod.VNPAY));return true;}
+            catch(IllegalStateException expected){return false;}
+        };
+        var result=runConcurrently(()->checkout.apply(f.customerId()),()->checkout.apply(secondCustomer));
+        assertEquals(1,result.stream().filter(Boolean::booleanValue).count());
+        assertEquals(0,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertEquals(1,orderRepository.countByCustomerId(f.customerId())+orderRepository.countByCustomerId(secondCustomer));
+    }
+
+    @Test
+    void pendingReservationIsIdempotentAndCannotExtendOriginalDeadline() {
+        Fixture f=fixture(true,false,false);var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        var deadline=payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getExpiresAt();
+        orders.reservePendingVnpayStock(placed.getId());orders.reservePendingVnpayStock(placed.getId());
+        assertEquals(8,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertEquals(deadline,payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getExpiresAt());
+        inTransaction(()->{payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).setExpiresAt(LocalDateTime.now().minusSeconds(1));return null;});
+        assertThrows(IllegalStateException.class,()->orders.reservePendingVnpayStock(placed.getId()));
+        orders.cancelExpiredPendingPaymentOrders();
+        assertEquals(10,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    void legacyPendingPaymentAcquiresStockBeforeResumingWithoutExtendingDeadline() {
+        Fixture f=fixture(true,false,false);var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        var deadline=payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getExpiresAt();
+        inTransaction(()->{
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(10);
+            orderRepository.findById(placed.getId()).orElseThrow().setStockDeducted(false);return null;
+        });
+        orders.reservePendingVnpayStock(placed.getId());orders.reservePendingVnpayStock(placed.getId());
+        assertEquals(8,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertTrue(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+        assertEquals(deadline,payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getExpiresAt());
+    }
+
+    @Test
+    void legacyPendingResumeShortageDoesNotPartiallyReserve() {
+        Fixture f=fixture(true,true,false);var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        inTransaction(()->{
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(10);
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(0);
+            orderRepository.findById(placed.getId()).orElseThrow().setStockDeducted(false);return null;
+        });
+        assertThrows(IllegalStateException.class,()->orders.reservePendingVnpayStock(placed.getId()));
+        assertEquals(10,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertFalse(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+    }
+
+    @Test
+    void staleOpenViewOrderCannotRestoreStockAgainAfterAnotherRequestCancelledIt() throws Exception {
+        Fixture f=fixture(true,false,false);var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        var view=entityManagerFactory.createEntityManager();
+        org.springframework.transaction.support.TransactionSynchronizationManager.bindResource(entityManagerFactory,new org.springframework.orm.jpa.EntityManagerHolder(view));
+        try{
+            assertEquals(OrderStatus.PENDING_PAYMENT,view.find(Order.class,placed.getId()).getOrderStatus());
+            CompletableFuture.runAsync(()->orders.customerCancelOrder(placed.getId(),f.customerId(),"First browser tab")).get(10,TimeUnit.SECONDS);
+            assertThrows(IllegalStateException.class,()->orders.customerCancelOrder(placed.getId(),f.customerId(),"Stale browser tab"));
+        }finally{
+            org.springframework.transaction.support.TransactionSynchronizationManager.unbindResource(entityManagerFactory);view.close();
+        }
+        assertEquals(10,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    void staleOpenViewSkuUsesCommittedPriceWhenCheckoutTakesTheLock() throws Exception {
+        Fixture f=fixture(true,false,false);var view=entityManagerFactory.createEntityManager();
+        org.springframework.transaction.support.TransactionSynchronizationManager.bindResource(entityManagerFactory,new org.springframework.orm.jpa.EntityManagerHolder(view));
+        try{
+            assertMoney("100000",view.find(ProductVariant.class,f.firstId()).getPrice());
+            CompletableFuture.runAsync(()->productManageService.updateVariant(f.firstId(),ProductVariant.builder().variantName("SKU 1")
+                    .price(new BigDecimal("150000")).lowStockThreshold(5).status(ProductVariantStatus.ACTIVE).build())).get(10,TimeUnit.SECONDS);
+            var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.COD));
+            assertMoney("300000",placed.getSubtotalAmount());assertMoney("150000",placed.getItems().get(0).getUnitPrice());
+        }finally{
+            org.springframework.transaction.support.TransactionSynchronizationManager.unbindResource(entityManagerFactory);view.close();
+        }
     }
 
     private boolean tryCheckout(Long customerId) {
