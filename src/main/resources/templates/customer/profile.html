@@ -222,6 +222,27 @@
                 border-radius: 12px;
                 border: 1px solid #e2e8f0;
             }
+
+            .modal-backdrop.show {
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                background-color: rgba(15, 23, 42, 0.6) !important;
+            }
+
+            .star-rating i {
+                cursor: pointer;
+                font-size: 1.85rem;
+                color: #cbd5e1;
+                transition: color 0.15s ease, transform 0.15s ease;
+            }
+
+            .star-rating i:hover {
+                transform: scale(1.15);
+            }
+
+            .star-rating i.active-star {
+                color: #f59e0b !important;
+            }
         </style>
     </th:block>
 </head>
@@ -560,20 +581,50 @@
                                         <!-- Danh sách sản phẩm trong đơn -->
                                         <div class="py-3">
                                             <div th:each="item : ${order.items}"
-                                                class="d-flex justify-content-between align-items-center py-1">
+                                                th:with="isOutOfStock=${item.variant == null or item.variant.status.name() != 'ACTIVE' or item.variant.product == null or item.variant.product.status.name() != 'ACTIVE' or item.variant.stockQuantity == null or item.variant.stockQuantity <= 0}"
+                                                class="d-flex justify-content-between align-items-center py-2 border-bottom border-light flex-wrap gap-2">
                                                 <div class="d-flex align-items-center gap-2">
                                                     <i class="bi bi-box2 text-pet-primary"></i>
                                                     <div>
-                                                        <span class="fw-semibold text-dark small"
-                                                            th:text="${item.productNameSnapshot}">Tên sản phẩm</span>
+                                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                            <span class="fw-semibold small"
+                                                                th:classappend="${isOutOfStock} ? 'text-secondary text-decoration-line-through' : 'text-dark'"
+                                                                th:text="${item.productNameSnapshot}">Tên sản phẩm</span>
+                                                            <span th:if="${isOutOfStock}" class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0 small">
+                                                                Hết hàng
+                                                            </span>
+                                                        </div>
                                                         <small class="text-muted d-block"
                                                             th:text="${item.variantNameSnapshot + ' (x' + item.quantity + ')'}"></small>
                                                     </div>
                                                 </div>
-                                                <div class="text-end">
-                                                    <span class="fw-bold text-dark small"
-                                                        th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + ' đ'}">120.000
-                                                        đ</span>
+                                                <div class="text-end d-flex align-items-center gap-2 ms-auto flex-wrap">
+                                                    <span class="fw-bold small"
+                                                        th:classappend="${isOutOfStock} ? 'text-muted' : 'text-dark'"
+                                                        th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + ' đ'}">120.000 đ</span>
+                                                    <!-- Đánh giá nếu đơn đã hoàn tất và thanh toán -->
+                                                    <button th:if="${order.orderStatus.name() == 'COMPLETED' and order.paymentStatus.name() == 'PAID'}"
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 small"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#profileReviewModal"
+                                                            th:data-order-item-id="${item.id}"
+                                                            th:data-product-name="${item.productNameSnapshot}"
+                                                            th:data-variant-name="${item.variantNameSnapshot}">
+                                                        <i class="bi bi-star me-1"></i> Đánh Giá
+                                                    </button>
+                                                    <!-- Còn hàng: Nút Mua Lại tự thêm vào giỏ và chuyển sang giỏ hàng -->
+                                                    <form th:if="${!isOutOfStock}" th:action="@{/cart/reorder-item}" method="post" class="m-0">
+                                                        <input type="hidden" name="variantId" th:value="${item.variant.id}">
+                                                        <input type="hidden" name="quantity" th:value="${item.quantity}">
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 small">
+                                                            <i class="bi bi-bag-plus me-1"></i> Mua Lại
+                                                        </button>
+                                                    </form>
+                                                    <!-- Hết hàng: Nút bị khóa không cho thêm -->
+                                                    <button th:if="${isOutOfStock}" type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 small disabled" disabled title="Món hàng này hiện đã hết hàng">
+                                                        <i class="bi bi-slash-circle me-1"></i> Hết Hàng
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -594,10 +645,6 @@
                                                 <a th:href="@{/customer/orders/{id}(id=${order.id})}"
                                                     class="btn btn-sm btn-outline-primary rounded-pill px-3">
                                                     <i class="bi bi-eye me-1"></i> Chi Tiết Đơn
-                                                </a>
-                                                <a th:href="@{/products}"
-                                                    class="btn btn-sm btn-outline-secondary rounded-pill px-3">
-                                                    <i class="bi bi-bag-plus me-1"></i> Mua Lại
                                                 </a>
                                             </div>
                                         </div>
@@ -1065,6 +1112,66 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal Đánh Giá Sản Phẩm (Popup làm mờ xung quanh) -->
+        <div class="modal fade" id="profileReviewModal" tabindex="-1" aria-labelledby="profileReviewModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                    <div class="modal-header bg-pet-primary text-white border-0 py-3">
+                        <h5 class="modal-title fw-bold" id="profileReviewModalLabel">
+                            <i class="bi bi-star-fill me-2 text-warning"></i>Đánh Giá Sản Phẩm
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form th:action="@{/customer/reviews/create}" method="post">
+                        <div class="modal-body p-4">
+                            <input type="hidden" name="orderItemId" id="profileModalOrderItemId" value="">
+                            <input type="hidden" name="redirectUrl" value="/customer/profile?tab=orders">
+
+                            <!-- Thông tin sản phẩm được đánh giá -->
+                            <div class="p-3 bg-light rounded-3 mb-3 border text-start">
+                                <div class="fw-bold text-dark fs-6" id="profileModalReviewProductName">Tên sản phẩm</div>
+                                <small class="text-muted d-block mt-1" id="profileModalReviewVariantName">Phân loại hàng</small>
+                            </div>
+
+                            <!-- Chọn số sao tương tác -->
+                            <div class="mb-3 text-center">
+                                <label class="form-label fw-semibold d-block mb-1">Mức độ hài lòng của bạn</label>
+                                <input type="hidden" name="rating" id="profileModalRatingInput" value="5" required>
+                                <div class="star-rating d-inline-flex gap-2 my-1" id="profileStarContainer">
+                                    <i class="bi bi-star-fill active-star" data-val="1"></i>
+                                    <i class="bi bi-star-fill active-star" data-val="2"></i>
+                                    <i class="bi bi-star-fill active-star" data-val="3"></i>
+                                    <i class="bi bi-star-fill active-star" data-val="4"></i>
+                                    <i class="bi bi-star-fill active-star" data-val="5"></i>
+                                </div>
+                                <div class="small fw-semibold text-warning" id="profileRatingText">5 sao - Rất hài lòng</div>
+                            </div>
+
+                            <!-- Nhận xét chi tiết -->
+                            <div class="mb-2 text-start">
+                                <label for="profileModalComment" class="form-label fw-semibold">
+                                    Nhận xét chi tiết <span class="text-danger">*</span>
+                                </label>
+                                <textarea id="profileModalComment" name="comment" maxlength="1000" required rows="4"
+                                          class="form-control rounded-3"
+                                          placeholder="Hãy chia sẻ cảm nhận về chất lượng sản phẩm (tối đa 1000 ký tự)..."></textarea>
+                                <div class="d-flex justify-content-between mt-1">
+                                    <small class="text-muted">Nhận xét tối đa 1000 ký tự</small>
+                                    <small class="text-muted" id="profileCharCounter">0 / 1000</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-0 py-3 px-4 d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn btn-pet-primary rounded-pill px-4">
+                                <i class="bi bi-send me-1"></i> Gửi Đánh Giá
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <th:block layout:fragment="custom-js">
@@ -1192,6 +1299,71 @@
                     };
                     reader.readAsDataURL(file);
                 }
+            }
+
+            // Xử lý modal đánh giá sản phẩm (Popup)
+            const profileReviewModal = document.getElementById('profileReviewModal');
+            if (profileReviewModal) {
+                const pStarContainer = document.getElementById('profileStarContainer');
+                const pRatingInput = document.getElementById('profileModalRatingInput');
+                const pRatingText = document.getElementById('profileRatingText');
+                const pCommentInput = document.getElementById('profileModalComment');
+                const pCharCounter = document.getElementById('profileCharCounter');
+
+                const ratingDescs = {
+                    1: '1 sao - Rất tệ',
+                    2: '2 sao - Chưa hài lòng',
+                    3: '3 sao - Bình thường',
+                    4: '4 sao - Hài lòng',
+                    5: '5 sao - Rất hài lòng'
+                };
+
+                function setProfileStars(val) {
+                    pRatingInput.value = val;
+                    pRatingText.textContent = ratingDescs[val] || (val + ' sao');
+                    const stars = pStarContainer.querySelectorAll('i');
+                    stars.forEach(star => {
+                        const starVal = parseInt(star.getAttribute('data-val'), 10);
+                        if (starVal <= val) {
+                            star.className = 'bi bi-star-fill active-star';
+                        } else {
+                            star.className = 'bi bi-star';
+                        }
+                    });
+                }
+
+                if (pStarContainer) {
+                    pStarContainer.addEventListener('click', function (e) {
+                        if (e.target && e.target.dataset.val) {
+                            setProfileStars(parseInt(e.target.dataset.val, 10));
+                        }
+                    });
+                }
+
+                if (pCommentInput && pCharCounter) {
+                    pCommentInput.addEventListener('input', function () {
+                        pCharCounter.textContent = pCommentInput.value.length + ' / 1000';
+                    });
+                }
+
+                profileReviewModal.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    if (button) {
+                        const orderItemId = button.getAttribute('data-order-item-id');
+                        const productName = button.getAttribute('data-product-name');
+                        const variantName = button.getAttribute('data-variant-name');
+
+                        document.getElementById('profileModalOrderItemId').value = orderItemId || '';
+                        document.getElementById('profileModalReviewProductName').textContent = productName || 'Sản phẩm';
+                        document.getElementById('profileModalReviewVariantName').textContent = variantName || '';
+
+                        setProfileStars(5);
+                        if (pCommentInput) {
+                            pCommentInput.value = '';
+                            if (pCharCounter) pCharCounter.textContent = '0 / 1000';
+                        }
+                    }
+                });
             }
         </script>
     </th:block>

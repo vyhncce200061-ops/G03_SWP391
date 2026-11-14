@@ -27,13 +27,22 @@ public class CustomerReviewController {
     }
     @PostMapping("/create")
     public String create(@AuthenticationPrincipal CustomUserDetails user, @RequestParam Long orderItemId,
-            @Valid @ModelAttribute("reviewForm") ReviewCreateDto form, BindingResult errors, Model model, RedirectAttributes flash) {
+            @RequestParam(required = false) String redirectUrl,
+            @Valid @ModelAttribute("reviewForm") ReviewCreateDto form, BindingResult errors, Model model, RedirectAttributes flash,
+            @RequestHeader(value = "Referer", required = false) String referer) {
+        String target = (redirectUrl != null && !redirectUrl.isBlank()) ? redirectUrl : (referer != null && !referer.isBlank() ? referer : "/customer/reviews");
         try {
-            model.addAttribute("item",reviews.eligibleItem(user.getId(),orderItemId));
-            if (errors.hasErrors()) return "customer/review-form";
+            model.addAttribute("item", reviews.eligibleItem(user.getId(), orderItemId));
+            if (errors.hasErrors()) {
+                String firstError = errors.getAllErrors().isEmpty() ? "Dữ liệu đánh giá không hợp lệ." : errors.getAllErrors().get(0).getDefaultMessage();
+                flash.addFlashAttribute("errorMessage", firstError);
+                return "redirect:" + target;
+            }
             reviews.createReview(user.getId(), orderItemId, form);
-            flash.addFlashAttribute("successMessage","Đã gửi đánh giá sản phẩm.");
-        } catch (IllegalArgumentException e) { flash.addFlashAttribute("errorMessage",e.getMessage()); }
-        return "redirect:/customer/reviews";
+            flash.addFlashAttribute("successMessage", "Cảm ơn bạn! Đã gửi đánh giá sản phẩm thành công.");
+        } catch (IllegalArgumentException e) {
+            flash.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:" + target;
     }
 }

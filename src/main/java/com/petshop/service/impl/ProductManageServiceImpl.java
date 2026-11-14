@@ -46,6 +46,12 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional(readOnly = true)
     public Page<Product> searchProducts(String keyword, Integer categoryId, Pageable pageable) {
+        return searchProducts(keyword, categoryId, null, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> searchProducts(String keyword, Integer categoryId, ProductStatus status, Pageable pageable) {
         Page<Product> products = productRepository.findAll((root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             if (keyword != null && !keyword.isBlank()) {
@@ -55,6 +61,9 @@ public class ProductManageServiceImpl implements ProductManageService {
                 var category = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
                 var parent = category.join("parentCategory", jakarta.persistence.criteria.JoinType.LEFT);
                 predicates.add(cb.or(cb.equal(category.get("id"), categoryId), cb.equal(parent.get("id"), categoryId)));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
             }
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         }, pageable);

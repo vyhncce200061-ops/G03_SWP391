@@ -145,6 +145,9 @@ class CatalogHierarchyTests {
         var parent = adminGet("/admin/categories/edit/" + root.getId());
         assertEquals(true, parent.getModelAndView().getModel().get("parentLocked"));
         assertThat(parentSelect(parent)).contains("disabled=\"disabled\"").doesNotContain("value=\"" + root.getId() + "\"");
+        var emptyRoot = adminGet("/admin/categories/edit/" + otherRoot.getId());
+        assertEquals(true, emptyRoot.getModelAndView().getModel().get("parentLocked"));
+        assertThat(parentSelect(emptyRoot)).contains("disabled=\"disabled\"").doesNotContain("value=\"" + otherRoot.getId() + "\"");
     }
 
     @Test void rootCreationCannotBeChangedIntoChildCreationByPostedFields() throws Exception {
@@ -203,19 +206,20 @@ class CatalogHierarchyTests {
         assertEquals(child.getId(), products.findById(childProduct.getId()).orElseThrow().getCategory().getId());
     }
 
-    @ParameterizedTest @ValueSource(strings = {"self", "child", "missing", "root-with-children"})
+    @ParameterizedTest @ValueSource(strings = {"self", "child", "missing", "root-with-children", "root-without-children"})
     void invalidHierarchyDoesNotChangeExistingRelationships(String situation) throws Exception {
-        Category edited = situation.equals("root-with-children") ? root : child;
+        Category edited = situation.equals("root-with-children") ? root : situation.equals("root-without-children") ? otherRoot : child;
         String parent = switch (situation) {
             case "self" -> child.getId().toString();
             case "child" -> sibling.getId().toString();
             case "missing" -> "2147483647";
+            case "root-without-children" -> root.getId().toString();
             default -> otherRoot.getId().toString();
         };
         mvc.perform(categoryPost("/admin/categories/update/" + edited.getId(), edited.getCode(), edited.getName(), parent))
                 .andExpect(status().isOk()).andExpect(view().name("admin/category-form")).andExpect(model().attributeHasErrors("categoryForm"));
         Category saved = categories.findById(edited.getId()).orElseThrow();
-        if (edited.getId().equals(root.getId())) assertNull(saved.getParentCategory());
+        if (edited.getId().equals(root.getId()) || edited.getId().equals(otherRoot.getId())) assertNull(saved.getParentCategory());
         else assertEquals(root.getId(), saved.getParentCategory().getId());
     }
 

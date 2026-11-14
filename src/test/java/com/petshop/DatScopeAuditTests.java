@@ -249,7 +249,7 @@ class DatScopeAuditTests {
                     .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("reviewForm","rating"));
         }
         var f=new com.petshop.dto.ReviewCreateDto();f.setRating(5);
-        for(String bad:List.of("x".repeat(9),"x".repeat(1001)," ".repeat(10))){f.setComment(bad);assertThrows(IllegalArgumentException.class,()->reviews.createReview(customer.getId(),item.getId(),f));}
+        for(String bad:List.of("", "x".repeat(1001), " ".repeat(10))){f.setComment(bad);assertThrows(IllegalArgumentException.class,()->reviews.createReview(customer.getId(),item.getId(),f));}
         f.setComment("Unique "+key+" "+"x".repeat(980-key.length()));var review=reviews.createReview(customer.getId(),item.getId(),f);
         assertFalse(reviews.myReviews(staff.getId(),org.springframework.data.domain.PageRequest.of(0,10)).hasContent());
         var other=account("CUSTOMER");String html=mvc.perform(get("/customer/reviews").with(user(new CustomUserDetails(other)))

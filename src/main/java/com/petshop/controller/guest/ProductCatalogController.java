@@ -4,6 +4,7 @@ import com.petshop.dto.catalog.ProductFilterDto;
 import com.petshop.dto.catalog.ProductSummaryDto;
 import com.petshop.entity.Category;
 import com.petshop.entity.Product;
+import com.petshop.entity.ProductVariant;
 import com.petshop.entity.enums.PetType;
 import com.petshop.service.CatalogService;
 import com.petshop.service.ReviewService;
@@ -293,6 +294,14 @@ public class ProductCatalogController {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
                     "Không tìm thấy sản phẩm."
+            );
+        }
+
+        boolean isStaffOrAdmin = principal != null && ("STAFF".equals(principal.getRoleCode()) || "ADMIN".equals(principal.getRoleCode()));
+        if (product.getStatus() != com.petshop.entity.enums.ProductStatus.ACTIVE && !isStaffOrAdmin) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Sản phẩm không tồn tại hoặc đã tạm ngừng bán."
             );
         }
 

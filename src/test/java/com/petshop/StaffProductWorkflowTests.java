@@ -222,6 +222,42 @@ class StaffProductWorkflowTests {
                 .andExpect(status().is3xxRedirection());
     }
 
+    @Test
+    void softDeleteAndRestoreWorkflowForAdminAndStaff() throws Exception {
+        User admin = adminActor();
+        // 1. Admin soft deletes product
+        mvc.perform(post("/admin/products/" + product.getId() + "/delete")
+                        .with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/products"));
+        assertThat(products.findById(product.getId()).orElseThrow().getStatus()).isEqualTo(ProductStatus.HIDDEN);
+
+        // 2. Guest/Customer gets 404 on product detail
+        mvc.perform(get("/products/" + product.getSlug()))
+                .andExpect(status().isNotFound());
+
+        // 3. Staff restores product
+        mvc.perform(post("/staff/products/" + product.getId() + "/restore")
+                        .with(user(new CustomUserDetails(staff))).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/products"));
+        assertThat(products.findById(product.getId()).orElseThrow().getStatus()).isEqualTo(ProductStatus.ACTIVE);
+
+        // 4. Staff soft deletes product
+        mvc.perform(post("/staff/products/" + product.getId() + "/delete")
+                        .with(user(new CustomUserDetails(staff))).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/products"));
+        assertThat(products.findById(product.getId()).orElseThrow().getStatus()).isEqualTo(ProductStatus.HIDDEN);
+
+        // 5. Admin restores product
+        mvc.perform(post("/admin/products/" + product.getId() + "/restore")
+                        .with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/products"));
+        assertThat(products.findById(product.getId()).orElseThrow().getStatus()).isEqualTo(ProductStatus.ACTIVE);
+    }
+
     private User adminActor() {
         return new TransactionTemplate(transactionManager).execute(tx -> {
             Role role=roles.findByCode("ADMIN").orElseGet(() -> roles.save(Role.builder().code("ADMIN").name("Admin").build()));

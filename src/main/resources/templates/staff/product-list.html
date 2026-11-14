@@ -21,11 +21,11 @@
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3">
             <form method="get" th:action="@{${productBasePath}}" class="row g-2 align-items-center">
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <input type="text" name="keyword" class="form-control"
                            placeholder="Tìm theo tên sản phẩm..." th:value="${keyword}">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select name="categoryId" class="form-select">
                         <option value="">Tất cả danh mục</option>
                         <option th:each="category : ${categories}" th:value="${category.id}"
@@ -34,7 +34,15 @@
                         </option>
                     </select>
                 </div>
-                <div class="col-md-3 d-flex gap-2">
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="ACTIVE" th:selected="${selectedStatus != null and selectedStatus.name() == 'ACTIVE'}">Đang bán (ACTIVE)</option>
+                        <option value="HIDDEN" th:selected="${selectedStatus != null and selectedStatus.name() == 'HIDDEN'}">Tạm ẩn - Đã xóa mềm (HIDDEN)</option>
+                        <option value="DISCONTINUED" th:selected="${selectedStatus != null and selectedStatus.name() == 'DISCONTINUED'}">Ngừng bán (DISCONTINUED)</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
                     <button type="submit" class="btn btn-pet-outline w-100">
                         <i class="bi bi-search me-1"></i> Tìm
                     </button>
@@ -118,13 +126,27 @@
                     </td>
 
                     <!-- Actions -->
-                    <td class="text-center">
-                        <a th:href="@{${productBasePath + '/{id}/edit'}(id=${p.id})}" class="btn btn-sm btn-outline-secondary">
+                    <td class="text-center text-nowrap">
+                        <a th:href="@{${productBasePath + '/' + p.id + '/edit'}}" class="btn btn-sm btn-outline-secondary" title="Sửa sản phẩm">
                             <i class="bi bi-pencil"></i> Sửa
                         </a>
-                        <a th:href="@{/staff/products/{id}/variants(id=${p.id})}" class="btn btn-sm btn-pet-outline ms-1">
+                        <a th:href="@{/staff/products/{id}/variants(id=${p.id})}" class="btn btn-sm btn-pet-outline ms-1" title="Quản lý SKU">
                             <i class="bi bi-upc-scan"></i> SKU
                         </a>
+                        <!-- Nút Xóa mềm (khi sản phẩm đang ACTIVE) -->
+                        <form th:if="${p.status.name() == 'ACTIVE'}" th:action="@{${productBasePath + '/' + p.id + '/delete'}}" method="post" class="d-inline"
+                              onsubmit="return confirm('Bạn có chắc muốn xóa mềm sản phẩm này? Sản phẩm sẽ chuyển sang trạng thái tạm ẩn và ngừng bán.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Xóa mềm">
+                                <i class="bi bi-trash"></i> Xóa
+                            </button>
+                        </form>
+                        <!-- Nút Khôi phục (khi sản phẩm đang HIDDEN hoặc DISCONTINUED) -->
+                        <form th:if="${p.status.name() == 'HIDDEN' or p.status.name() == 'DISCONTINUED'}" th:action="@{${productBasePath + '/' + p.id + '/restore'}}" method="post" class="d-inline"
+                              onsubmit="return confirm('Bạn có chắc muốn khôi phục sản phẩm này? Sản phẩm sẽ được mở bán trở lại.');">
+                            <button type="submit" class="btn btn-sm btn-outline-success ms-1" title="Khôi phục sản phẩm">
+                                <i class="bi bi-arrow-counterclockwise"></i> Khôi phục
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 <tr th:if="${products == null or products.empty}">
@@ -140,7 +162,7 @@
     <!-- Pagination -->
     <div th:replace="~{fragments/pagination :: pagination(
         page=${products},
-        url=@{${productBasePath}(keyword=${keyword}, categoryId=${selectedCategoryId})},
+        url=@{${productBasePath}(keyword=${keyword}, categoryId=${selectedCategoryId}, status=${selectedStatus})},
         itemName='sản phẩm')}">
     </div>
 </div>

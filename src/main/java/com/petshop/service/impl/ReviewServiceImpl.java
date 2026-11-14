@@ -41,7 +41,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Override @Transactional
     public Review createReview(Long customerId, Long itemId, com.petshop.dto.ReviewCreateDto form) {
         if (form != null && form.getComment() != null) form.setComment(form.getComment().trim());
-        if (form == null || !validator.validate(form).isEmpty()) throw new IllegalArgumentException("Chọn 1–5 sao; nhận xét từ 10 đến 1000 ký tự.");
+        if (form == null || !validator.validate(form).isEmpty()) throw new IllegalArgumentException("Chọn 1–5 sao; nhận xét tối đa 1000 ký tự.");
         var customer = users.findByIdForUpdate(customerId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản."));
         em.refresh(customer, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (!"ACTIVE".equals(customer.getStatus()) || !"CUSTOMER".equals(customer.getRole().getCode())) throw new IllegalArgumentException("Tài khoản không được gửi đánh giá.");

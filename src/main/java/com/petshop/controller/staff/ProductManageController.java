@@ -42,12 +42,14 @@ public class ProductManageController {
                                @RequestParam(defaultValue = "10") int size,
                                @RequestParam(required = false) String keyword,
                                @RequestParam(required = false) Integer categoryId,
+                               @RequestParam(required = false) ProductStatus status,
                                Model model) {
         Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
-        Page<Product> products = productManageService.searchProducts(keyword, categoryId, pageable);
+        Page<Product> products = productManageService.searchProducts(keyword, categoryId, status, pageable);
         model.addAttribute("products", products);
         model.addAttribute("keyword", keyword);
         model.addAttribute("selectedCategoryId", categoryId);
+        model.addAttribute("selectedStatus", status);
         model.addAttribute("categories", catalogService.getAllCategories());
         return "staff/product-list";
     }
@@ -124,11 +126,19 @@ public class ProductManageController {
         return "redirect:/staff/products";
     }
 
-    // ============ MANAGE VARIANTS ============
+    // ============ SOFT DELETE PRODUCT ============
     @PostMapping("/{id}/delete")
     public String deleteProduct(@PathVariable Long id, RedirectAttributes redirectAttributes) {
         productManageService.deleteProduct(id);
-        redirectAttributes.addFlashAttribute("successMessage", "Đã ẩn sản phẩm. Lịch sử đơn hàng và tồn kho được giữ lại.");
+        redirectAttributes.addFlashAttribute("successMessage", "Đã xóa mềm sản phẩm thành công! Sản phẩm đã chuyển sang trạng thái tạm ẩn.");
+        return "redirect:/staff/products";
+    }
+
+    // ============ RESTORE PRODUCT ============
+    @PostMapping("/{id}/restore")
+    public String restoreProduct(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        productManageService.toggleProductStatus(id, ProductStatus.ACTIVE);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã khôi phục sản phẩm thành công! Sản phẩm đang được mở bán.");
         return "redirect:/staff/products";
     }
 

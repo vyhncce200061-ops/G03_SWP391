@@ -25,7 +25,7 @@
                     <input id="name" th:field="*{name}" class="form-control" th:errorclass="is-invalid" maxlength="150" placeholder="Nhập tên danh mục" required>
                     <div class="invalid-feedback" th:errors="*{name}"></div>
                 </div>
-                <div class="col-md-8">
+                <div class="col-12">
                     <th:block th:if="${categoryId == null}">
                         <label for="categoryContext" class="form-label fw-semibold" th:text="${creationParent == null ? 'Loại danh mục' : 'Danh mục cha'}"></label>
                         <input id="categoryContext" class="form-control bg-light" readonly th:value="${creationParent == null ? 'Danh mục cha' : creationParent.name}">
@@ -39,13 +39,8 @@
                         </select>
                         <input th:if="${parentLocked}" type="hidden" name="parentId" value="">
                         <div class="invalid-feedback" th:errors="*{parentId}"></div>
-                        <div id="parentHelp" class="form-text" th:if="${parentLocked}">Danh mục này đang có danh mục con nên phải giữ ở cấp cha.</div>
+                        <div id="parentHelp" class="form-text" th:if="${parentLocked}">Danh mục cha là cấp cao nhất, chỉ có thể thêm danh mục con chứ không thể thêm danh mục cha.</div>
                     </th:block>
-                </div>
-                <div class="col-md-4">
-                    <label for="sortOrder" class="form-label fw-semibold">Thứ tự hiển thị <span class="text-danger">*</span></label>
-                    <input id="sortOrder" type="number" th:field="*{sortOrder}" class="form-control" th:errorclass="is-invalid" min="0" max="2147483647" required>
-                    <div class="invalid-feedback" th:errors="*{sortOrder}"></div>
                 </div>
                 <div class="col-12">
                     <label for="description" class="form-label fw-semibold">Mô tả</label>

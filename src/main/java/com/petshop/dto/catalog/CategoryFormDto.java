@@ -23,7 +23,6 @@ public class CategoryFormDto {
 
     private Integer parentId;
 
-    @NotNull(message = "Vui lòng nhập thứ tự hiển thị.")
     @Min(value = 0, message = "Thứ tự hiển thị không được âm.")
     private Integer sortOrder = 0;
 

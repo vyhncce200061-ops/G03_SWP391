@@ -105,6 +105,24 @@ public class CartController {
         return "redirect:/cart";
     }
 
+    @PostMapping("/reorder-item")
+    public String reorderSingleItem(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                    @RequestParam Long variantId,
+                                    @RequestParam(defaultValue = "1") int quantity,
+                                    HttpSession session,
+                                    RedirectAttributes redirectAttributes) {
+        try {
+            int qty = quantity > 0 ? quantity : 1;
+            CartDto cart = cartService.addItemToCart(userDetails.getId(), variantId, qty);
+            session.setAttribute("cartCount", cart.getTotalQuantity());
+            redirectAttributes.addFlashAttribute("successMessage", "Đã thêm sản phẩm vào giỏ hàng thành công!");
+            return "redirect:/cart";
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/customer/profile?tab=orders";
+        }
+    }
+
     @PostMapping("/update")
     public Object updateQuantity(@AuthenticationPrincipal CustomUserDetails userDetails,
                                  @RequestParam Long itemId,

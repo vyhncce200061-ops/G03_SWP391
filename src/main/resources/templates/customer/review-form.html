@@ -19,8 +19,8 @@
 </select>
 <p class="text-danger" th:errors="*{rating}">
 </p>
-<label for="comment" class="form-label mt-3">Nhận xét (10–1000 ký tự)</label>
-<textarea id="comment" th:field="*{comment}" minlength="10" maxlength="1000" required rows="5" class="form-control">
+<label for="comment" class="form-label mt-3">Nhận xét (tối đa 1000 ký tự)</label>
+<textarea id="comment" th:field="*{comment}" maxlength="1000" required rows="5" class="form-control">
 </textarea>
 <p class="text-danger" th:errors="*{comment}">
 </p>

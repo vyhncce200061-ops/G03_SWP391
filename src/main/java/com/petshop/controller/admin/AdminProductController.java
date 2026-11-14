@@ -29,12 +29,14 @@ public class AdminProductController {
     @GetMapping
     public String list(@RequestParam(required = false) String keyword,
                        @RequestParam(required = false) Integer categoryId,
+                       @RequestParam(required = false) ProductStatus status,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "10") int size, Model model) {
-        model.addAttribute("products", products.searchProducts(keyword, categoryId,
+        model.addAttribute("products", products.searchProducts(keyword, categoryId, status,
                 com.petshop.util.PageRequests.bounded(page, size)));
         model.addAttribute("keyword", keyword);
         model.addAttribute("selectedCategoryId", categoryId);
+        model.addAttribute("selectedStatus", status);
         model.addAttribute("categories", catalog.getAllCategories());
         return "staff/product-list";
     }
@@ -87,6 +89,20 @@ public class AdminProductController {
     public String status(@PathVariable Long id, @RequestParam ProductStatus status, RedirectAttributes redirect) {
         products.toggleProductStatus(id, status);
         redirect.addFlashAttribute("successMessage", "Cập nhật trạng thái thành công!");
+        return "redirect:/admin/products";
+    }
+
+    @PostMapping("/{id}/delete")
+    public String deleteProduct(@PathVariable Long id, RedirectAttributes redirect) {
+        products.deleteProduct(id);
+        redirect.addFlashAttribute("successMessage", "Đã xóa mềm sản phẩm thành công! Sản phẩm đã chuyển sang trạng thái tạm ẩn.");
+        return "redirect:/admin/products";
+    }
+
+    @PostMapping("/{id}/restore")
+    public String restoreProduct(@PathVariable Long id, RedirectAttributes redirect) {
+        products.toggleProductStatus(id, ProductStatus.ACTIVE);
+        redirect.addFlashAttribute("successMessage", "Đã khôi phục sản phẩm thành công! Sản phẩm đang được mở bán.");
         return "redirect:/admin/products";
     }
 

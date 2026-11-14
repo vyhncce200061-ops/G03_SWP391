@@ -97,6 +97,9 @@ public class CategoryManageController {
         } catch (IllegalArgumentException ex) {
             return missing(redirect, ex);
         }
+        if (categories.isParent(id) && dto.getParentId() != null) {
+            errors.reject("category.rootCannotHaveParent", "Danh mục cha là cấp cao nhất, không thể thêm danh mục cha mà chỉ có thể thêm danh mục con.");
+        }
         return save(id, dto, errors, model, redirect, null);
     }
 
@@ -118,10 +121,13 @@ public class CategoryManageController {
     }
 
     private String form(Model model, Integer id, CategoryViewDto creationParent) {
+        boolean isParent = id != null && categories.isParent(id);
+        boolean parentLocked = isParent || categories.hasChildren(id);
         model.addAttribute("categoryId", id);
         model.addAttribute("creationParent", creationParent);
+        model.addAttribute("isParentCategory", isParent);
         model.addAttribute("parentCategories", id == null ? java.util.List.of() : categories.parentOptions(id));
-        model.addAttribute("parentLocked", categories.hasChildren(id));
+        model.addAttribute("parentLocked", parentLocked);
         model.addAttribute("categoryFormTitle", id != null ? "Chỉnh sửa danh mục"
                 : creationParent == null ? "Thêm danh mục cha" : "Thêm danh mục con");
         model.addAttribute("categoryFormAction", id != null ? "/admin/categories/update/" + id

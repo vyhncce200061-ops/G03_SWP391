@@ -64,6 +64,13 @@ public class CategoryManageService {
         return id != null && categories.existsByParentCategory_Id(id);
     }
 
+    public boolean isParent(Integer id) {
+        if (id == null) return false;
+        return categories.findById(id)
+                .map(c -> c.getParentCategory() == null)
+                .orElse(false);
+    }
+
     public CategoryFormDto editForm(Integer id) {
         Category category = requireCategory(id);
         CategoryFormDto form = new CategoryFormDto();
@@ -93,6 +100,9 @@ public class CategoryManageService {
             if (parent.getParentCategory() != null) {
                 throw new IllegalArgumentException("Chỉ được chọn danh mục cấp cha; hệ thống hỗ trợ tối đa hai cấp.");
             }
+            if (id != null && category.getParentCategory() == null) {
+                throw new IllegalArgumentException("Danh mục cha là cấp cao nhất, không thể thêm danh mục cha mà chỉ có thể thêm danh mục con.");
+            }
             if (hasChildren(id)) {
                 throw new IllegalArgumentException("Danh mục đang có danh mục con nên phải giữ ở cấp cha.");
             }
@@ -100,7 +110,11 @@ public class CategoryManageService {
         category.setCode(form.getCode());
         category.setName(form.getName());
         category.setDescription(form.getDescription());
-        category.setSortOrder(form.getSortOrder());
+        if (form.getSortOrder() != null) {
+            category.setSortOrder(form.getSortOrder());
+        } else if (category.getSortOrder() == null) {
+            category.setSortOrder(0);
+        }
         category.setIsActive(Boolean.TRUE.equals(form.getIsActive()));
         category.setParentCategory(parent);
         categories.saveAndFlush(category);
