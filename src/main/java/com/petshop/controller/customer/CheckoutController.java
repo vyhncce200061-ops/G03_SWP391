@@ -127,6 +127,7 @@ public class CheckoutController {
         model.addAttribute("quote", quote);
         model.addAttribute("addresses", userService.getCustomerAddresses(customerId));
         model.addAttribute("vnPayAvailable", vnPayService.isConfigured());
+        model.addAttribute("walletVouchers", voucherService.getCustomerWalletVouchers(customerId));
         return quote;
     }
 }

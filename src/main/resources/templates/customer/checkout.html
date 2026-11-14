@@ -22,6 +22,34 @@
                 <div class="col-lg-7">
                     <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
                         <h5 class="fw-bold mb-3">Thông Tin Giao Hàng</h5>
+
+                        <div class="mb-3">
+                            <label for="saved-address" class="form-label small">Chọn địa chỉ giao hàng</label>
+
+                            <select id="saved-address" class="form-select" aria-describedby="address-help">
+                                <option value="">Địa chỉ tùy chỉnh bên dưới</option>
+
+                                <option
+                                        th:each="address : ${addresses}"
+                                        th:value="${address.id}"
+                                        th:text="${address.recipientName + ' - ' + address.recipientPhone + ' - ' + address.addressLine + ', ' + address.ward
+                                                + ', ' + address.district + ', ' + address.province  + (address.isDefault == true ? ' [Mặc định]' : '')}"
+                                        th:attr="data-recipient-name=${address.recipientName}, data-recipient-phone=${address.recipientPhone}, data-shipping-province=${address.province},
+                                                data-shipping-district=${address.district}, data-shipping-ward=${address.ward}, data-shipping-address-line=${address.addressLine}">
+                                </option>
+
+                                <option value="__new">Nhập địa chỉ khác</option>
+                            </select>
+
+                            <div id="address-help" class="form-text">
+                                Thay đổi tại đây chỉ áp dụng cho đơn hàng này, không cập nhật sổ địa chỉ hoặc địa chỉ mặc định.
+                            </div>
+
+                            <p th:if="${#lists.isEmpty(addresses)}" class="small text-muted mt-2 mb-0">
+                                Bạn chưa có địa chỉ đã lưu. Vui lòng nhập thông tin bên dưới.
+                            </p>
+                        </div>
+
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label small">Họ và tên người nhận</label>
@@ -60,7 +88,6 @@
                             <input class="form-check-input" type="radio" th:field="*{paymentMethod}" value="COD" id="payCOD">
                             <label class="form-check-label" for="payCOD">
                                 <strong>COD</strong> — Thanh toán tiền mặt khi nhận hàng
-<!--                                <small class="d-block text-muted">Đơn chờ cửa hàng xác nhận và kiểm tra tồn kho; hàng chưa được giữ khi đặt đơn.</small>-->
                             </label>
                         </div>
                         <div class="form-check">
@@ -68,7 +95,6 @@
                             <label class="form-check-label" for="payVNPAY">
                                 <strong>VNPay</strong> — Cổng thanh toán trực tuyến (Sandbox)
                                 <small class="d-block text-muted">Hàng được giữ trong 15 phút kể từ khi đặt đơn. Hết hạn hoặc thanh toán thất bại, hàng sẽ được trả lại kho.</small>
-<!--                                <small th:if="${!vnPayAvailable}" class="d-block text-muted"></small>-->
                             </label>
                         </div>
                     </div>
@@ -88,10 +114,38 @@
                             </li>
                         </ul>
 
+<!--                        <div class="mb-3">-->
+<!--                            <label class="form-label small">Mã giảm giá (Voucher):</label>-->
+<!--                            <input type="text" class="form-control" th:field="*{voucherCode}" maxlength="50" autocomplete="off" placeholder="PETWELCOME10">-->
+<!--                        </div>-->
+
                         <div class="mb-3">
-                            <label class="form-label small">Mã giảm giá (Voucher):</label>
-                            <input type="text" class="form-control" th:field="*{voucherCode}" maxlength="50" autocomplete="off" placeholder="PETWELCOME10">
+                            <label for="wallet-voucher" class="form-label small">
+                                Chọn voucher trong ví
+                            </label>
+
+                            <select id="wallet-voucher" class="form-select mb-2" aria-describedby="voucher-help">
+                                <option value="">Không chọn / nhập mã bên dưới</option>
+
+                                <option th:each="item : ${walletVouchers}"
+                                        th:with="enoughAmount=${quote.subtotal.compareTo(item.voucher.minOrderAmount) >= 0}"
+                                        th:value="${item.voucher.code}"
+                                        th:disabled="${!item.available or !enoughAmount}"
+                                        th:text="${item.voucher.code + ' - ' + item.voucher.title
+                                        + (!item.available ? ' (' + item.availabilityLabel + ')' : (!enoughAmount ? ' (Chưa đạt giá trị đơn tối thiểu)' : ''))}">
+                                </option>
+                            </select>
+
+                            <p th:if="${#lists.isEmpty(walletVouchers)}" class="small text-muted mb-2">
+                                Chưa có voucher được lưu. Có thể nhập mã bên dưới.
+                            </p>
+
+                            <label for="voucherCode" class="form-label small">Mã giảm giá</label>
+                            <input id="voucherCode" type="text" class="form-control" th:field="*{voucherCode}" maxlength="50"
+                                   autocomplete="off" placeholder="Nhập mã voucher" aria-describedby="voucher-help">
+                            <div id="voucher-help" class="form-text">Mỗi đơn chỉ được dùng một mã.</div>
                         </div>
+
 
                         <div class="d-flex justify-content-between mb-2">
                             <span>Tạm tính:</span>

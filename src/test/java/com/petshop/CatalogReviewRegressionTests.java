@@ -80,7 +80,7 @@ class CatalogReviewRegressionTests {
     }
 
     @Test
-    void cachedParentIsRevalidatedAfterAnotherTransactionMovesIt() {
+    void cachedRootCannotBeReparentedByAnotherTransaction() {
         Category root = category("Original root", null);
         Category newRoot = category("Destination root", null);
         Category child = category("New child", null);
@@ -96,7 +96,7 @@ class CatalogReviewRegressionTests {
             categoryService.save(child.getId(), moving(child, root.getId()));
         }));
 
-        assertEquals(newRoot.getId(), categoryService.editForm(root.getId()).getParentId());
+        assertNull(categoryService.editForm(root.getId()).getParentId());
         assertNull(categoryService.editForm(child.getId()).getParentId());
     }
 
@@ -112,14 +112,15 @@ class CatalogReviewRegressionTests {
 
     @Test
     void staleStatusUpdateKeepsTheCommittedParentMove() {
-        Category moved = category("Moved category", null);
+        Category originalRoot = category("Original root", null);
+        Category moved = category("Moved category", originalRoot);
         Category newRoot = category("New root", null);
         TransactionTemplate outer = new TransactionTemplate(transactionManager);
         TransactionTemplate independent = new TransactionTemplate(transactionManager);
         independent.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 
         outer.executeWithoutResult(status -> {
-            assertNull(categories.findById(moved.getId()).orElseThrow().getParentCategory());
+            assertEquals(originalRoot.getId(), categories.findById(moved.getId()).orElseThrow().getParentCategory().getId());
             independent.executeWithoutResult(other -> categoryService.save(moved.getId(), moving(moved, newRoot.getId())));
             categoryService.toggleStatus(moved.getId());
         });
@@ -130,7 +131,7 @@ class CatalogReviewRegressionTests {
     }
 
     @Test
-    void simultaneousOppositeMovesKeepExactlyOneRootAndOneChild() throws Exception {
+    void simultaneousOppositeRootMovesAreBothRejected() throws Exception {
         Category first = category("First root", null);
         Category second = category("Second root", null);
         CountDownLatch start = new CountDownLatch(1);
@@ -141,11 +142,11 @@ class CatalogReviewRegressionTests {
             start.countDown();
             int successful = (firstMove.get(15, TimeUnit.SECONDS) ? 1 : 0)
                     + (secondMove.get(15, TimeUnit.SECONDS) ? 1 : 0);
-            assertEquals(1, successful);
+            assertEquals(0, successful);
             Integer firstParent = categoryService.editForm(first.getId()).getParentId();
             Integer secondParent = categoryService.editForm(second.getId()).getParentId();
-            assertTrue(firstParent == null && first.getId().equals(secondParent)
-                    || secondParent == null && second.getId().equals(firstParent));
+            assertNull(firstParent);
+            assertNull(secondParent);
         } finally {
             pool.shutdownNow();
         }
