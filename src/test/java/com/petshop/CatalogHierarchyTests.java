@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -328,6 +329,105 @@ class CatalogHierarchyTests {
                 .andExpect(model().attributeHasFieldErrors("brandForm", "name")).andReturn();
         assertThat(result.getResponse().getContentAsString()).contains("action=\"/admin/brands/update/" + brand.getId() + "\"");
         assertEquals(brand.getName(), brands.findById(brand.getId()).orElseThrow().getName());
+    }
+
+    @Test void deletingAnEmptyRootRemovesTheRecordAndRepeatedDeletionIsRejected() throws Exception {
+        Integer id = otherRoot.getId();
+        mvc.perform(post("/admin/categories/delete/" + id).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl("/admin/categories"))
+                .andExpect(flash().attribute("successMessage", "Đã xóa vĩnh viễn danh mục."));
+        assertFalse(categories.existsById(id));
+        mvc.perform(post("/admin/categories/delete/" + id).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl("/admin/categories"))
+                .andExpect(flash().attribute("errorMessage", "Danh mục không tồn tại."))
+                .andExpect(flash().attribute("successMessage", org.hamcrest.Matchers.nullValue()));
+        assertTrue(categories.existsById(root.getId()));
+        assertTrue(products.existsById(childProduct.getId()));
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {true, false})
+    void deletingAnEmptyChildWorksInEitherStateAndKeepsItsParentExpanded(boolean active) throws Exception {
+        Category empty = category("EMPTY", "Empty " + key, otherRoot, 0, active);
+        mvc.perform(post("/admin/categories/delete/" + empty.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl(branchUrl(otherRoot.getId())))
+                .andExpect(flash().attribute("successMessage", "Đã xóa vĩnh viễn danh mục."));
+        assertFalse(categories.existsById(empty.getId()));
+        assertTrue(categories.existsById(otherRoot.getId()));
+        assertTrue(categories.existsById(inactiveChild.getId()));
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {true, false})
+    void aParentCannotBeDeletedWhileAnyChildRemainsEvenWhenInactive(boolean childActive) throws Exception {
+        Category retained = category("RETAIN", "Retain " + key, otherRoot, 0, childActive);
+        mvc.perform(post("/admin/categories/delete/" + otherRoot.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl("/admin/categories"))
+                .andExpect(flash().attribute("errorMessage", "Danh mục còn danh mục con nên không thể xóa. Bạn có thể ngừng hoạt động thay vì xóa."))
+                .andExpect(flash().attribute("successMessage", org.hamcrest.Matchers.nullValue()));
+        assertTrue(categories.existsById(otherRoot.getId()));
+        assertTrue(categories.existsById(retained.getId()));
+        assertEquals(childActive, categories.findById(retained.getId()).orElseThrow().getIsActive());
+    }
+
+    @ParameterizedTest @EnumSource(ProductStatus.class)
+    void aCategoryCannotBeDeletedWhileAProductInAnySaleStatusReferencesIt(ProductStatus productStatus) throws Exception {
+        childProduct.setStatus(productStatus); products.saveAndFlush(childProduct);
+        mvc.perform(post("/admin/categories/delete/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl("/admin/categories"))
+                .andExpect(flash().attributeExists("errorMessage"))
+                .andExpect(flash().attribute("successMessage", org.hamcrest.Matchers.nullValue()));
+        assertTrue(categories.existsById(child.getId()));
+        Product retained = products.findById(childProduct.getId()).orElseThrow();
+        assertEquals(child.getId(), retained.getCategory().getId());
+        assertEquals(productStatus, retained.getStatus());
+        assertEquals(1, retained.getVariants().size());
+    }
+
+    @Test void explicitStateActionsAreRepeatableAndKeepTheEntireBranchAndItsProducts() throws Exception {
+        for (String action : List.of("deactivate", "deactivate", "activate", "activate")) {
+            mvc.perform(post("/admin/categories/" + action + "/" + root.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                    .andExpect(redirectedUrl(branchUrl(root.getId())))
+                    .andExpect(flash().attributeExists("successMessage"));
+            assertEquals(action.equals("activate"), categories.findById(root.getId()).orElseThrow().getIsActive());
+            assertTrue(categories.findById(child.getId()).orElseThrow().getIsActive());
+            assertFalse(categories.findById(inactiveChild.getId()).orElseThrow().getIsActive());
+            assertEquals(ProductStatus.ACTIVE, products.findById(directProduct.getId()).orElseThrow().getStatus());
+            assertEquals(ProductStatus.ACTIVE, products.findById(childProduct.getId()).orElseThrow().getStatus());
+        }
+        mvc.perform(post("/admin/categories/deactivate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl(branchUrl(root.getId())));
+        assertTrue(categories.findById(root.getId()).orElseThrow().getIsActive());
+        assertFalse(categories.findById(child.getId()).orElseThrow().getIsActive());
+    }
+
+    @Test void categoryActionsShowBothDeletionAndTheAppropriateStateActionForInactiveRecords() throws Exception {
+        String html = adminGet("/admin/categories").getResponse().getContentAsString();
+        assertThat(html).contains("action=\"/admin/categories/deactivate/" + root.getId() + "\"",
+                        "action=\"/admin/categories/activate/" + inactiveChild.getId() + "\"",
+                        "action=\"/admin/categories/delete/" + inactiveChild.getId() + "\"",
+                        "Xóa vĩnh viễn danh mục này?", "Không thể khôi phục.")
+                .doesNotContain("/admin/categories/toggle-status/", "Tiếp tục xóa mềm?");
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"delete", "activate", "deactivate"})
+    void missingCategoryActionsReturnAnErrorWithoutReportingSuccess(String action) throws Exception {
+        mvc.perform(post("/admin/categories/" + action + "/2147483647").with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl("/admin/categories"))
+                .andExpect(flash().attribute("errorMessage", "Danh mục không tồn tại."))
+                .andExpect(flash().attribute("successMessage", org.hamcrest.Matchers.nullValue()));
+    }
+
+    @ParameterizedTest @CsvSource({"delete,STAFF", "delete,CUSTOMER", "activate,STAFF", "activate,CUSTOMER", "deactivate,STAFF", "deactivate,CUSTOMER"})
+    void categoryDeletionAndStateActionsAreAdminOnly(String action, String role) throws Exception {
+        mvc.perform(post("/admin/categories/" + action + "/" + otherRoot.getId()).with(user("operator").roles(role)).with(csrf()))
+                .andExpect(redirectedUrl("/error/403"));
+        assertTrue(categories.findById(otherRoot.getId()).orElseThrow().getIsActive());
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"delete", "activate", "deactivate"})
+    void categoryDeletionAndStateActionsRequireCsrf(String action) throws Exception {
+        mvc.perform(post("/admin/categories/" + action + "/" + otherRoot.getId()).with(user("admin").roles("ADMIN")))
+                .andExpect(redirectedUrl("/error/403"));
+        assertTrue(categories.findById(otherRoot.getId()).orElseThrow().getIsActive());
     }
 
     @Test void brandAndCategoryWritesStillRequireAdminAndCsrf() throws Exception {

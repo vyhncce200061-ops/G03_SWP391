@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -153,24 +154,56 @@ public class CategoryManageController {
     @PostMapping("/toggle-status/{id}")
     public String toggleCategoryStatus(@PathVariable Integer id, RedirectAttributes redirect) {
         try {
-            categories.toggleStatus(id);
+            Integer branchId = categories.toggleStatus(id);
             redirect.addFlashAttribute("successMessage", "Cập nhật trạng thái danh mục thành công.");
-            Integer parentId = categories.editForm(id).getParentId();
-            return "redirect:" + branchUrl(parentId == null ? id : parentId);
+            return "redirect:" + branchUrl(branchId);
         } catch (IllegalArgumentException ex) {
             return missing(redirect, ex);
+        } catch (TransientDataAccessException ex) {
+            return busy(redirect);
         }
+    }
+
+    @PostMapping("/deactivate/{id}")
+    public String deactivateCategory(@PathVariable Integer id, RedirectAttributes redirect) {
+        return setActive(id, false, redirect);
+    }
+
+    @PostMapping("/activate/{id}")
+    public String activateCategory(@PathVariable Integer id, RedirectAttributes redirect) {
+        return setActive(id, true, redirect);
+    }
+
+    private String setActive(Integer id, boolean active, RedirectAttributes redirect) {
+        try {
+            Integer branchId = categories.setActive(id, active);
+            redirect.addFlashAttribute("successMessage", active ? "Đã kích hoạt danh mục." : "Đã ngừng hoạt động danh mục.");
+            return "redirect:" + branchUrl(branchId);
+        } catch (IllegalArgumentException ex) {
+            return missing(redirect, ex);
+        } catch (TransientDataAccessException ex) {
+            return busy(redirect);
+        }
+    }
+
+    private String busy(RedirectAttributes redirect) {
+        redirect.addFlashAttribute("errorMessage", "Danh mục đang được cập nhật bởi thao tác khác. Vui lòng tải lại danh sách rồi thử lại.");
+        return "redirect:/admin/categories";
     }
 
     @PostMapping("/delete/{id}")
     public String deleteCategory(@PathVariable Integer id, RedirectAttributes redirect) {
         try {
-            categories.deactivate(id);
-            redirect.addFlashAttribute("successMessage", "Danh mục đã ngừng hoạt động.");
-            Integer parentId = categories.editForm(id).getParentId();
-            return "redirect:" + branchUrl(parentId == null ? id : parentId);
+            Integer parentId = categories.delete(id);
+            redirect.addFlashAttribute("successMessage", "Đã xóa vĩnh viễn danh mục.");
+            return "redirect:" + (parentId == null ? "/admin/categories" : branchUrl(parentId));
         } catch (IllegalArgumentException ex) {
             return missing(redirect, ex);
+        } catch (DataIntegrityViolationException ex) {
+            redirect.addFlashAttribute("errorMessage", "Danh mục đang được dữ liệu khác sử dụng nên không thể xóa. Vui lòng tải lại danh sách; bạn có thể ngừng hoạt động thay vì xóa.");
+            return "redirect:/admin/categories";
+        } catch (TransientDataAccessException ex) {
+            return busy(redirect);
         }
     }
 }

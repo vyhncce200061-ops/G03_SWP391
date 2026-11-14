@@ -3,10 +3,12 @@
 <body>
 <div th:fragment="actions(cat)" class="category-actions">
     <a th:href="@{/admin/categories/edit/{id}(id=${cat.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa</a>
-    <form th:action="@{/admin/categories/toggle-status/{id}(id=${cat.id})}" method="post" onsubmit="return confirm('Bạn có chắc muốn thay đổi trạng thái danh mục này?');">
+    <form th:action="${cat.isActive} ? @{/admin/categories/deactivate/{id}(id=${cat.id})} : @{/admin/categories/activate/{id}(id=${cat.id})}" method="post"
+          th:attr="onsubmit=${cat.isActive} ? 'return confirm(\'Ngừng hoạt động danh mục này? Danh mục sẽ bị ẩn khỏi cửa hàng; dữ liệu vẫn được giữ lại.\');' : 'return confirm(\'Kích hoạt lại danh mục này?\');'">
         <button type="submit" class="btn btn-sm" th:classappend="${cat.isActive ? 'btn-outline-warning' : 'btn-outline-success'}" th:text="${cat.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'}"></button>
     </form>
-    <form th:if="${cat.isActive}" th:action="@{/admin/categories/delete/{id}(id=${cat.id})}" method="post" onsubmit="return confirm('Danh mục sẽ được chuyển sang ngừng hoạt động. Tiếp tục xóa mềm?');">
+    <form th:action="@{/admin/categories/delete/{id}(id=${cat.id})}" method="post"
+          onsubmit="return confirm('Xóa vĩnh viễn danh mục này? Không thể khôi phục. Chỉ xóa được khi danh mục không có danh mục con và không còn sản phẩm sử dụng.');">
         <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Xóa</button>
     </form>
 </div>

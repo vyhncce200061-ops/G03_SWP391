@@ -29,6 +29,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     Optional<Product> findBySlug(String slug);
     boolean existsBySlug(String slug);
     boolean existsByBrand_Id(Integer brandId);
+    boolean existsByCategory_Id(Integer categoryId);
 
     @Override
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"category", "brand"})
