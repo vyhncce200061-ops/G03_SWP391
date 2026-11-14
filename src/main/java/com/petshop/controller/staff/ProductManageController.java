@@ -238,6 +238,30 @@ public class ProductManageController {
         return "redirect:/staff/products/" + productId + "/variants";
     }
 
+    // ============ SOFT DELETE VARIANT ============
+    @PostMapping("/{id}/variants/{vid}/delete")
+    public String deleteVariant(@PathVariable Long id, @PathVariable Long vid, RedirectAttributes redirectAttributes) {
+        ProductVariant variant = productManageService.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) {
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        }
+        productManageService.deleteVariant(vid);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã xóa mềm biến thể thành công! Biến thể đã chuyển sang trạng thái tạm ngưng bán.");
+        return "redirect:/staff/products/" + id + "/variants";
+    }
+
+    // ============ RESTORE VARIANT ============
+    @PostMapping("/{id}/variants/{vid}/restore")
+    public String restoreVariant(@PathVariable Long id, @PathVariable Long vid, RedirectAttributes redirectAttributes) {
+        ProductVariant variant = productManageService.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) {
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        }
+        productManageService.toggleVariantStatus(vid, com.petshop.entity.enums.ProductVariantStatus.ACTIVE);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã khôi phục biến thể thành công! Biến thể đang được mở bán.");
+        return "redirect:/staff/products/" + id + "/variants";
+    }
+
     // ============ LOW STOCK ALERT ============
     @GetMapping("/low-stock")
     public String lowStock(Model model) {

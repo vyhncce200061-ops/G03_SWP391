@@ -20,10 +20,10 @@
         </div>
         <div>
             <!-- Navigate to create form -->
-            <a th:href="@{/staff/products/{id}/variants/create(id=${product.id})}" class="btn btn-pet-primary">
+            <a th:href="@{${(productBasePath != null ? productBasePath : '/staff/products') + '/' + product.id + '/variants/create'}}" class="btn btn-pet-primary">
                 <i class="bi bi-plus-lg me-1"></i>Thêm Biến Thể
             </a>
-            <a th:href="@{/staff/products}" class="btn btn-outline-secondary ms-2">
+            <a th:href="@{${productBasePath != null ? productBasePath : '/staff/products'}}" class="btn btn-outline-secondary ms-2">
                 <i class="bi bi-arrow-left me-1"></i>Quay lại</a>
         </div>
     </div>
@@ -79,11 +79,29 @@
                             Ngừng bán
                         </span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center text-nowrap">
                         <!-- Navigate to edit form -->
-                        <a th:href="@{/staff/products/{id}/variants/{vid}/edit(id=${product.id}, vid=${v.id})}" class="btn btn-sm btn-outline-secondary">
+                        <a th:href="@{${(productBasePath != null ? productBasePath : '/staff/products') + '/' + product.id + '/variants/' + v.id + '/edit'}}" class="btn btn-sm btn-outline-secondary" title="Sửa biến thể">
                             <i class="bi bi-pencil"></i> Sửa
                         </a>
+                        <!-- Soft Delete Button (when variant is ACTIVE) -->
+                        <form th:if="${v.status.name() == 'ACTIVE'}"
+                              th:action="@{${(productBasePath != null ? productBasePath : '/staff/products') + '/' + product.id + '/variants/' + v.id + '/delete'}}"
+                              method="post" class="d-inline"
+                              onsubmit="return confirm('Bạn có chắc muốn xóa mềm biến thể này? Biến thể sẽ chuyển sang trạng thái tạm ngưng bán.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Xóa mềm biến thể">
+                                <i class="bi bi-trash"></i> Xóa
+                            </button>
+                        </form>
+                        <!-- Restore Button (when variant is INACTIVE or DISCONTINUED) -->
+                        <form th:if="${v.status.name() != 'ACTIVE'}"
+                              th:action="@{${(productBasePath != null ? productBasePath : '/staff/products') + '/' + product.id + '/variants/' + v.id + '/restore'}}"
+                              method="post" class="d-inline"
+                              onsubmit="return confirm('Bạn có chắc muốn khôi phục biến thể này? Biến thể sẽ được mở bán lại.');">
+                            <button type="submit" class="btn btn-sm btn-outline-success ms-1" title="Khôi phục biến thể">
+                                <i class="bi bi-arrow-counterclockwise"></i> Khôi phục
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 <!-- Empty state -->

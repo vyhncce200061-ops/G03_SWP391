@@ -130,7 +130,7 @@
                         <a th:href="@{${productBasePath + '/' + p.id + '/edit'}}" class="btn btn-sm btn-outline-secondary" title="Sửa sản phẩm">
                             <i class="bi bi-pencil"></i> Sửa
                         </a>
-                        <a th:href="@{/staff/products/{id}/variants(id=${p.id})}" class="btn btn-sm btn-pet-outline ms-1" title="Quản lý SKU">
+                        <a th:href="@{${productBasePath + '/' + p.id + '/variants'}}" class="btn btn-sm btn-pet-outline ms-1" title="Quản lý SKU">
                             <i class="bi bi-upc-scan"></i> SKU
                         </a>
                         <!-- Nút Xóa mềm (khi sản phẩm đang ACTIVE) -->

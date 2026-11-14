@@ -258,6 +258,38 @@ class StaffProductWorkflowTests {
         assertThat(products.findById(product.getId()).orElseThrow().getStatus()).isEqualTo(ProductStatus.ACTIVE);
     }
 
+    @Test
+    void softDeleteAndRestoreVariantWorkflowForAdminAndStaff() throws Exception {
+        User admin = adminActor();
+        // 1. Staff soft deletes variant -> status becomes INACTIVE
+        mvc.perform(post("/staff/products/" + product.getId() + "/variants/" + variant.getId() + "/delete")
+                        .with(user(new CustomUserDetails(staff))).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/products/" + product.getId() + "/variants"));
+        assertThat(variants.findById(variant.getId()).orElseThrow().getStatus()).isEqualTo(ProductVariantStatus.INACTIVE);
+
+        // 2. Admin restores variant -> status becomes ACTIVE
+        mvc.perform(post("/admin/products/" + product.getId() + "/variants/" + variant.getId() + "/restore")
+                        .with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/products/" + product.getId() + "/variants"));
+        assertThat(variants.findById(variant.getId()).orElseThrow().getStatus()).isEqualTo(ProductVariantStatus.ACTIVE);
+
+        // 3. Admin soft deletes variant -> status becomes INACTIVE
+        mvc.perform(post("/admin/products/" + product.getId() + "/variants/" + variant.getId() + "/delete")
+                        .with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/products/" + product.getId() + "/variants"));
+        assertThat(variants.findById(variant.getId()).orElseThrow().getStatus()).isEqualTo(ProductVariantStatus.INACTIVE);
+
+        // 4. Staff restores variant -> status becomes ACTIVE
+        mvc.perform(post("/staff/products/" + product.getId() + "/variants/" + variant.getId() + "/restore")
+                        .with(user(new CustomUserDetails(staff))).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/staff/products/" + product.getId() + "/variants"));
+        assertThat(variants.findById(variant.getId()).orElseThrow().getStatus()).isEqualTo(ProductVariantStatus.ACTIVE);
+    }
+
     private User adminActor() {
         return new TransactionTemplate(transactionManager).execute(tx -> {
             Role role=roles.findByCode("ADMIN").orElseGet(() -> roles.save(Role.builder().code("ADMIN").name("Admin").build()));

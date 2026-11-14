@@ -25,5 +25,7 @@ public interface ProductManageService {
     ProductVariant findVariantById(Long variantId);
     ProductVariant addVariant(Long productId, ProductVariant variant);
     ProductVariant updateVariant(Long variantId, ProductVariant variant);
+    void deleteVariant(Long variantId);
+    void toggleVariantStatus(Long variantId, com.petshop.entity.enums.ProductVariantStatus status);
     List<ProductVariant> getLowStockVariants();
 }

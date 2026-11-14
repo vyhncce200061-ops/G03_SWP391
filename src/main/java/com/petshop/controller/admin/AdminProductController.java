@@ -106,6 +106,102 @@ public class AdminProductController {
         return "redirect:/admin/products";
     }
 
+    // ============ VARIANT MANAGEMENT ============
+    @GetMapping("/{id}/variants")
+    public String manageVariants(@PathVariable Long id, Model model) {
+        model.addAttribute("product", products.findById(id));
+        return "staff/variant-list";
+    }
+
+    @GetMapping("/{id}/variants/create")
+    public String createVariantForm(@PathVariable Long id, Model model) {
+        model.addAttribute("product", products.findById(id));
+        model.addAttribute("variantForm", new com.petshop.dto.catalog.ProductVariantFormDto());
+        return "staff/variant-form";
+    }
+
+    @GetMapping("/{id}/variants/{vid}/edit")
+    public String editVariantForm(@PathVariable Long id, @PathVariable Long vid, Model model) {
+        var product = products.findById(id);
+        var variant = products.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        var form = com.petshop.dto.catalog.ProductVariantFormDto.builder()
+                .id(variant.getId())
+                .skuCode(variant.getSkuCode())
+                .variantName(variant.getVariantName())
+                .price(variant.getPrice())
+                .lowStockThreshold(variant.getLowStockThreshold())
+                .status(variant.getStatus())
+                .build();
+        model.addAttribute("product", product);
+        model.addAttribute("variantForm", form);
+        return "staff/variant-form";
+    }
+
+    @PostMapping("/{id}/variants")
+    public String addVariant(@PathVariable Long id,
+                             @Valid @ModelAttribute("variantForm") com.petshop.dto.catalog.ProductVariantFormDto form,
+                             BindingResult bindingResult, Model model, RedirectAttributes redirectAttributes) {
+        form.setId(null);
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("product", products.findById(id));
+            return "staff/variant-form";
+        }
+        try {
+            products.addVariant(id, form.toEntity());
+            redirectAttributes.addFlashAttribute("successMessage", "Thêm biến thể SKU thành công!");
+            return "redirect:/admin/products/" + id + "/variants";
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("product", products.findById(id));
+            model.addAttribute("errorMessage", e.getMessage());
+            return "staff/variant-form";
+        }
+    }
+
+    @PostMapping("/variants/{vid}/edit")
+    public String updateVariant(@PathVariable Long vid, @RequestParam Long productId,
+                                @Valid @ModelAttribute("variantForm") com.petshop.dto.catalog.ProductVariantFormDto form,
+                                BindingResult bindingResult, Model model, RedirectAttributes redirectAttributes) {
+        var existing = products.findVariantById(vid);
+        if (!existing.getProduct().getId().equals(productId)) {
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        }
+        form.setId(vid);
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("product", products.findById(productId));
+            return "staff/variant-form";
+        }
+        try {
+            products.updateVariant(vid, form.toEntity());
+            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật biến thể thành công!");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/products/" + productId + "/variants";
+    }
+
+    @PostMapping("/{id}/variants/{vid}/delete")
+    public String deleteVariant(@PathVariable Long id, @PathVariable Long vid, RedirectAttributes redirectAttributes) {
+        var variant = products.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) {
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        }
+        products.deleteVariant(vid);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã xóa mềm biến thể thành công! Biến thể đã chuyển sang trạng thái tạm ngưng bán.");
+        return "redirect:/admin/products/" + id + "/variants";
+    }
+
+    @PostMapping("/{id}/variants/{vid}/restore")
+    public String restoreVariant(@PathVariable Long id, @PathVariable Long vid, RedirectAttributes redirectAttributes) {
+        var variant = products.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) {
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        }
+        products.toggleVariantStatus(vid, com.petshop.entity.enums.ProductVariantStatus.ACTIVE);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã khôi phục biến thể thành công! Biến thể đang được mở bán.");
+        return "redirect:/admin/products/" + id + "/variants";
+    }
+
     private String form(Model model) {
         ProductFormDto dto = (ProductFormDto) model.getAttribute("productForm");
         if (dto.getId() != null) {

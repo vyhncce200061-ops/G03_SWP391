@@ -207,6 +207,21 @@ public class ProductManageServiceImpl implements ProductManageService {
     }
 
     @Override
+    @Transactional
+    public void deleteVariant(Long variantId) {
+        toggleVariantStatus(variantId, com.petshop.entity.enums.ProductVariantStatus.INACTIVE);
+    }
+
+    @Override
+    @Transactional
+    public void toggleVariantStatus(Long variantId, com.petshop.entity.enums.ProductVariantStatus status) {
+        ProductVariant variant = variantRepository.findByIdForUpdate(variantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy biến thể."));
+        variant.setStatus(status);
+        variantRepository.save(variant);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<ProductVariant> getLowStockVariants() {
         return variantRepository.findLowStockVariants();

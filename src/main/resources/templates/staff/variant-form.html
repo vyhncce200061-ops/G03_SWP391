@@ -18,7 +18,7 @@
                 <span class="fw-bold fs-5 text-pet-primary" th:text="${product.name}">Tên SP</span>
             </p>
         </div>
-        <a th:href="@{/staff/products/{id}/variants(id=${product.id})}" class="btn btn-outline-secondary">
+        <a th:href="@{${(productBasePath != null ? productBasePath : '/staff/products') + '/' + product.id + '/variants'}}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
         </a>
     </div>
@@ -26,8 +26,8 @@
     <div class="card border-0 shadow-sm rounded-4 p-4" style="max-width: 700px;">
         <!-- Form action changes based on mode: Edit or Create -->
         <form th:action="${variantForm.id != null
-                        ? '/staff/products/variants/' + variantForm.id + '/edit'
-                        : '/staff/products/' + product.id + '/variants'}"
+                        ? ((productBasePath != null ? productBasePath : '/staff/products') + '/variants/' + variantForm.id + '/edit')
+                        : ((productBasePath != null ? productBasePath : '/staff/products') + '/' + product.id + '/variants')}"
               th:object="${variantForm}" method="post">
 
             <!-- Hidden productId for redirect after edit -->
@@ -81,7 +81,7 @@
                 <button type="submit" class="btn btn-pet-outline px-4">
                     Lưu Thay Đổi
                 </button>
-                <a th:href="@{/staff/products/{id}/variants(id=${product.id})}" class="btn btn-outline-secondary ms-2">Hủy</a>
+                <a th:href="@{${(productBasePath != null ? productBasePath : '/staff/products') + '/' + product.id + '/variants'}}" class="btn btn-outline-secondary ms-2">Hủy</a>
             </div>
         </form>
     </div>
