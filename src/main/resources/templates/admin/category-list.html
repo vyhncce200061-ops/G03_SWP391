@@ -22,7 +22,7 @@
                         <i class="bi bi-folder2 category-folder" aria-hidden="true"></i>
                         <span class="category-parent-copy">
                             <span class="category-parent-name" th:text="${parent.name}"></span>
-                            <span class="category-parent-meta"><code th:text="${parent.code}"></code><span th:text="${#lists.size(parent.children) + ' danh mục con'}"></span><span th:text="${'Thứ tự: ' + parent.sortOrder}"></span></span>
+                            <span class="category-parent-meta"><code th:text="${parent.code}"></code><span th:text="${#lists.size(parent.children) + ' danh mục con'}"></span></span>
                         </span>
                     </button>
                 </h2>
@@ -38,11 +38,10 @@
                     <div class="table-responsive" th:unless="${#lists.isEmpty(parent.children)}">
                         <table class="table align-middle category-children-table mb-0">
                             <caption class="visually-hidden" th:text="${'Danh mục con của ' + parent.name}"></caption>
-                            <thead><tr><th scope="col">Danh mục con</th><th scope="col">Mã danh mục</th><th scope="col">Thứ tự</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead>
+                            <thead><tr><th scope="col">Danh mục con</th><th scope="col">Mã danh mục</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead>
                             <tbody><tr th:each="child : ${parent.children}" th:attr="data-category-id=${child.id},data-parent-id=${parent.id}">
                                 <td><div class="fw-semibold" th:text="${child.name}"></div><div th:if="${!#strings.isEmpty(child.description)}" class="small text-muted category-description" th:text="${child.description}"></div></td>
                                 <td><code th:text="${child.code}"></code></td>
-                                <td th:text="${child.sortOrder}"></td>
                                 <td><span th:replace="~{fragments/category-actions :: status(${child})}"></span></td>
                                 <td><div th:replace="~{fragments/category-actions :: actions(${child})}"></div></td>
                             </tr></tbody>
