@@ -4,6 +4,7 @@ import com.petshop.dto.catalog.CategoryFormDto;
 import com.petshop.dto.catalog.CategoryViewDto;
 import com.petshop.entity.Category;
 import com.petshop.repository.CategoryRepository;
+import com.petshop.repository.ProductRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CategoryManageService {
     private final CategoryRepository categories;
+    private final ProductRepository products;
     private final jakarta.persistence.EntityManager entityManager;
 
     public List<CategoryViewDto> listCategories() {
@@ -122,20 +124,38 @@ public class CategoryManageService {
     }
 
     @Transactional
-    public void toggleStatus(Integer id) {
+    public Integer toggleStatus(Integer id) {
         Category category = lockCategory(id);
-        category.setIsActive(!Boolean.TRUE.equals(category.getIsActive()));
-        categories.save(category);
+        return saveStatus(category, !Boolean.TRUE.equals(category.getIsActive()));
     }
 
     @Transactional
-    public void deactivate(Integer id) {
-        Category category = lockCategory(id);
-        if (Boolean.FALSE.equals(category.getIsActive())) {
-            throw new IllegalArgumentException("Danh mục này đã ngừng hoạt động.");
-        }
-        category.setIsActive(false);
+    public Integer setActive(Integer id, boolean active) {
+        return saveStatus(lockCategory(id), active);
+    }
+
+    private Integer saveStatus(Category category, boolean active) {
+        // Explicit targets keep repeated submissions from reversing the requested action.
+        category.setIsActive(active);
         categories.save(category);
+        return category.getParentCategory() == null ? category.getId() : category.getParentCategory().getId();
+    }
+
+    @Transactional
+    public Integer delete(Integer id) {
+        Category category = lockCategory(id);
+        // Include inactive children and hidden products: their references must be preserved.
+        if (categories.existsByParentCategory_Id(id)) {
+            throw new IllegalArgumentException("Danh mục còn danh mục con nên không thể xóa. Bạn có thể ngừng hoạt động thay vì xóa.");
+        }
+        if (products.existsByCategory_Id(id)) {
+            throw new IllegalArgumentException("Danh mục còn sản phẩm sử dụng, kể cả sản phẩm đã ẩn hoặc ngừng kinh doanh, nên không thể xóa. Bạn có thể ngừng hoạt động thay vì xóa.");
+        }
+        Integer parentId = category.getParentCategory() == null ? null : category.getParentCategory().getId();
+        categories.delete(category);
+        // Surface a concurrent reference conflict before returning success to the controller.
+        categories.flush();
+        return parentId;
     }
 
     private Category requireCategory(Integer id) {
