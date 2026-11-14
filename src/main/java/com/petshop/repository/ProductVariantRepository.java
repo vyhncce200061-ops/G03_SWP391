@@ -18,8 +18,15 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     Optional<ProductVariant> findBySkuCode(String skuCode);
     boolean existsBySkuCode(String skuCode);
 
+    @Query("SELECT pv FROM ProductVariant pv JOIN FETCH pv.product WHERE pv.skuCode = :skuCode")
+    Optional<ProductVariant> findBySkuCodeWithProduct(@Param("skuCode") String skuCode);
+
     List<ProductVariant> findByProductIdAndStatus(Long productId, ProductVariantStatus status);
     List<ProductVariant> findByProductId(Long productId);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"product"})
+    List<ProductVariant> findAll();
 
     @Query("SELECT pv FROM ProductVariant pv " +
            "JOIN FETCH pv.product p " +
@@ -27,6 +34,19 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
            "AND p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED " +
            "AND pv.stockQuantity <= pv.lowStockThreshold")
     List<ProductVariant> findLowStockVariants();
+
+    @Query("SELECT pv FROM ProductVariant pv " +
+            "JOIN FETCH pv.product p " +
+            "WHERE pv.status = com.petshop.entity.enums.ProductVariantStatus.ACTIVE " +
+            "AND p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED")
+    List<ProductVariant> findAllActiveWithProduct();
+
+    @Query("SELECT pv FROM ProductVariant pv " +
+            "JOIN FETCH pv.product p " +
+            "WHERE pv.status = com.petshop.entity.enums.ProductVariantStatus.ACTIVE " +
+            "AND p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED " +
+            "ORDER BY pv.stockQuantity ASC")
+    List<ProductVariant> findAllActiveOrderByStockAsc();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT pv FROM ProductVariant pv WHERE pv.id = :id")

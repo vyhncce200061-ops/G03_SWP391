@@ -1,0 +1,800 @@
+package com.petshop.service;
+
+import com.petshop.dto.order.CheckoutSubmitDto;
+import com.petshop.entity.*;
+import com.petshop.entity.enums.*;
+import com.petshop.repository.*;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.*;
+import java.util.function.Supplier;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
+
+/** Exercises the real transaction boundaries, not just calls to repository mocks. */
+@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:orderworkflow;DB_CLOSE_DELAY=-1;MODE=MSSQLServer;DATABASE_TO_UPPER=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE")
+@ActiveProfiles("test")
+class OrderWorkflowTests {
+    @Autowired private OrderService orders;
+    @Autowired private UserRepository users;
+    @Autowired private RoleRepository roles;
+    @Autowired private CategoryRepository categories;
+    @Autowired private ProductRepository products;
+    @SpyBean private ProductVariantRepository variants;
+    @Autowired private CartRepository carts;
+    @Autowired private CartItemRepository cartItems;
+    @Autowired private OrderRepository orderRepository;
+    @Autowired private OrderItemRepository orderItems;
+    @Autowired private OrderStatusHistoryRepository histories;
+    @Autowired private PaymentTransactionRepository payments;
+    @Autowired private VoucherRepository vouchers;
+    @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private EntityManager entityManager;
+    @Autowired private jakarta.persistence.EntityManagerFactory entityManagerFactory;
+    @Autowired private CartService cartService;
+    @Autowired private ProductManageService productManageService;
+
+    @Test
+    void codConfirmationRollsBackEverySkuIfOneDeductionFails() {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, true, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        doReturn(0).when(variants).deductStockAtomic(f.secondId(), 2);
+        assertThrows(IllegalStateException.class, () -> orders.confirmOrder(placed.getId(), staffId));
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10, variants.findById(f.secondId()).orElseThrow().getStockQuantity());
+            Order current = orderRepository.findById(placed.getId()).orElseThrow();
+            assertEquals(OrderStatus.PENDING_CONFIRMATION, current.getOrderStatus());
+            assertFalse(current.getStockDeducted());
+            return null;
+        });
+    }
+
+    @Test
+    void customerCannotConfirmOrAllocateStock() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        assertThrows(IllegalArgumentException.class, () -> orders.confirmOrder(placed.getId(), f.customerId()));
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            Order current=orderRepository.findById(placed.getId()).orElseThrow();
+            assertEquals(OrderStatus.PENDING_CONFIRMATION,current.getOrderStatus());
+            assertFalse(current.getStockDeducted());
+            assertEquals(1,current.getStatusHistories().size());
+            return null;
+        });
+    }
+
+    @Test
+    void competingCodConfirmationsCannotOversell() throws Exception {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, false, false);
+        inTransaction(() -> {
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(2);
+            return null;
+        });
+        Order first = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        addFirstSkuAgain(f);
+        Order second = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        List<Boolean> results = runConcurrently(
+                () -> { try { orders.confirmOrder(first.getId(), staffId); return true; }
+                        catch (IllegalStateException e) { return false; } },
+                () -> { try { orders.confirmOrder(second.getId(), staffId); return true; }
+                        catch (IllegalStateException e) { return false; } });
+        assertEquals(1, results.stream().filter(Boolean::booleanValue).count());
+        inTransaction(() -> {
+            Order a = orderRepository.findById(first.getId()).orElseThrow();
+            assertEquals(a.getOrderStatus() == OrderStatus.CONFIRMED ? 0 : 1,
+                    variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            return null;
+        });
+    }
+
+    @Test
+    void legacyDeductedCodIsNotDeductedAgainAndCancellationRestoresIt() {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, false, false);
+        Order first = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        inTransaction(() -> {
+            variants.deductStockAtomic(f.firstId(), 2);
+            orderRepository.findById(first.getId()).orElseThrow().setStockDeducted(true);
+            return null;
+        });
+        orders.confirmOrder(first.getId(), staffId);
+        assertThrows(IllegalStateException.class, () -> orders.confirmOrder(first.getId(), staffId));
+        addFirstSkuAgain(f);
+        Order second = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        inTransaction(() -> {
+            variants.deductStockAtomic(f.firstId(), 1);
+            orderRepository.findById(second.getId()).orElseThrow().setStockDeducted(true);
+            return null;
+        });
+        orders.customerCancelOrder(second.getId(), f.customerId(), "Cancel legacy order");
+        inTransaction(() -> {
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertFalse(orderRepository.findById(second.getId()).orElseThrow().getStockDeducted());
+            return null;
+        });
+    }
+
+    @Test
+    void selectedLinesOnlyDetermineTotalsSnapshotsStockAndCartRemoval() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        assertMoney("200000", placed.getSubtotalAmount());
+        assertMoney("230000", placed.getTotalAmount());
+        assertEquals(1, placed.getItems().size());
+        assertTrue(placed.getOrderCode().length() <= 40);
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10, variants.findById(f.secondId()).orElseThrow().getStockQuantity());
+            List<CartItem> remaining = cartItems.findByCartId(f.cartId());
+            assertEquals(2, remaining.size());
+            assertTrue(remaining.stream().noneMatch(item -> item.getVariant().getId().equals(f.firstId())));
+            ProductVariant edited = variants.findById(f.firstId()).orElseThrow();
+            edited.setPrice(new BigDecimal("999999"));
+            edited.setVariantName("Tên đã thay đổi");
+            return null;
+        });
+        Order detail = orders.getOrderDetailForCustomer(placed.getId(), f.customerId());
+        assertMoney("100000", detail.getItems().get(0).getUnitPrice());
+        assertEquals("SKU 1", detail.getItems().get(0).getVariantNameSnapshot());
+        assertEquals("Customer", detail.getStatusHistories().get(0).getChangedBy().getFullName());
+        assertEquals(placed.getId(), orders.getOrderByCodeForCustomer(placed.getOrderCode(), f.customerId()).getId());
+        assertThrows(IllegalArgumentException.class,
+                () -> orders.getOrderByCodeForCustomer(placed.getOrderCode(), -1L));
+    }
+
+    @Test
+    void noSelectionCannotCreateAnOrder() {
+        Fixture f = fixture(false, false, false);
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD)));
+        assertEquals(0, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
+        inTransaction(() -> {
+            assertEquals(3, cartItems.findByCartId(f.cartId()).size());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            return null;
+        });
+    }
+
+    @Test
+    void nonPositiveQuantityIsRejectedWithoutStockOrOrderChanges() {
+        Fixture f = fixture(true, false, false);
+        inTransaction(() -> {
+            CartItem line = cartItems.findByCartIdAndVariantId(f.cartId(), f.firstId()).orElseThrow();
+            line.setQuantity(0);
+            return null;
+        });
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD)));
+        assertEquals(0, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            return null;
+        });
+    }
+
+    @Test
+    void insufficientSelectedSkuPreservesAllOtherStockAndVoucherQuota() {
+        Fixture f = fixture(true, true, false);
+        Long voucherId = voucher();
+        inTransaction(() -> {
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(0);
+            return null;
+        });
+        CheckoutSubmitDto request = request(PaymentMethod.COD);
+        request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
+        assertThrows(IllegalStateException.class, () -> orders.checkoutOrder(f.customerId(), request));
+        assertEquals(0, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(0, vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(3, cartItems.findByCartId(f.cartId()).size());
+            return null;
+        });
+    }
+
+    @Test
+    void legacyPaidStockWriteFailureRollsBackAllSkuDeductions() {
+        Fixture f = fixture(true, true, false);
+        Long voucherId = voucher();
+        CheckoutSubmitDto request = request(PaymentMethod.VNPAY);
+        request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
+        Order placed = orders.checkoutOrder(f.customerId(), request);
+        inTransaction(() -> {
+            // Old outstanding payment links did not reserve stock at checkout.
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(10);
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(10);
+            var legacy = orderRepository.findById(placed.getId()).orElseThrow();
+            legacy.setStockDeducted(false);
+            legacy.setPaymentStatus(PaymentStatus.PAID);
+            return null;
+        });
+        doReturn(0).when(variants).deductStockAtomic(f.secondId(), 2);
+        assertThrows(IllegalStateException.class, () -> orders.deductPaidVnpayStock(placed.getId()));
+        verify(variants, org.mockito.Mockito.times(2)).deductStockAtomic(f.firstId(), 2);
+        verify(variants, org.mockito.Mockito.times(2)).deductStockAtomic(f.secondId(), 2);
+        assertEquals(1, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10, variants.findById(f.secondId()).orElseThrow().getStockQuantity());
+            assertFalse(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+            assertEquals(1, vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(1, cartItems.findByCartId(f.cartId()).size());
+            return null;
+        });
+    }
+
+    @Test
+    void invalidDtoCannotReachDatabaseWrites() {
+        Fixture f = fixture(true, false, false);
+        CheckoutSubmitDto missingMethod = request(null);
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), missingMethod));
+        CheckoutSubmitDto tooLong = request(PaymentMethod.COD);
+        tooLong.setShippingDistrict("x".repeat(101));
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), tooLong));
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), null));
+        assertEquals(0, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
+    }
+
+    @Test
+    void cancellationChecksOwnershipAndRestoresStockAndVoucherOnlyOnce() {
+        Fixture f = fixture(true, false, false);
+        Long voucherId = voucher();
+        CheckoutSubmitDto request = request(PaymentMethod.COD);
+        request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
+        Order placed = orders.checkoutOrder(f.customerId(), request);
+        assertMoney("180000", placed.getSubtotalAmount().subtract(placed.getDiscountAmount()));
+        assertThrows(IllegalArgumentException.class, () -> orders.customerCancelOrder(placed.getId(), -1L, "Không phải chủ đơn"));
+        orders.customerCancelOrder(placed.getId(), f.customerId(), "x".repeat(1000));
+        assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Lặp lại"));
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(0, vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            Order cancelled = orderRepository.findById(placed.getId()).orElseThrow();
+            assertEquals(OrderStatus.CANCELLED, cancelled.getOrderStatus());
+            assertEquals(PaymentStatus.CANCELLED, cancelled.getPaymentStatus());
+            assertEquals(1000, cancelled.getCancelReason().length());
+            assertEquals(2, cancelled.getStatusHistories().size());
+            assertTrue(cancelled.getStatusHistories().stream().allMatch(h -> h.getReason().length() <= 1000));
+            return null;
+        });
+    }
+
+    @Test
+    void activeOrdersConsumeCustomerVoucherLimitAndCancellationReleasesIt() {
+        Fixture f = fixture(true, false, false);
+        Long voucherId = voucher();
+        CheckoutSubmitDto request = request(PaymentMethod.COD);
+        request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
+        Order first = orders.checkoutOrder(f.customerId(), request);
+        addFirstSkuAgain(f);
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), request));
+        orders.customerCancelOrder(first.getId(), f.customerId(), "Đổi đơn hàng");
+        Order replacement = orders.checkoutOrder(f.customerId(), request);
+        assertMoney("10000", replacement.getDiscountAmount());
+        inTransaction(() -> {
+            assertEquals(1, vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            return null;
+        });
+    }
+
+    @Test
+    void completedOrdersStillConsumeCustomerVoucherLimit() {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, false, false);
+        Long voucherId = voucher();
+        CheckoutSubmitDto request = request(PaymentMethod.COD);
+        request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
+        Order first = orders.checkoutOrder(f.customerId(), request);
+        orders.confirmOrder(first.getId(), staffId);
+        orders.markPreparing(first.getId(), staffId);
+        orders.markShipping(first.getId(), staffId);
+        orders.markCompleted(first.getId(), staffId);
+        addFirstSkuAgain(f);
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), request));
+        inTransaction(() -> {
+            assertEquals(1, vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(3, cartItems.findByCartId(f.cartId()).size());
+            return null;
+        });
+    }
+
+    @Test
+    void missingOrInactiveVoucherLeavesCartStockAndOrderUnchanged() {
+        Fixture f = fixture(true, false, false);
+        CheckoutSubmitDto request = request(PaymentMethod.COD);
+        request.setVoucherCode("MISSING-" + UUID.randomUUID());
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), request));
+        Long voucherId = voucher();
+        request.setVoucherCode(inTransaction(() -> {
+            Voucher voucher = vouchers.findById(voucherId).orElseThrow();
+            voucher.setStatus(VoucherStatus.INACTIVE);
+            return voucher.getCode();
+        }));
+        assertThrows(IllegalArgumentException.class, () -> orders.checkoutOrder(f.customerId(), request));
+        assertEquals(0, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
+        inTransaction(() -> {
+            assertEquals(0, vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(3, cartItems.findByCartId(f.cartId()).size());
+            return null;
+        });
+    }
+
+    @Test
+    void vnpayCheckoutReservesAndPaidSettlementDoesNotDeductAgain() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        assertThrows(IllegalStateException.class, () -> orders.deductPaidVnpayStock(placed.getId()));
+        inTransaction(() -> {
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertTrue(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+            orderRepository.findById(placed.getId()).orElseThrow().setPaymentStatus(PaymentStatus.PAID);
+            return null;
+        });
+        assertTrue(orders.deductPaidVnpayStock(placed.getId()));
+        assertTrue(orders.deductPaidVnpayStock(placed.getId()));
+        inTransaction(() -> {
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertTrue(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+            return null;
+        });
+    }
+
+    @Test
+    void resumableOrderQueryChecksOwnerDeadlineAndPaymentState() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        List<Long> ids = List.of(placed.getId());
+        LocalDateTime now = LocalDateTime.now();
+        assertEquals(ids, payments.findResumableOrderIds(f.customerId(), ids, now));
+        assertTrue(payments.findResumableOrderIds(-1L, ids, now).isEmpty());
+        assertTrue(payments.findResumableOrderIds(f.customerId(), ids, now.plusMinutes(16)).isEmpty());
+        inTransaction(() -> {
+            orderRepository.findById(placed.getId()).orElseThrow().setPaymentStatus(PaymentStatus.PAID);
+            return null;
+        });
+        assertTrue(payments.findResumableOrderIds(f.customerId(), ids, now).isEmpty());
+    }
+
+    @Test
+    void legacyPaidShortageDoesNotPartiallyDeductAndStaffCanConfirmAfterRestock() {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, true, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        inTransaction(() -> {
+            Order current = orderRepository.findById(placed.getId()).orElseThrow();
+            current.setPaymentStatus(PaymentStatus.PAID);
+            current.setOrderStatus(OrderStatus.PENDING_CONFIRMATION);
+            current.setStockDeducted(false);
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(10);
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(0);
+            return null;
+        });
+        assertFalse(orders.deductPaidVnpayStock(placed.getId()));
+        assertThrows(IllegalStateException.class, () -> orders.confirmOrder(placed.getId(), staffId));
+        assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy"));
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(5);
+            return null;
+        });
+        orders.confirmOrder(placed.getId(), staffId);
+        inTransaction(() -> {
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(3, variants.findById(f.secondId()).orElseThrow().getStockQuantity());
+            assertEquals(PaymentStatus.PAID, orderRepository.findById(placed.getId()).orElseThrow().getPaymentStatus());
+            return null;
+        });
+    }
+
+    private void addFirstSkuAgain(Fixture fixture) {
+        inTransaction(() -> {
+            cartItems.save(CartItem.builder().cart(carts.findById(fixture.cartId()).orElseThrow())
+                    .variant(variants.findById(fixture.firstId()).orElseThrow()).quantity(1).isSelected(true).build());
+            return null;
+        });
+    }
+
+    @Test
+    void vnpayCancelRequiresPendingTransactionAndCannotCancelSuccessfulPayment() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        inTransaction(() -> {
+            PaymentTransaction transaction = payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0);
+            transaction.setTransactionStatus(TransactionStatus.FAILED);
+            return null;
+        });
+        assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy"));
+        inTransaction(() -> {
+            PaymentTransaction transaction = payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0);
+            transaction.setTransactionStatus(TransactionStatus.SUCCESS);
+            return null;
+        });
+        assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy"));
+        inTransaction(() -> {
+            assertEquals(8, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(OrderStatus.PENDING_PAYMENT, orderRepository.findById(placed.getId()).orElseThrow().getOrderStatus());
+            assertTrue(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+            return null;
+        });
+    }
+
+    @Test
+    void vnpayCancellationClosesEveryPendingAttempt() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        inTransaction(() -> {
+            payments.save(PaymentTransaction.builder().order(orderRepository.findById(placed.getId()).orElseThrow())
+                    .customer(users.findById(f.customerId()).orElseThrow()).transactionCode("EXTRA-" + UUID.randomUUID())
+                    .paymentMethod(PaymentMethod.VNPAY).amount(placed.getTotalAmount())
+                    .transactionStatus(TransactionStatus.PENDING).expiresAt(LocalDateTime.now().plusMinutes(15)).build());
+            return null;
+        });
+        orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy thanh toán");
+        inTransaction(() -> {
+            assertEquals(2, payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).size());
+            assertTrue(payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).stream()
+                    .allMatch(tx -> tx.getTransactionStatus() == TransactionStatus.CANCELLED));
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            return null;
+        });
+    }
+
+    @Test
+    void expiredPaymentCleanupIsIdempotent() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        inTransaction(() -> {
+            payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).setExpiresAt(LocalDateTime.now().minusMinutes(1));
+            return null;
+        });
+        orders.cancelExpiredPendingPaymentOrders();
+        orders.cancelExpiredPendingPaymentOrders();
+        inTransaction(() -> {
+            Order cancelled = orderRepository.findById(placed.getId()).orElseThrow();
+            assertEquals(CancelType.PAYMENT_EXPIRED, cancelled.getCancelType());
+            assertEquals(2, cancelled.getStatusHistories().size());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(TransactionStatus.EXPIRED, payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getTransactionStatus());
+            return null;
+        });
+    }
+
+    @Test
+    void expiryBatchAndCustomerCancellationCanRestoreSharedSkuWithoutDoubleRelease() throws Exception {
+        Fixture f = fixture(true, false, false);
+        Order first = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        addFirstSkuAgain(f);
+        Order second = orders.checkoutOrder(f.customerId(), request(PaymentMethod.VNPAY));
+        inTransaction(() -> {
+            payments.findByOrderIdOrderByCreatedAtDesc(first.getId()).get(0)
+                    .setExpiresAt(LocalDateTime.now().minusMinutes(1));
+            payments.findByOrderIdOrderByCreatedAtDesc(second.getId()).get(0)
+                    .setExpiresAt(LocalDateTime.now().minusMinutes(1));
+            return null;
+        });
+        runConcurrently(() -> {
+            orders.cancelExpiredPendingPaymentOrders();
+            return true;
+        }, () -> {
+            try { orders.customerCancelOrder(second.getId(), f.customerId(), "Hủy cùng lúc hết hạn"); return true; }
+            catch (IllegalStateException expected) { return false; }
+        });
+        inTransaction(() -> {
+            assertEquals(OrderStatus.CANCELLED, orderRepository.findById(first.getId()).orElseThrow().getOrderStatus());
+            assertEquals(OrderStatus.CANCELLED, orderRepository.findById(second.getId()).orElseThrow().getOrderStatus());
+            assertEquals(2, orderRepository.findById(first.getId()).orElseThrow().getStatusHistories().size());
+            assertEquals(2, orderRepository.findById(second.getId()).orElseThrow().getStatusHistories().size());
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            return null;
+        });
+    }
+
+    @Test
+    void staffFlowPreservesCodPaymentRulesAndBlocksLaterCustomerCancellation() {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        orders.confirmOrder(placed.getId(), staffId);
+        assertThrows(IllegalStateException.class, () -> orders.customerCancelOrder(placed.getId(), f.customerId(), "Muộn"));
+        orders.markPreparing(placed.getId(), staffId);
+        orders.markShipping(placed.getId(), staffId);
+        orders.markCompleted(placed.getId(), staffId);
+        Order complete = orders.getOrderDetailForCustomer(placed.getId(), f.customerId());
+        assertEquals(OrderStatus.COMPLETED, complete.getOrderStatus());
+        assertEquals(PaymentStatus.PAID, complete.getPaymentStatus());
+        assertNotNull(complete.getCompletedAt());
+        assertEquals(5, complete.getStatusHistories().size());
+        assertThrows(IllegalStateException.class, () -> orders.markCompleted(placed.getId(), staffId));
+        assertThrows(IllegalStateException.class, () -> orders.staffRejectOrder(placed.getId(), staffId, "Muộn"));
+    }
+
+    @Test
+    void dateFiltersAreInclusiveAndCustomerScoped() {
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        inTransaction(() -> {
+            // createdAt is immutable in JPA, so use SQL to exercise an exact boundary.
+            entityManager.createNativeQuery("UPDATE dbo.Orders SET CreatedAt = :createdAt WHERE Id = :id")
+                    .setParameter("createdAt", LocalDateTime.of(2026, 3, 5, 23, 59, 59))
+                    .setParameter("id", placed.getId()).executeUpdate();
+            return null;
+        });
+        assertEquals(1, orders.getCustomerOrders(f.customerId(), OrderStatus.PENDING_CONFIRMATION,
+                LocalDate.of(2026, 3, 5), LocalDate.of(2026, 3, 5), PageRequest.of(0, 10)).getTotalElements());
+        assertEquals(0, orders.getCustomerOrders(f.customerId(), null,
+                LocalDate.of(2026, 3, 6), null, PageRequest.of(0, 10)).getTotalElements());
+        assertEquals(0, orders.getCustomerOrders(-1L, null,
+                null, LocalDate.of(9999, 12, 31), PageRequest.of(0, 10)).getTotalElements());
+        assertThrows(IllegalArgumentException.class, () -> orders.getCustomerOrders(f.customerId(), null,
+                LocalDate.of(2026, 3, 6), LocalDate.of(2026, 3, 5), PageRequest.of(0, 10)));
+    }
+
+    @Test
+    void concurrentCheckoutCannotPurchaseTheSameSelectedLinesTwice() throws Exception {
+        Fixture f = fixture(true, false, false);
+        List<Boolean> results = runConcurrently(
+                () -> tryCheckout(f.customerId()), () -> tryCheckout(f.customerId()));
+        assertEquals(1, results.stream().filter(Boolean::booleanValue).count());
+        assertEquals(1, orders.getCustomerOrders(f.customerId(), null, PageRequest.of(0, 10)).getTotalElements());
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(2, cartItems.findByCartId(f.cartId()).size());
+            return null;
+        });
+    }
+
+    @Test
+    void concurrentCancelAndStaffConfirmationHaveOnlyOneWinner() throws Exception {
+        Long staffId = staffActor();
+        Fixture f = fixture(true, false, false);
+        Order placed = orders.checkoutOrder(f.customerId(), request(PaymentMethod.COD));
+        List<Boolean> results = runConcurrently(() -> {
+            try { orders.customerCancelOrder(placed.getId(), f.customerId(), "Hủy"); return true; }
+            catch (IllegalStateException expected) { return false; }
+        }, () -> {
+            try { orders.confirmOrder(placed.getId(), staffId); return true; }
+            catch (IllegalStateException expected) { return false; }
+        });
+        assertEquals(1, results.stream().filter(Boolean::booleanValue).count());
+        inTransaction(() -> {
+            Order result = orderRepository.findById(placed.getId()).orElseThrow();
+            assertEquals(2, result.getStatusHistories().size());
+            int expectedStock = result.getOrderStatus() == OrderStatus.CANCELLED ? 10 : 8;
+            assertEquals(expectedStock, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            return null;
+        });
+    }
+
+    @Test
+    void concurrentCancellationsRestoreStockAndVoucherExactlyOnce() throws Exception {
+        Fixture f = fixture(true, false, false);
+        Long voucherId = voucher();
+        CheckoutSubmitDto request = request(PaymentMethod.COD);
+        request.setVoucherCode(inTransaction(() -> vouchers.findById(voucherId).orElseThrow().getCode()));
+        Order placed = orders.checkoutOrder(f.customerId(), request);
+        Supplier<Boolean> cancel = () -> {
+            try { orders.customerCancelOrder(placed.getId(), f.customerId(), "Đồng thời"); return true; }
+            catch (IllegalStateException expected) { return false; }
+        };
+        assertEquals(1, runConcurrently(cancel, cancel).stream().filter(Boolean::booleanValue).count());
+        inTransaction(() -> {
+            assertEquals(10, variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(0, vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(2, orderRepository.findById(placed.getId()).orElseThrow().getStatusHistories().size());
+            return null;
+        });
+    }
+
+    @Test
+    void vnpayReservationFailureRollsBackFirstSkuQuotaOrderAndSelectedCart() {
+        Fixture f=fixture(true,true,false);Long voucherId=voucher();
+        var form=request(PaymentMethod.VNPAY);form.setVoucherCode(vouchers.findById(voucherId).orElseThrow().getCode());
+        doReturn(0).when(variants).deductStockAtomic(f.secondId(),2);
+        assertThrows(IllegalStateException.class,()->orders.checkoutOrder(f.customerId(),form));
+        inTransaction(()->{
+            assertEquals(10,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+            assertEquals(10,variants.findById(f.secondId()).orElseThrow().getStockQuantity());
+            assertEquals(0,vouchers.findById(voucherId).orElseThrow().getUsedCount());
+            assertEquals(0,orderRepository.countByCustomerId(f.customerId()));
+            assertEquals(3,cartItems.findByCartId(f.cartId()).size());return null;
+        });
+    }
+
+    @Test
+    void heldVnpayStockBlocksCodUntilCancellationReleasesIt() {
+        var staffId=staffActor();Fixture f=fixture(true,false,false);
+        inTransaction(()->{variants.findById(f.firstId()).orElseThrow().setStockQuantity(2);return null;});
+        var cod=orders.checkoutOrder(f.customerId(),request(PaymentMethod.COD));addFirstSkuAgain(f);
+        var online=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        assertThrows(IllegalStateException.class,()->orders.confirmOrder(cod.getId(),staffId));
+        orders.customerCancelOrder(online.getId(),f.customerId(),"Không tiếp tục thanh toán");
+        orders.confirmOrder(cod.getId(),staffId);
+        assertEquals(0,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertFalse(orderRepository.findById(online.getId()).orElseThrow().getStockDeducted());
+    }
+
+    @Test
+    void competingVnpayCheckoutsCanReserveTheLastUnitsOnlyOnce() throws Exception {
+        Fixture f=fixture(true,false,false);
+        Long secondCustomer=inTransaction(()->{
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(2);
+            var role=roles.findByCode("CUSTOMER").orElseThrow();
+            return users.save(User.builder().role(role).fullName("Second buyer").email(UUID.randomUUID()+"@test.invalid").passwordHash("unused").build()).getId();
+        });
+        cartService.addItemToCart(secondCustomer,f.firstId(),2);
+        java.util.function.Function<Long,Boolean> checkout=id->{
+            try{orders.checkoutOrder(id,request(PaymentMethod.VNPAY));return true;}
+            catch(IllegalStateException expected){return false;}
+        };
+        var result=runConcurrently(()->checkout.apply(f.customerId()),()->checkout.apply(secondCustomer));
+        assertEquals(1,result.stream().filter(Boolean::booleanValue).count());
+        assertEquals(0,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertEquals(1,orderRepository.countByCustomerId(f.customerId())+orderRepository.countByCustomerId(secondCustomer));
+    }
+
+    @Test
+    void pendingReservationIsIdempotentAndCannotExtendOriginalDeadline() {
+        Fixture f=fixture(true,false,false);var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        var deadline=payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getExpiresAt();
+        orders.reservePendingVnpayStock(placed.getId());orders.reservePendingVnpayStock(placed.getId());
+        assertEquals(8,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertEquals(deadline,payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getExpiresAt());
+        inTransaction(()->{payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).setExpiresAt(LocalDateTime.now().minusSeconds(1));return null;});
+        assertThrows(IllegalStateException.class,()->orders.reservePendingVnpayStock(placed.getId()));
+        orders.cancelExpiredPendingPaymentOrders();
+        assertEquals(10,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    void legacyPendingPaymentAcquiresStockBeforeResumingWithoutExtendingDeadline() {
+        Fixture f=fixture(true,false,false);var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        var deadline=payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getExpiresAt();
+        inTransaction(()->{
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(10);
+            orderRepository.findById(placed.getId()).orElseThrow().setStockDeducted(false);return null;
+        });
+        orders.reservePendingVnpayStock(placed.getId());orders.reservePendingVnpayStock(placed.getId());
+        assertEquals(8,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertTrue(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+        assertEquals(deadline,payments.findByOrderIdOrderByCreatedAtDesc(placed.getId()).get(0).getExpiresAt());
+    }
+
+    @Test
+    void legacyPendingResumeShortageDoesNotPartiallyReserve() {
+        Fixture f=fixture(true,true,false);var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        inTransaction(()->{
+            variants.findById(f.firstId()).orElseThrow().setStockQuantity(10);
+            variants.findById(f.secondId()).orElseThrow().setStockQuantity(0);
+            orderRepository.findById(placed.getId()).orElseThrow().setStockDeducted(false);return null;
+        });
+        assertThrows(IllegalStateException.class,()->orders.reservePendingVnpayStock(placed.getId()));
+        assertEquals(10,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+        assertFalse(orderRepository.findById(placed.getId()).orElseThrow().getStockDeducted());
+    }
+
+    @Test
+    void staleOpenViewOrderCannotRestoreStockAgainAfterAnotherRequestCancelledIt() throws Exception {
+        Fixture f=fixture(true,false,false);var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.VNPAY));
+        var view=entityManagerFactory.createEntityManager();
+        org.springframework.transaction.support.TransactionSynchronizationManager.bindResource(entityManagerFactory,new org.springframework.orm.jpa.EntityManagerHolder(view));
+        try{
+            assertEquals(OrderStatus.PENDING_PAYMENT,view.find(Order.class,placed.getId()).getOrderStatus());
+            CompletableFuture.runAsync(()->orders.customerCancelOrder(placed.getId(),f.customerId(),"First browser tab")).get(10,TimeUnit.SECONDS);
+            assertThrows(IllegalStateException.class,()->orders.customerCancelOrder(placed.getId(),f.customerId(),"Stale browser tab"));
+        }finally{
+            org.springframework.transaction.support.TransactionSynchronizationManager.unbindResource(entityManagerFactory);view.close();
+        }
+        assertEquals(10,variants.findById(f.firstId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    void staleOpenViewSkuUsesCommittedPriceWhenCheckoutTakesTheLock() throws Exception {
+        Fixture f=fixture(true,false,false);var view=entityManagerFactory.createEntityManager();
+        org.springframework.transaction.support.TransactionSynchronizationManager.bindResource(entityManagerFactory,new org.springframework.orm.jpa.EntityManagerHolder(view));
+        try{
+            assertMoney("100000",view.find(ProductVariant.class,f.firstId()).getPrice());
+            CompletableFuture.runAsync(()->productManageService.updateVariant(f.firstId(),ProductVariant.builder().variantName("SKU 1")
+                    .price(new BigDecimal("150000")).lowStockThreshold(5).status(ProductVariantStatus.ACTIVE).build())).get(10,TimeUnit.SECONDS);
+            var placed=orders.checkoutOrder(f.customerId(),request(PaymentMethod.COD));
+            assertMoney("300000",placed.getSubtotalAmount());assertMoney("150000",placed.getItems().get(0).getUnitPrice());
+        }finally{
+            org.springframework.transaction.support.TransactionSynchronizationManager.unbindResource(entityManagerFactory);view.close();
+        }
+    }
+
+    private boolean tryCheckout(Long customerId) {
+        try { orders.checkoutOrder(customerId, request(PaymentMethod.COD)); return true; }
+        catch (IllegalArgumentException expected) { return false; }
+    }
+
+    private List<Boolean> runConcurrently(Supplier<Boolean> first, Supplier<Boolean> second) throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Callable<Boolean> one = () -> { ready.countDown(); assertTrue(start.await(10, TimeUnit.SECONDS)); return first.get(); };
+            Callable<Boolean> two = () -> { ready.countDown(); assertTrue(start.await(10, TimeUnit.SECONDS)); return second.get(); };
+            Future<Boolean> result1 = executor.submit(one);
+            Future<Boolean> result2 = executor.submit(two);
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            return List.of(result1.get(20, TimeUnit.SECONDS), result2.get(20, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private CheckoutSubmitDto request(PaymentMethod method) {
+        return CheckoutSubmitDto.builder().recipientName("Người nhận").recipientPhone("0901234567")
+                .shippingProvince("Hà Nội").shippingDistrict("Cầu Giấy").shippingWard("Dịch Vọng")
+                .shippingAddressLine("123 Đường A").paymentMethod(method).build();
+    }
+
+    private Long voucher() {
+        return inTransaction(() -> vouchers.save(Voucher.builder().code("V-" + UUID.randomUUID().toString().toUpperCase(Locale.ROOT))
+                .title("Test 10%").discountType(DiscountType.PERCENT).discountValue(BigDecimal.TEN)
+                .startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(1))
+                .totalUsageLimit(100).perCustomerLimit(1).build()).getId());
+    }
+
+    private Fixture fixture(boolean firstSelected, boolean secondSelected, boolean thirdSelected) {
+        return inTransaction(() -> {
+            String suffix = UUID.randomUUID().toString();
+            Role role = roles.findByCode("CUSTOMER").orElseGet(() -> roles.save(Role.builder().code("CUSTOMER").name("Customer").build()));
+            User user = users.save(User.builder().role(role).fullName("Customer")
+                    .email(suffix + "@test.invalid").passwordHash("unused").build());
+            Category category = categories.save(Category.builder().code(suffix).name("Test").build());
+            Product product = products.save(Product.builder().category(category).name("Product snapshot")
+                    .slug(suffix).createdBy(user).build());
+            Cart cart = carts.save(Cart.builder().user(user).build());
+            Long[] ids = new Long[3];
+            boolean[] selected = {firstSelected, secondSelected, thirdSelected};
+            for (int i = 0; i < 3; i++) {
+                ProductVariant variant = variants.save(ProductVariant.builder().product(product)
+                        .skuCode(suffix + "-" + i).variantName("SKU " + (i + 1))
+                        .price(new BigDecimal("100000").multiply(BigDecimal.valueOf(i + 1))).stockQuantity(10).build());
+                ids[i] = variant.getId();
+                cartItems.save(CartItem.builder().cart(cart).variant(variant).quantity(2).isSelected(selected[i]).build());
+            }
+            return new Fixture(user.getId(), cart.getId(), ids[0], ids[1], ids[2]);
+        });
+    }
+
+    private <T> T inTransaction(Supplier<T> operation) {
+        return new TransactionTemplate(transactionManager).execute(status -> operation.get());
+    }
+
+    private void assertMoney(String expected, BigDecimal actual) {
+        assertEquals(0, new BigDecimal(expected).compareTo(actual));
+    }
+
+    private record Fixture(Long customerId, Long cartId, Long firstId, Long secondId, Long thirdId) { }
+    private Long staffActor() {
+        return inTransaction(() -> {
+            var role=roles.findByCode("STAFF").orElseGet(()->roles.save(Role.builder().code("STAFF").name("Staff").build()));
+            return users.save(User.builder().role(role).fullName("Order operator").email(UUID.randomUUID()+"@staff.test")
+                    .passwordHash("unused").status("ACTIVE").build()).getId();
+        });
+    }
+}

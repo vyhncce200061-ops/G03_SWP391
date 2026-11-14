@@ -1,0 +1,32 @@
+<!DOCTYPE html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><body>
+<script th:fragment="script">
+(() => {
+    window.dismissFloatingAlert = el => {
+        if (!el || el.classList.contains('retracting')) return;
+        el.classList.add('retracting'); setTimeout(() => el.remove(), 190);
+    };
+    const ready = () => {
+        const container = document.getElementById('alertContainer');
+        if (!container) return;
+        for (const el of document.querySelectorAll('.auto-dismiss')) {
+            el.classList.add('floating-alert');
+            if (el.classList.contains('alert-danger')) el.classList.add('floating-alert-danger');
+            else if (el.classList.contains('alert-success')) el.classList.add('floating-alert-success');
+            else if (el.classList.contains('alert-warning')) el.classList.add('floating-alert-warning');
+            else if (el.classList.contains('alert-info')) el.classList.add('floating-alert-info');
+            if (el.parentElement !== container) container.appendChild(el);
+            if (!el.querySelector('.btn-close')) {
+                const close = document.createElement('button'); close.type = 'button'; close.className = 'btn-close'; close.setAttribute('aria-label', 'Đóng thông báo');
+                close.addEventListener('click', () => window.dismissFloatingAlert(el)); el.appendChild(close);
+            }
+            setTimeout(() => window.dismissFloatingAlert(el), 4500);
+        }
+        if (window.location.pathname === '/login' && window.history?.replaceState) {
+            const url = new URL(window.location.href); let changed = false;
+            for (const name of ['error','expired','logout','passwordChanged']) if (url.searchParams.has(name)) { url.searchParams.delete(name); changed = true; }
+            if (changed) window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+        }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
+})();
+</script></body></html>

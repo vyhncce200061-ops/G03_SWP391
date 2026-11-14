@@ -7,7 +7,9 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Product catalog root entity.
@@ -74,17 +76,35 @@ public class Product {
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<ProductImage> images = new ArrayList<>();
+    @OrderBy("isPrimary DESC, id ASC")
+    private Set<ProductImage> images = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
     @Builder.Default
-    private List<ProductVariant> variants = new ArrayList<>();
+    private Set<ProductVariant> variants = new LinkedHashSet<>();
 
     @Column(name = "CreatedAt", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "UpdatedAt", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Transient
+    public String getDisplayImageUrl() {
+        return images.stream().sorted(java.util.Comparator
+                .comparing((ProductImage image) -> !Boolean.TRUE.equals(image.getIsPrimary()))
+                .thenComparing(ProductImage::getSortOrder, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+                .thenComparing(ProductImage::getId, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .map(ProductImage::getImageUrl).filter(url -> url != null && !url.isBlank())
+                .findFirst().orElse("https://placehold.co/500x400?text=PetShop");
+    }
+
+    @Transient
+    public boolean isAvailableInStock() {
+        return status == ProductStatus.ACTIVE && variants.stream().anyMatch(v ->
+                v.getStatus() == com.petshop.entity.enums.ProductVariantStatus.ACTIVE
+                        && v.getStockQuantity() != null && v.getStockQuantity() > 0);
+    }
 
     @PrePersist
     protected void onCreate() {

@@ -22,6 +22,7 @@ public class StaffDashboardController {
     public String dashboard(Model model) {
         model.addAttribute("pendingOrders", orderService.getOrdersForStaff(OrderStatus.PENDING_CONFIRMATION, PageRequest.of(0, 5)));
         model.addAttribute("lowStockVariants", stockImportService.getLowStockVariants());
+
         return "staff/dashboard";
     }
 }

@@ -4,30 +4,122 @@
       layout:decorate="~{layout/main-layout}">
 <head>
     <title>Chi Tiết Đơn Hàng</title>
+    <style>
+        .modal-backdrop.show {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            background-color: rgba(15, 23, 42, 0.6) !important;
+        }
+        .star-rating i {
+            cursor: pointer;
+            font-size: 1.85rem;
+            color: #cbd5e1;
+            transition: color 0.15s ease, transform 0.15s ease;
+        }
+        .star-rating i:hover {
+            transform: scale(1.15);
+        }
+        .star-rating i.active-star {
+            color: #f59e0b !important;
+        }
+    </style>
 </head>
 <body>
 <div layout:fragment="content" class="py-5">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="fw-bold mb-0">Đơn Hàng <span th:text="${order.orderCode}">ORD-XXXX</span></h3>
-            <span class="badge bg-primary fs-6" th:text="${order.orderStatus}">CONFIRMED</span>
+        <div th:if="${order.paymentMethod.name() == 'VNPAY' and order.orderStatus.name() == 'PENDING_PAYMENT' and order.stockDeducted}" class="alert alert-info">
+            Hàng đang được giữ trong thời hạn thanh toán 15 phút kể từ khi đặt đơn. Tiếp tục thanh toán trong thời hạn này; hết hạn hoặc hủy đơn, hệ thống sẽ trả lại hàng đang giữ.
         </div>
+        <div th:if="${order.paymentMethod.name() == 'VNPAY' and order.paymentStatus.name() == 'PAID' and !order.stockDeducted}" class="alert alert-warning">
+            Đã nhận thanh toán. Cửa hàng đang xử lý bổ sung hàng cho đơn của bạn. Bạn không cần thanh toán lại.
+        </div>
+        <a th:href="@{/customer/orders}" class="btn btn-link px-0 mb-3">Quay lại đơn hàng của tôi</a>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="fw-bold mb-0">Đơn Hàng <span th:text="${order.orderCode}">ORD-XXXX</span></h3>
+            <span class="badge bg-primary fs-6" th:text="${orderStatusLabels[order.orderStatus.name()]}">Đã xác nhận</span>
+        </div>
+        <p class="text-muted mb-4" th:text="${'Đặt lúc: ' + #temporals.format(order.createdAt, 'dd/MM/yyyy HH:mm')}"></p>
 
         <div class="row g-4">
             <div class="col-lg-8">
                 <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
-                    <h5 class="fw-bold mb-3">Sản Phẩm Đã Mua</h5>
+                    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+                        <h5 class="fw-bold mb-0">Sản Phẩm Đã Mua</h5>
+                        <button th:if="${order.orderStatus.name() == 'COMPLETED' and order.paymentStatus.name() == 'PAID' and !order.items.empty}"
+                                type="button"
+                                class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1"
+                                data-bs-toggle="modal"
+                                data-bs-target="#reviewModal"
+                                th:data-order-item-id="${order.items[0].id}"
+                                th:data-product-name="${order.items[0].productNameSnapshot}"
+                                th:data-variant-name="${order.items[0].variantNameSnapshot}">
+                            <i class="bi bi-star me-1"></i> Đánh giá sản phẩm
+                        </button>
+                    </div>
                     <ul class="list-group list-group-flush">
-                        <li th:each="item : ${order.items}" class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <li th:each="item : ${order.items}"
+                            th:with="isOutOfStock=${item.variant == null or item.variant.status.name() != 'ACTIVE' or item.variant.product == null or item.variant.product.status.name() != 'ACTIVE' or item.variant.stockQuantity == null or item.variant.stockQuantity <= 0}"
+                            class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
                             <div>
-                                <h6 class="mb-0 fw-bold" th:text="${item.productNameSnapshot}">Tên SP</h6>
-                                <small class="text-muted" th:text="${item.variantNameSnapshot + ' | SKU: ' + item.skuCodeSnapshot}"></small>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <h6 class="mb-0 fw-bold"
+                                        th:classappend="${isOutOfStock} ? 'text-secondary text-decoration-line-through' : ''"
+                                        th:text="${item.productNameSnapshot}">Tên SP</h6>
+                                    <span th:if="${isOutOfStock}" class="badge bg-danger-subtle text-danger border border-danger-subtle small px-2 py-0">Hết hàng</span>
+                                    <button th:if="${order.orderStatus.name() == 'COMPLETED' and order.paymentStatus.name() == 'PAID' and order.items.size() > 1}"
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0 small"
+                                            style="font-size: 0.8rem;"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#reviewModal"
+                                            th:data-order-item-id="${item.id}"
+                                            th:data-product-name="${item.productNameSnapshot}"
+                                            th:data-variant-name="${item.variantNameSnapshot}">
+                                        <i class="bi bi-star me-1"></i> Đánh giá
+                                    </button>
+                                </div>
+                                <small class="text-muted d-block mt-1" th:text="${item.variantNameSnapshot + ' | SKU: ' + item.skuCodeSnapshot}"></small>
                             </div>
-                            <div class="text-end">
-                                <span th:text="${item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                            <div class="text-end d-flex align-items-center gap-3">
+                                <div>
+                                    <span th:text="${item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
+                                    <strong class="d-block" th:text="${#numbers.formatDecimal(item.unitPrice * item.quantity, 0, 'POINT', 0, 'COMMA') + ' đ'}"></strong>
+                                </div>
+                                <form th:if="${!isOutOfStock}" th:action="@{/cart/reorder-item}" method="post" class="m-0">
+                                    <input type="hidden" name="variantId" th:value="${item.variant.id}">
+                                    <input type="hidden" name="quantity" th:value="${item.quantity}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 small">
+                                        <i class="bi bi-bag-plus me-1"></i> Mua Lại
+                                    </button>
+                                </form>
+                                <button th:if="${isOutOfStock}" type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 small disabled" disabled title="Món hàng này hiện đã hết hàng">
+                                    <i class="bi bi-slash-circle me-1"></i> Hết Hàng
+                                </button>
                             </div>
                         </li>
                     </ul>
+                </div>
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                    <h5 class="fw-bold mb-3">Lịch Sử Trạng Thái</h5>
+                    <p class="small text-muted">Theo dõi tiến trình xử lý đơn hàng tại cửa hàng.</p>
+                    <ol th:if="${!#lists.isEmpty(statusHistory)}" class="list-group list-group-numbered list-group-flush">
+                        <li th:each="history : ${statusHistory}" class="list-group-item px-0">
+                            <span th:if="${history.oldStatus != null}"
+                                  th:text="${orderStatusLabels[history.oldStatus.name()] + ' → '}"></span>
+                            <strong th:text="${orderStatusLabels[history.newStatus.name()]}"></strong>
+                            <small class="d-block text-muted"
+                                   th:text="${history.changedAt == null ? 'Chưa ghi nhận thời gian' : #temporals.format(history.changedAt, 'dd/MM/yyyy HH:mm')}"></small>
+                            <small class="d-block text-muted"
+                                   th:text="${history.changedBy == null ? 'Hệ thống' : (history.changedBy.id == currentCustomerId ? 'Bạn' : 'Nhân viên cửa hàng')}"></small>
+                        </li>
+                    </ol>
+                    <p th:if="${#lists.isEmpty(statusHistory)}" class="text-muted mb-0">Chưa có lịch sử trạng thái.</p>
+                </div>
+                <div th:if="${order.cancelledAt != null or order.cancelReason != null}" class="alert alert-secondary">
+                    <h6 class="fw-bold">Thông tin hủy đơn</h6>
+                    <p th:if="${order.cancelledAt != null}" class="mb-1"
+                       th:text="${'Thời gian: ' + #temporals.format(order.cancelledAt, 'dd/MM/yyyy HH:mm')}"></p>
+                    <p th:if="${order.cancelReason != null}" class="mb-0" th:text="${'Lý do: ' + order.cancelReason}"></p>
                 </div>
             </div>
 
@@ -36,32 +128,172 @@
                     <h5 class="fw-bold mb-3">Thông Tin Giao Hàng</h5>
                     <p class="mb-1"><strong th:text="${order.recipientName}"></strong> | <span th:text="${order.recipientPhone}"></span></p>
                     <p class="small text-muted" th:text="${order.shippingAddressLine + ', ' + order.shippingWard + ', ' + order.shippingDistrict + ', ' + order.shippingProvince}"></p>
+                    <p th:if="${!#strings.isEmpty(order.customerNote)}" class="small" th:text="${'Ghi chú: ' + order.customerNote}"></p>
                     <hr>
+                    <p class="mb-1">Phương thức: <strong th:text="${order.paymentMethod}"></strong></p>
+                    <p class="mb-3">Thanh toán: <strong th:text="${paymentStatusLabels[order.paymentStatus.name()]}"></strong></p>
                     <div class="d-flex justify-content-between mb-1">
                         <span>Tạm tính:</span>
-                        <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                        <span th:text="${#numbers.formatDecimal(order.subtotalAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                     </div>
                     <div class="d-flex justify-content-between mb-1">
                         <span>Giảm giá:</span>
-                        <span th:text="${'-' + #numbers.formatDecimal(order.discountAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                        <span th:text="${'-' + #numbers.formatDecimal(order.discountAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                     </div>
+                    <p th:if="${!#strings.isEmpty(order.voucherCodeSnapshot)}" class="small text-muted"
+                       th:text="${'Mã giảm giá đã dùng: ' + order.voucherCodeSnapshot}"></p>
                     <div class="d-flex justify-content-between mb-2">
                         <span>Phí ship:</span>
-                        <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
+                        <span th:text="${#numbers.formatDecimal(order.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3">
                         <strong>Tổng cộng:</strong>
-                        <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
+                        <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'POINT', 0, 'COMMA') + 'đ'}"></strong>
                     </div>
 
-                    <form th:if="${order.orderStatus.name() == 'PENDING_CONFIRMATION' or order.orderStatus.name() == 'PENDING_PAYMENT'}"
-                          th:action="@{/customer/orders/{id}/cancel(id=${order.id})}" method="post">
+                    <form th:if="${canResumePayment}" th:action="@{/customer/orders/{id}/pay(id=${order.id})}"
+                          method="post" class="mb-3">
+                        <button type="submit" class="btn btn-primary w-100">Tiếp tục thanh toán</button>
+                        <p class="small text-muted mt-2 mb-0">Tiếp tục thanh toán đơn hiện tại. Thời hạn thanh toán không được gia hạn.</p>
+                    </form>
+                    <form th:if="${canCancel}" th:action="@{/customer/orders/{id}/cancel(id=${order.id})}" method="post">
+                        <label for="cancelReason" class="form-label">Lý do hủy đơn (không bắt buộc)</label>
+                        <textarea id="cancelReason" name="reason" maxlength="1000" rows="2" class="form-control mb-2"></textarea>
                         <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Bạn có chắc chắn muốn hủy đơn hàng này?');">Hủy Đơn Hàng</button>
                     </form>
                 </div>
             </div>
         </div>
+
+        <!-- Modal Đánh Giá Sản Phẩm (Popup làm mờ xung quanh) -->
+        <div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                    <div class="modal-header bg-pet-primary text-white border-0 py-3">
+                        <h5 class="modal-title fw-bold" id="reviewModalLabel">
+                            <i class="bi bi-star-fill me-2 text-warning"></i>Đánh Giá Sản Phẩm
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form th:action="@{/customer/reviews/create}" method="post">
+                        <div class="modal-body p-4">
+                            <input type="hidden" name="orderItemId" id="modalOrderItemId" value="">
+                            <input type="hidden" name="redirectUrl" th:value="@{/customer/orders/{id}(id=${order.id})}">
+
+                            <!-- Thông tin sản phẩm được đánh giá -->
+                            <div class="p-3 bg-light rounded-3 mb-3 border">
+                                <div class="fw-bold text-dark fs-6" id="modalReviewProductName">Tên sản phẩm</div>
+                                <small class="text-muted d-block mt-1" id="modalReviewVariantName">Phân loại hàng</small>
+                            </div>
+
+                            <!-- Chọn số sao tương tác -->
+                            <div class="mb-3 text-center">
+                                <label class="form-label fw-semibold d-block mb-1">Mức độ hài lòng của bạn</label>
+                                <input type="hidden" name="rating" id="modalRatingInput" value="5" required>
+                                <div class="star-rating d-inline-flex gap-2 my-1" id="starContainer">
+                                    <i class="bi bi-star-fill active-star" data-val="1"></i>
+                                    <i class="bi bi-star-fill active-star" data-val="2"></i>
+                                    <i class="bi bi-star-fill active-star" data-val="3"></i>
+                                    <i class="bi bi-star-fill active-star" data-val="4"></i>
+                                    <i class="bi bi-star-fill active-star" data-val="5"></i>
+                                </div>
+                                <div class="small fw-semibold text-warning" id="ratingText">5 sao - Rất hài lòng</div>
+                            </div>
+
+                            <!-- Nhận xét chi tiết -->
+                            <div class="mb-2">
+                                <label for="modalComment" class="form-label fw-semibold">
+                                    Nhận xét chi tiết <span class="text-danger">*</span>
+                                </label>
+                                <textarea id="modalComment" name="comment" maxlength="1000" required rows="4"
+                                          class="form-control rounded-3"
+                                          placeholder="Hãy chia sẻ cảm nhận về chất lượng sản phẩm (tối đa 1000 ký tự)..."></textarea>
+                                <div class="d-flex justify-content-between mt-1">
+                                    <small class="text-muted">Nhận xét tối đa 1000 ký tự</small>
+                                    <small class="text-muted" id="charCounter">0 / 1000</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-0 py-3 px-4 d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn btn-pet-primary rounded-pill px-4">
+                                <i class="bi bi-send me-1"></i> Gửi Đánh Giá
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const reviewModal = document.getElementById('reviewModal');
+                if (!reviewModal) return;
+
+                const starContainer = document.getElementById('starContainer');
+                const ratingInput = document.getElementById('modalRatingInput');
+                const ratingText = document.getElementById('ratingText');
+                const commentInput = document.getElementById('modalComment');
+                const charCounter = document.getElementById('charCounter');
+
+                const ratingDescriptions = {
+                    1: '1 sao - Rất tệ',
+                    2: '2 sao - Chưa hài lòng',
+                    3: '3 sao - Bình thường',
+                    4: '4 sao - Hài lòng',
+                    5: '5 sao - Rất hài lòng'
+                };
+
+                function setStars(val) {
+                    ratingInput.value = val;
+                    ratingText.textContent = ratingDescriptions[val] || (val + ' sao');
+                    const stars = starContainer.querySelectorAll('i');
+                    stars.forEach(star => {
+                        const starVal = parseInt(star.getAttribute('data-val'), 10);
+                        if (starVal <= val) {
+                            star.className = 'bi bi-star-fill active-star';
+                        } else {
+                            star.className = 'bi bi-star';
+                        }
+                    });
+                }
+
+                if (starContainer) {
+                    starContainer.addEventListener('click', function (e) {
+                        if (e.target && e.target.dataset.val) {
+                            setStars(parseInt(e.target.dataset.val, 10));
+                        }
+                    });
+                }
+
+                if (commentInput && charCounter) {
+                    commentInput.addEventListener('input', function () {
+                        charCounter.textContent = commentInput.value.length + ' / 1000';
+                    });
+                }
+
+                reviewModal.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    if (button) {
+                        const orderItemId = button.getAttribute('data-order-item-id');
+                        const productName = button.getAttribute('data-product-name');
+                        const variantName = button.getAttribute('data-variant-name');
+
+                        document.getElementById('modalOrderItemId').value = orderItemId || '';
+                        document.getElementById('modalReviewProductName').textContent = productName || 'Sản phẩm';
+                        document.getElementById('modalReviewVariantName').textContent = variantName || '';
+
+                        // Reset modal fields
+                        setStars(5);
+                        if (commentInput) {
+                            commentInput.value = '';
+                            if (charCounter) charCounter.textContent = '0 / 1000';
+                        }
+                    }
+                });
+            });
+        </script>
     </div>
 </div>
 </body>

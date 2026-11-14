@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Token entity for password recovery.
+ * One-time token for initial staff password setup and password recovery.
  * Mapped to table dbo.PasswordResetTokens.
  */
 @Entity

@@ -1,21 +1,29 @@
 package com.petshop.controller.staff;
 
 import com.petshop.config.security.CustomUserDetails;
+import com.petshop.dto.catalog.ProductFormDto;
+import com.petshop.dto.catalog.ProductVariantFormDto;
 import com.petshop.entity.Product;
 import com.petshop.entity.ProductVariant;
 import com.petshop.entity.enums.ProductStatus;
 import com.petshop.service.CatalogService;
+import com.petshop.service.CategoryManageService;
 import com.petshop.service.ProductManageService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+/**
+ * Staff controller for Product & Variant (SKU) management.
+ * Handles CRUD operations with server-side validation.
+ */
 @Controller
 @RequestMapping("/staff/products")
 @RequiredArgsConstructor
@@ -23,54 +31,92 @@ public class ProductManageController {
 
     private final ProductManageService productManageService;
     private final CatalogService catalogService;
+    private final CategoryManageService categories;
 
+    @ModelAttribute("productBasePath")
+    public String productBasePath() { return "/staff/products"; }
+
+    // ============ PRODUCT LIST ============
     @GetMapping
     public String listProducts(@RequestParam(defaultValue = "0") int page,
                                @RequestParam(defaultValue = "10") int size,
+                               @RequestParam(required = false) String keyword,
+                               @RequestParam(required = false) Integer categoryId,
+                               @RequestParam(required = false) ProductStatus status,
                                Model model) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Product> products = productManageService.getProducts(pageable);
+        Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
+        Page<Product> products = productManageService.searchProducts(keyword, categoryId, status, pageable);
         model.addAttribute("products", products);
+        model.addAttribute("keyword", keyword);
+        model.addAttribute("selectedCategoryId", categoryId);
+        model.addAttribute("selectedStatus", status);
+        model.addAttribute("categories", catalogService.getAllCategories());
         return "staff/product-list";
     }
 
+    // ============ CREATE PRODUCT FORM ============
     @GetMapping("/create")
     public String createForm(Model model) {
-        if (!model.containsAttribute("product")) {
-            model.addAttribute("product", new Product());
+        if (!model.containsAttribute("productForm")) {
+            model.addAttribute("productForm", new ProductFormDto());
         }
-        model.addAttribute("categories", catalogService.getAllCategories());
-        model.addAttribute("brands", catalogService.getAllBrands());
-        return "staff/product-form";
+        return productForm(model);
     }
 
+    // ============ SAVE NEW PRODUCT ============
     @PostMapping("/create")
     public String saveProduct(@AuthenticationPrincipal CustomUserDetails userDetails,
-                              @ModelAttribute Product product,
+                              @Valid @ModelAttribute("productForm") ProductFormDto form,
+                              BindingResult bindingResult,
+                              Model model,
                               RedirectAttributes redirectAttributes) {
-        productManageService.createProduct(product, userDetails.getId());
-        redirectAttributes.addFlashAttribute("successMessage", "Tạo sản phẩm thành công!");
-        return "redirect:/staff/products";
+        form.setId(null);
+        if (bindingResult.hasErrors()) {
+            return productForm(model);
+        }
+
+        try {
+            productManageService.createProduct(form, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Tạo sản phẩm thành công!");
+            return "redirect:/staff/products";
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("errorMessage", e.getMessage());
+            return productForm(model);
+        }
     }
 
+    // ============ EDIT PRODUCT FORM ============
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
-        model.addAttribute("product", productManageService.findById(id));
-        model.addAttribute("categories", catalogService.getAllCategories());
-        model.addAttribute("brands", catalogService.getAllBrands());
-        return "staff/product-form";
+        Product product = productManageService.findById(id);
+        model.addAttribute("productForm", ProductFormDto.fromEntity(product));
+        return productForm(model);
     }
 
+    // ============ UPDATE PRODUCT ============
     @PostMapping("/{id}/edit")
     public String updateProduct(@AuthenticationPrincipal CustomUserDetails userDetails,
                                 @PathVariable Long id,
-                                @ModelAttribute Product product,
+                                @Valid @ModelAttribute("productForm") ProductFormDto form,
+                                BindingResult bindingResult,
+                                Model model,
                                 RedirectAttributes redirectAttributes) {
-        productManageService.updateProduct(id, product, userDetails.getId());
-        redirectAttributes.addFlashAttribute("successMessage", "Cập nhật sản phẩm thành công!");
-        return "redirect:/staff/products";
+        form.setId(id);
+        if (bindingResult.hasErrors()) {
+            return productForm(model);
+        }
+
+        try {
+            productManageService.updateProduct(id, form, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật sản phẩm thành công!");
+            return "redirect:/staff/products";
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("errorMessage", e.getMessage());
+            return productForm(model);
+        }
     }
 
+    // ============ TOGGLE PRODUCT STATUS ============
     @PostMapping("/{id}/status")
     public String toggleStatus(@PathVariable Long id,
                                @RequestParam ProductStatus status,
@@ -80,34 +126,158 @@ public class ProductManageController {
         return "redirect:/staff/products";
     }
 
+    // ============ SOFT DELETE PRODUCT ============
+    @PostMapping("/{id}/delete")
+    public String deleteProduct(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        productManageService.deleteProduct(id);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã xóa mềm sản phẩm thành công! Sản phẩm đã chuyển sang trạng thái tạm ẩn.");
+        return "redirect:/staff/products";
+    }
+
+    // ============ RESTORE PRODUCT ============
+    @PostMapping("/{id}/restore")
+    public String restoreProduct(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        productManageService.toggleProductStatus(id, ProductStatus.ACTIVE);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã khôi phục sản phẩm thành công! Sản phẩm đang được mở bán.");
+        return "redirect:/staff/products";
+    }
+
     @GetMapping("/{id}/variants")
     public String manageVariants(@PathVariable Long id, Model model) {
         Product product = productManageService.findById(id);
         model.addAttribute("product", product);
-        model.addAttribute("newVariant", new ProductVariant());
+        if (!model.containsAttribute("variantForm")) {
+            model.addAttribute("variantForm", new ProductVariantFormDto());
+        }
         return "staff/variant-list";
     }
 
-    @PostMapping("/{id}/variants")
-    public String addVariant(@PathVariable Long id,
-                             @ModelAttribute ProductVariant variant,
-                             RedirectAttributes redirectAttributes) {
-        try {
-            productManageService.addVariant(id, variant);
-            redirectAttributes.addFlashAttribute("successMessage", "Thêm biến thể SKU thành công!");
-        } catch (IllegalArgumentException e) {
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
-        }
-        return "redirect:/staff/products/" + id + "/variants";
+    // ============ CREATE VARIANT FORM ============
+    @GetMapping("/{id}/variants/create")
+    public String createVariantForm(@PathVariable Long id, Model model) {
+        Product product = productManageService.findById(id);
+        model.addAttribute("product", product);
+        model.addAttribute("variantForm", new ProductVariantFormDto());
+        return "staff/variant-form";
     }
 
+    // ============ EDIT VARIANT FORM ============
+    @GetMapping("/{id}/variants/{vid}/edit")
+    public String editVariantForm(@PathVariable Long id, @PathVariable Long vid, Model model) {
+        Product product = productManageService.findById(id);
+        ProductVariant variant = productManageService.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+
+        ProductVariantFormDto form = ProductVariantFormDto.builder()
+                .id(variant.getId())
+                .skuCode(variant.getSkuCode())
+                .variantName(variant.getVariantName())
+                .price(variant.getPrice())
+                .lowStockThreshold(variant.getLowStockThreshold())
+                .status(variant.getStatus())
+                .build();
+
+        model.addAttribute("product", product);
+        model.addAttribute("variantForm", form);
+        return "staff/variant-form";
+    }
+
+    // ============ ADD VARIANT ============
+    @PostMapping("/{id}/variants")
+    public String addVariant(@PathVariable Long id,
+                             @Valid @ModelAttribute("variantForm") ProductVariantFormDto form,
+                             BindingResult bindingResult,
+                             Model model,
+                             RedirectAttributes redirectAttributes) {
+        form.setId(null);
+        if (bindingResult.hasErrors()) {
+            Product product = productManageService.findById(id);
+            model.addAttribute("product", product);
+            return "staff/variant-form";
+        }
+
+        try {
+            ProductVariant variant = form.toEntity();
+            productManageService.addVariant(id, variant);
+            redirectAttributes.addFlashAttribute("successMessage", "Thêm biến thể SKU thành công!");
+            return "redirect:/staff/products/" + id + "/variants";
+        } catch (IllegalArgumentException e) {
+            Product product = productManageService.findById(id);
+            model.addAttribute("product", product);
+            model.addAttribute("errorMessage", e.getMessage());
+            return "staff/variant-form";
+        }
+    }
+
+    // ============ UPDATE VARIANT ============
     @PostMapping("/variants/{vid}/edit")
     public String updateVariant(@PathVariable Long vid,
                                 @RequestParam Long productId,
-                                @ModelAttribute ProductVariant variant,
+                                @Valid @ModelAttribute("variantForm") ProductVariantFormDto form,
+                                BindingResult bindingResult,
+                                Model model,
                                 RedirectAttributes redirectAttributes) {
-        productManageService.updateVariant(vid, variant);
-        redirectAttributes.addFlashAttribute("successMessage", "Cập nhật biến thể thành công!");
+        ProductVariant existing = productManageService.findVariantById(vid);
+        if (!existing.getProduct().getId().equals(productId)) {
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        }
+        form.setId(vid);
+        if (bindingResult.hasErrors()) {
+            Product product = productManageService.findById(productId);
+            model.addAttribute("product", product);
+            return "staff/variant-form";
+        }
+
+        try {
+            ProductVariant variant = form.toEntity();
+            productManageService.updateVariant(vid, variant);
+            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật biến thể thành công!");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/products/" + productId + "/variants";
+    }
+
+    // ============ SOFT DELETE VARIANT ============
+    @PostMapping("/{id}/variants/{vid}/delete")
+    public String deleteVariant(@PathVariable Long id, @PathVariable Long vid, RedirectAttributes redirectAttributes) {
+        ProductVariant variant = productManageService.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) {
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        }
+        productManageService.deleteVariant(vid);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã xóa mềm biến thể thành công! Biến thể đã chuyển sang trạng thái tạm ngưng bán.");
+        return "redirect:/staff/products/" + id + "/variants";
+    }
+
+    // ============ RESTORE VARIANT ============
+    @PostMapping("/{id}/variants/{vid}/restore")
+    public String restoreVariant(@PathVariable Long id, @PathVariable Long vid, RedirectAttributes redirectAttributes) {
+        ProductVariant variant = productManageService.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) {
+            throw new com.petshop.exception.ResourceNotFoundException("Không tìm thấy SKU trong sản phẩm này.");
+        }
+        productManageService.toggleVariantStatus(vid, com.petshop.entity.enums.ProductVariantStatus.ACTIVE);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã khôi phục biến thể thành công! Biến thể đang được mở bán.");
+        return "redirect:/staff/products/" + id + "/variants";
+    }
+
+    // ============ LOW STOCK ALERT ============
+    @GetMapping("/low-stock")
+    public String lowStock(Model model) {
+        model.addAttribute("lowStockVariants", productManageService.getLowStockVariants());
+        return "staff/low-stock";
+    }
+
+    private String productForm(Model model) {
+        ProductFormDto dto = (ProductFormDto) model.getAttribute("productForm");
+        if (dto.getId() != null) {
+            ProductFormDto stored = ProductFormDto.fromEntity(productManageService.findById(dto.getId()));
+            dto.setExistingImageIds(stored.getExistingImageIds());
+            dto.setExistingImageUrls(stored.getExistingImageUrls());
+        }
+        model.addAttribute("categories", categories.productOptions(dto.getCategoryId()));
+        model.addAttribute("brands", catalogService.getBrandOptions(dto.getBrandId()));
+        return "staff/product-form";
     }
 }

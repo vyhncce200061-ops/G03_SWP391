@@ -1,9 +1,9 @@
 package com.petshop.service.impl;
 
 import com.petshop.dto.auth.AddressCreateDto;
+import com.petshop.dto.auth.AddressUpdateDto;
 import com.petshop.dto.auth.PasswordChangeRequestDto;
 import com.petshop.dto.auth.ProfileUpdateRequestDto;
-import com.petshop.dto.auth.RegisterRequestDto;
 import com.petshop.entity.Role;
 import com.petshop.entity.User;
 import com.petshop.entity.UserAddress;
@@ -31,6 +31,11 @@ public class UserServiceImpl implements UserService {
     private final UserAddressRepository addressRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final jakarta.persistence.EntityManager entityManager;
+    private final com.petshop.service.AccountAccessService accountAccessService;
+    private final com.petshop.service.PasswordResetMailer resetMailer;
+    private final jakarta.validation.Validator validator;
+    private final com.petshop.repository.PasswordResetTokenRepository tokenRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,30 +54,99 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void updateProfile(Long userId, ProfileUpdateRequestDto request) {
-        User user = findById(userId);
+        if (request == null) {
+            throw new IllegalArgumentException("Dữ liệu cập nhật hồ sơ không hợp lệ.");
+        }
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        }
+        User user = lockUser(userId);
         user.setFullName(request.getFullName().trim());
         if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            user.setPhone(request.getPhone().trim());
+            String phone = request.getPhone().trim();
+            userRepository.findByPhone(phone).ifPresent(existing -> {
+                if (!existing.getId().equals(userId)) {
+                    throw new IllegalArgumentException("Số điện thoại đã được dùng bởi tài khoản khác.");
+                }
+            });
+            user.setPhone(phone);
         }
         if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
             user.setAvatarUrl(request.getAvatarUrl().trim());
         }
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
         log.info("Updated profile for user ID: {}", userId);
     }
 
     @Override
     @Transactional
+    public void updateProfile(Long userId, ProfileUpdateRequestDto request, org.springframework.web.multipart.MultipartFile avatar) {
+        updateProfile(userId, request);
+        if (avatar != null && !avatar.isEmpty()) updateAvatar(userId, avatar);
+    }
+
+    @Override
+    @Transactional
+    public void updateAvatar(Long userId, org.springframework.web.multipart.MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getSize() > 5L * 1024 * 1024) {
+            throw new IllegalArgumentException("Chọn ảnh đại diện tối đa 5 MB.");
+        }
+        String type = file.getContentType();
+        if (type == null || !java.util.Set.of("image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/gif").contains(type.toLowerCase(java.util.Locale.ROOT))) {
+            throw new IllegalArgumentException("Ảnh đại diện cần có định dạng JPG, PNG hoặc GIF.");
+        }
+        try (var input = file.getInputStream()) {
+            var image = javax.imageio.ImageIO.read(input);
+            if (image == null) throw new IllegalArgumentException("Nội dung tệp không phải hình ảnh hợp lệ.");
+            User user = lockUser(userId);
+            var directory = java.nio.file.Path.of("uploads", "avatars").toAbsolutePath().normalize();
+            java.nio.file.Files.createDirectories(directory);
+            // Re-encode the image; never trust a client-supplied filename or extension.
+            String name = "avatar_" + userId + "_" + java.util.UUID.randomUUID() + ".png";
+            var target = directory.resolve(name);
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int status) {
+                            if (status != STATUS_COMMITTED) {
+                                try { java.nio.file.Files.deleteIfExists(target); }
+                                catch (java.io.IOException error) { log.warn("Could not remove uncommitted avatar {}", target, error); }
+                            }
+                        }
+                    });
+            if (!javax.imageio.ImageIO.write(image, "png", target.toFile())) {
+                throw new IllegalStateException("Không thể lưu ảnh đại diện.");
+            }
+            user.setAvatarUrl("/uploads/avatars/" + name);
+            userRepository.saveAndFlush(user);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Không thể lưu ảnh đại diện. Vui lòng thử lại.", e);
+        }
+    }
+
+    @Override
+    @Transactional
     public void changePassword(Long userId, PasswordChangeRequestDto request) {
-        User user = findById(userId);
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+        if (request == null) {
+            throw new IllegalArgumentException("Dữ liệu đổi mật khẩu không hợp lệ.");
+        }
+        User user = lockUser(userId);
+        if (request.getCurrentPassword() == null || !passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác.");
         }
-        if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
+        if (!java.util.Objects.equals(request.getNewPassword(), request.getConfirmNewPassword())) {
             throw new IllegalArgumentException("Mật khẩu mới xác nhận không khớp.");
         }
+        if (request.getNewPassword() == null || request.getNewPassword().isBlank() || request.getNewPassword().length() < 6 || request.getNewPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Mật khẩu mới tối thiểu 6 ký tự.");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("Mật khẩu mới phải khác mật khẩu hiện tại.");
+        }
+        user.setMustChangePassword(false);
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
         log.info("Changed password for user ID: {}", userId);
     }
 
@@ -85,7 +159,14 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserAddress addAddress(Long customerId, AddressCreateDto request) {
-        User customer = findById(customerId);
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin địa chỉ không hợp lệ.");
+        }
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        }
+        lockUser(customerId);
         boolean isFirst = addressRepository.countByCustomerIdAndIsDeletedFalse(customerId) == 0;
         boolean makeDefault = isFirst || Boolean.TRUE.equals(request.getIsDefault());
 
@@ -93,6 +174,7 @@ public class UserServiceImpl implements UserService {
             addressRepository.resetDefaultAddresses(customerId);
         }
 
+        User customer = userRepository.getReferenceById(customerId);
         UserAddress address = UserAddress.builder()
                 .customer(customer)
                 .recipientName(request.getRecipientName().trim())
@@ -105,45 +187,94 @@ public class UserServiceImpl implements UserService {
                 .isDeleted(false)
                 .build();
 
-        return addressRepository.save(address);
+        return addressRepository.saveAndFlush(address);
+    }
+
+    @Override
+    @Transactional
+    public void updateAddress(Long customerId, Long addressId, AddressUpdateDto request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin địa chỉ không hợp lệ.");
+        }
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        }
+        lockUser(customerId);
+        UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
+
+        boolean shouldMakeDefault = Boolean.TRUE.equals(request.getIsDefault()) && !Boolean.TRUE.equals(address.getIsDefault());
+        if (shouldMakeDefault) {
+            addressRepository.resetDefaultAddresses(customerId);
+            address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
+            address.setIsDefault(true);
+        }
+
+        address.setRecipientName(request.getRecipientName().trim());
+        address.setRecipientPhone(request.getRecipientPhone().trim());
+        address.setProvince(request.getProvince().trim());
+        address.setDistrict(request.getDistrict().trim());
+        address.setWard(request.getWard().trim());
+        address.setAddressLine(request.getAddressLine().trim());
+
+        addressRepository.saveAndFlush(address);
+        log.info("Updated address ID {} for customer ID {}", addressId, customerId);
     }
 
     @Override
     @Transactional
     public void setDefaultAddress(Long customerId, Long addressId) {
+        lockUser(customerId);
+        if (addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId).isEmpty()) {
+            throw new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ.");
+        }
+        addressRepository.resetDefaultAddresses(customerId);
         UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
-        addressRepository.resetDefaultAddresses(customerId);
         address.setIsDefault(true);
-        addressRepository.save(address);
+        addressRepository.saveAndFlush(address);
     }
 
     @Override
     @Transactional
     public void deleteAddress(Long customerId, Long addressId) {
+        lockUser(customerId);
         UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
+        boolean wasDefault = Boolean.TRUE.equals(address.getIsDefault());
         address.setIsDeleted(true);
         address.setIsDefault(false);
-        addressRepository.save(address);
+        addressRepository.saveAndFlush(address);
+
+        if (wasDefault) {
+            List<UserAddress> remaining = addressRepository.findByCustomerIdAndIsDeletedFalseOrderByIsDefaultDescCreatedAtDesc(customerId);
+            if (!remaining.isEmpty() && remaining.stream().noneMatch(a -> Boolean.TRUE.equals(a.getIsDefault()))) {
+                UserAddress nextDefault = remaining.get(0);
+                nextDefault.setIsDefault(true);
+                addressRepository.saveAndFlush(nextDefault);
+            }
+        }
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<User> getAllUsers(String keyword, String roleCode, Pageable pageable) {
-        if (roleCode != null && !roleCode.isBlank()) {
-            return userRepository.findByRoleCode(roleCode.trim(), pageable);
-        }
-        if (keyword != null && !keyword.isBlank()) {
-            return userRepository.findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(keyword.trim(), keyword.trim(), pageable);
-        }
-        return userRepository.findAll(pageable);
+    public Page<User> getAllUsers(String keyword, String roleCode, String status, Pageable pageable) {
+        String cleanKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+        String cleanRoleCode = (roleCode != null && !roleCode.isBlank()) ? roleCode.trim() : null;
+        return userRepository.searchUsers(cleanKeyword, cleanRoleCode, (status == null || status.isBlank()) ? null : status.trim().toUpperCase(), pageable);
     }
 
     @Override
     @Transactional
     public void toggleUserStatus(Long userId, Long adminId) {
-        User user = findById(userId);
+        roleRepository.lockAdminRole().orElseThrow(() -> new IllegalStateException("Thiếu vai trò ADMIN."));
+        User user = lockUser(userId);
+        if ("ACTIVE".equals(user.getStatus()) && "ADMIN".equals(user.getRole().getCode())
+                && userRepository.countByRoleCodeAndStatus("ADMIN", "ACTIVE") <= 1) {
+            throw new IllegalArgumentException("Phải giữ ít nhất một quản trị viên đang hoạt động.");
+        }
         if (user.getId().equals(adminId)) {
             throw new IllegalArgumentException("Không thể tự khóa tài khoản của chính mình.");
         }
@@ -155,8 +286,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public User createStaffAccount(RegisterRequestDto request) {
-        if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail().trim())) {
+    public User createStaffAccount(com.petshop.dto.admin.StaffCreateRequestDto request) {
+        if (!validator.validate(request).isEmpty()) {
+            throw new IllegalArgumentException("Họ tên, email và số điện thoại nhân viên phải hợp lệ.");
+        }
+        resetMailer.requireConfigured();
+        String cleanEmail = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        if (userRepository.existsByEmail(cleanEmail)) {
             throw new IllegalArgumentException("Email nhân viên đã tồn tại.");
         }
         if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone().trim())) {
@@ -164,21 +300,81 @@ public class UserServiceImpl implements UserService {
         }
 
         Role staffRole = roleRepository.findByCode("STAFF")
-                .orElseGet(() -> roleRepository.save(Role.builder()
-                        .code("STAFF")
-                        .name("Nhân viên")
-                        .createdAt(LocalDateTime.now())
-                        .build()));
+                .orElseThrow(() -> new IllegalStateException("Thiếu vai trò STAFF trong cấu hình hệ thống."));
 
         User staff = User.builder()
                 .fullName(request.getFullName().trim())
-                .email(request.getEmail() != null ? request.getEmail().trim().toLowerCase() : null)
+                .email(cleanEmail)
                 .phone(request.getPhone().trim())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .passwordHash(passwordEncoder.encode(com.petshop.service.AccountAccessService.randomSecret()))
+                .mustChangePassword(true)
                 .role(staffRole)
                 .status("ACTIVE")
                 .build();
 
-        return userRepository.save(staff);
+        User saved = userRepository.saveAndFlush(staff);
+        accountAccessService.sendLink(saved.getId(), true);
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public void updateUserByAdmin(Long userId, com.petshop.dto.admin.UserAdminUpdateDto request, Long currentAdminId) {
+        if (request == null || !validator.validate(request).isEmpty()) throw new IllegalArgumentException("Thông tin tài khoản không hợp lệ.");
+        roleRepository.lockAdminRole().orElseThrow(() -> new IllegalStateException("Thiếu vai trò ADMIN."));
+        User user = lockUser(userId);
+        if (!java.util.Set.of("ACTIVE", "LOCKED").contains(request.getStatus())) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ.");
+        }
+        if ("ACTIVE".equals(user.getStatus()) && "ADMIN".equals(user.getRole().getCode())
+                && !"ACTIVE".equals(request.getStatus())
+                && userRepository.countByRoleCodeAndStatus("ADMIN", "ACTIVE") <= 1) {
+            throw new IllegalArgumentException("Phải giữ ít nhất một quản trị viên đang hoạt động.");
+        }
+
+        if (user.getId().equals(currentAdminId) && !"ACTIVE".equalsIgnoreCase(request.getStatus())) {
+            throw new IllegalArgumentException("Không thể tự khóa tài khoản của chính mình.");
+        }
+
+        // Check email uniqueness if modified
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            String newEmail = request.getEmail().trim().toLowerCase();
+            userRepository.findByEmail(newEmail).ifPresent(existing -> {
+                if (!existing.getId().equals(user.getId())) {
+                    throw new IllegalArgumentException("Email '" + newEmail + "' đã được sử dụng bởi tài khoản khác.");
+                }
+            });
+            if (!newEmail.equals(user.getEmail())) tokenRepository.revokeUnusedForUser(userId, LocalDateTime.now());
+            user.setEmail(newEmail);
+        }
+
+        // Check phone uniqueness if modified
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            String newPhone = request.getPhone().trim();
+            userRepository.findByPhone(newPhone).ifPresent(existing -> {
+                if (!existing.getId().equals(user.getId())) {
+                    throw new IllegalArgumentException("Số điện thoại '" + newPhone + "' đã được sử dụng bởi tài khoản khác.");
+                }
+            });
+            user.setPhone(newPhone);
+        }
+
+        user.setFullName(request.getFullName().trim());
+        user.setStatus(request.getStatus().trim().toUpperCase());
+        userRepository.save(user);
+        log.info("Admin {} updated details for user {}", currentAdminId, userId);
+    }
+
+    @Override
+    @Transactional
+    public void resendStaffInvitation(Long userId) {
+        accountAccessService.sendLink(userId, true);
+    }
+
+    private User lockUser(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
+        entityManager.refresh(user, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return user;
     }
 }

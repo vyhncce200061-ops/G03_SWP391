@@ -29,6 +29,7 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final CustomAuthenticationSuccessHandler authenticationSuccessHandler;
     private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final com.petshop.repository.UserRepository userRepository;
 
     /**
      * Password encoder bean utilizing BCrypt hashing (compatible with $2a$10$ seed hashes).
@@ -62,12 +63,19 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        var csrfHandler = new org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler();
+        // Create the CSRF token/session before the Thymeleaf layout can flush HTML.
+        // Keep token masking and normal CSRF validation for browser forms.
+        csrfHandler.setCsrfRequestAttributeName(null);
         http
+            .addFilterBefore(new com.petshop.config.security.AccountStateFilter(userRepository),
+                    org.springframework.security.web.access.intercept.AuthorizationFilter.class)
             // 1. Authentication Provider Registration
             .authenticationProvider(authenticationProvider())
 
             // 2. CSRF Configuration
             .csrf(csrf -> csrf
+                .csrfTokenRequestHandler(csrfHandler)
                 // Exempt server-to-server gateway webhooks from CSRF checks
                 .ignoringRequestMatchers("/payment/vnpay-ipn")
             )
@@ -79,6 +87,7 @@ public class SecurityConfig {
                     "/css/**",
                     "/js/**",
                     "/images/**",
+                    "/uploads/**",
                     "/webjars/**",
                     "/static/**",
                     "/favicon.ico"
@@ -105,6 +114,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/login",
                     "/register",
+                    "/verify-email",
                     "/forgot-password",
                     "/reset-password"
                 ).permitAll()

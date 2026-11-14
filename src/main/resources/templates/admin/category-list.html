@@ -1,164 +1,61 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout/admin-layout}">
-<head>
-    <title>Quản Lý Danh Mục Sản Phẩm</title>
-</head>
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/admin-layout}">
+<head><title>Quản lý danh mục - PetShop</title></head>
 <body>
-<div layout:fragment="admin-header-title">
-    <span>Quản Trị Hệ Thống / Danh Mục Sản Phẩm</span>
-</div>
-
-<div layout:fragment="admin-content">
-    <div class="row g-4">
-        <!-- Category Table (Left Column) -->
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0">Cây Danh Mục Hàng Hóa</h5>
-                    <span class="badge bg-secondary-subtle text-secondary" th:text="${categories.size()} + ' danh mục'">0 danh mục</span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">ID</th>
-                                <th>Mã Code</th>
-                                <th>Tên Danh Mục</th>
-                                <th>Danh Mục Cha</th>
-                                <th>Thứ Tự</th>
-                                <th>Trạng Thái</th>
-                                <th class="text-end pe-3">Hành Động</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:if="${#lists.isEmpty(categories)}">
-                                <td colspan="7" class="text-center py-5 text-muted">
-                                    <i class="bi bi-diagram-3 display-6 d-block mb-2 text-secondary"></i>
-                                    Chưa có danh mục nào.
-                                </td>
-                            </tr>
-                            <tr th:each="c : ${categories}">
-                                <td class="ps-3 text-muted fw-semibold" th:text="${c.id}">1</td>
-                                <td><code th:text="${c.code}">DOG_FOOD</code></td>
-                                <td>
-                                    <div class="fw-semibold text-dark" th:text="${c.name}">Thức Ăn Cho Chó</div>
-                                    <small class="text-muted text-truncate d-inline-block" style="max-width: 180px;" th:text="${c.description}"></small>
-                                </td>
-                                <td>
-                                    <span th:if="${c.parentCategory != null}" class="badge bg-light text-secondary border" th:text="${c.parentCategory.name}">Chó Cảnh</span>
-                                    <span th:if="${c.parentCategory == null}" class="badge bg-primary-subtle text-primary border border-primary-subtle">Danh mục gốc</span>
-                                </td>
-                                <td th:text="${c.sortOrder}">0</td>
-                                <td>
-                                    <span th:if="${c.isActive}" class="badge bg-success-subtle text-success border border-success-subtle">Hiện</span>
-                                    <span th:unless="${c.isActive}" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Ẩn</span>
-                                </td>
-                                <td class="text-end pe-3">
-                                    <div class="d-inline-flex gap-1">
-                                        <!-- Edit Modal Trigger -->
-                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal" th:data-bs-target="'#editModal-' + ${c.id}" title="Sửa">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <!-- Toggle Status Form -->
-                                        <form th:action="@{/admin/categories/{id}/toggle-status(id=${c.id})}" method="post" class="d-inline">
-                                            <button type="submit" class="btn btn-sm"
-                                                    th:classappend="${c.isActive ? 'btn-outline-danger' : 'btn-outline-success'}"
-                                                    th:title="${c.isActive ? 'Ẩn danh mục' : 'Hiện danh mục'}">
-                                                <i th:class="${c.isActive ? 'bi bi-eye-slash' : 'bi bi-eye'}"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-
-                                    <!-- Edit Category Modal -->
-                                    <div class="modal fade text-start" th:id="'editModal-' + ${c.id}" tabindex="-1" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content rounded-4 border-0">
-                                                <form th:action="@{/admin/categories/{id}/edit(id=${c.id})}" method="post">
-                                                    <div class="modal-header">
-                                                        <h5 class="modal-title fw-bold">Chỉnh Sửa Danh Mục</h5>
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                    </div>
-                                                    <div class="modal-body">
-                                                        <div class="mb-3">
-                                                            <label class="form-label fw-semibold">Mã Danh Mục (Code)</label>
-                                                            <input type="text" name="code" th:value="${c.code}" class="form-control font-monospace" required>
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label fw-semibold">Tên Danh Mục</label>
-                                                            <input type="text" name="name" th:value="${c.name}" class="form-control" required>
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label fw-semibold">Thứ Tự Sắp Xếp</label>
-                                                            <input type="number" name="sortOrder" th:value="${c.sortOrder}" class="form-control">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label fw-semibold">Mô Tả</label>
-                                                            <textarea name="description" th:text="${c.description}" class="form-control" rows="2"></textarea>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Đóng</button>
-                                                        <button type="submit" class="btn btn-primary fw-semibold">Lưu Thay Đổi</button>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+<div layout:fragment="content">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h4 mb-2">Quản lý danh mục</h1>
+            <div class="text-muted small"><span th:text="${#lists.size(categories)}"></span> danh mục cha <span class="mx-2" aria-hidden="true">·</span><span th:text="${childCount}"></span> danh mục con</div>
         </div>
-
-        <!-- Add Category Form (Right Column) -->
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm rounded-4 p-4 sticky-top" style="top: 80px;">
-                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i class="bi bi-plus-circle-fill text-primary"></i>
-                    <span>Thêm Danh Mục Mới</span>
-                </h5>
-                <form th:action="@{/admin/categories/create}" th:object="${categoryForm}" method="post">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Danh Mục Cha (Tùy chọn)</label>
-                        <select name="parentId" class="form-select">
-                            <option value="">-- Là danh mục gốc (Level 1) --</option>
-                            <option th:each="root : ${rootCategories}" th:value="${root.id}" th:text="${root.name}">Chó Cảnh</option>
-                        </select>
-                        <div class="form-text">Để trống nếu muốn tạo danh mục cha cấp 1.</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Mã Code <span class="text-danger">*</span></label>
-                        <input type="text" th:field="*{code}" class="form-control font-monospace" placeholder="VD: CAT_CARE" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Tên Danh Mục <span class="text-danger">*</span></label>
-                        <input type="text" th:field="*{name}" class="form-control" placeholder="VD: Dụng Cụ Vệ Sinh Mèo" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Thứ Tự Sắp Xếp</label>
-                        <input type="number" th:field="*{sortOrder}" class="form-control" value="0">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Mô Tả</label>
-                        <textarea th:field="*{description}" class="form-control" rows="2" placeholder="Ghi chú ngắn..."></textarea>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-                        <i class="bi bi-check-circle me-1"></i> Tạo Danh Mục
+        <a th:href="@{/admin/categories/create}" class="btn btn-success"><i class="bi bi-plus-lg me-2" aria-hidden="true"></i>Thêm danh mục cha</a>
+    </div>
+    <div class="category-management-tree">
+        <section class="card category-group mb-3" th:each="parent : ${categories}"
+                 th:id="${'category-' + parent.id}" th:attr="data-category-id=${parent.id}">
+            <div class="category-group-header">
+                <h2 class="category-parent-heading">
+                    <button type="button" class="category-group-toggle" data-bs-toggle="collapse"
+                            th:attr="data-bs-target=${'#children-' + parent.id},aria-controls=${'children-' + parent.id},aria-expanded=${expandedParentId == parent.id},aria-label=${'Danh mục ' + parent.name}">
+                        <i class="bi bi-chevron-right category-chevron" aria-hidden="true"></i>
+                        <i class="bi bi-folder2 category-folder" aria-hidden="true"></i>
+                        <span class="category-parent-copy">
+                            <span class="category-parent-name" th:text="${parent.name}"></span>
+                            <span class="category-parent-meta"><code th:text="${parent.code}"></code><span th:text="${#lists.size(parent.children) + ' danh mục con'}"></span><span th:text="${'Thứ tự: ' + parent.sortOrder}"></span></span>
+                        </span>
                     </button>
-                </form>
+                </h2>
+                <div class="category-parent-toolbar">
+                    <span th:replace="~{fragments/category-actions :: status(${parent})}"></span>
+                    <div th:replace="~{fragments/category-actions :: actions(${parent})}"></div>
+                </div>
             </div>
-        </div>
+            <div class="collapse" th:id="${'children-' + parent.id}" th:classappend="${expandedParentId == parent.id} ? 'show'">
+                <div class="category-group-body">
+                    <p th:if="${!#strings.isEmpty(parent.description)}" class="text-muted small mb-3" th:text="${parent.description}"></p>
+                    <p th:unless="${parent.isActive}" class="small text-muted mb-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Danh mục cha đang ngừng hoạt động; các danh mục con trong nhánh này không hiển thị ở menu cửa hàng.</p>
+                    <div class="table-responsive" th:unless="${#lists.isEmpty(parent.children)}">
+                        <table class="table align-middle category-children-table mb-0">
+                            <caption class="visually-hidden" th:text="${'Danh mục con của ' + parent.name}"></caption>
+                            <thead><tr><th scope="col">Danh mục con</th><th scope="col">Mã danh mục</th><th scope="col">Thứ tự</th><th scope="col">Trạng thái</th><th scope="col">Thao tác</th></tr></thead>
+                            <tbody><tr th:each="child : ${parent.children}" th:attr="data-category-id=${child.id},data-parent-id=${parent.id}">
+                                <td><div class="fw-semibold" th:text="${child.name}"></div><div th:if="${!#strings.isEmpty(child.description)}" class="small text-muted category-description" th:text="${child.description}"></div></td>
+                                <td><code th:text="${child.code}"></code></td>
+                                <td th:text="${child.sortOrder}"></td>
+                                <td><span th:replace="~{fragments/category-actions :: status(${child})}"></span></td>
+                                <td><div th:replace="~{fragments/category-actions :: actions(${child})}"></div></td>
+                            </tr></tbody>
+                        </table>
+                    </div>
+                    <p th:if="${#lists.isEmpty(parent.children)}" class="text-muted py-2 mb-2">Chưa có danh mục con.</p>
+                    <div class="category-add-child">
+                        <a class="btn btn-outline-success btn-sm" th:href="@{/admin/categories/{id}/children/create(id=${parent.id})}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Thêm danh mục con</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <div th:if="${#lists.isEmpty(categories)}" class="card text-center p-5 text-muted"><i class="bi bi-folder2 fs-2 mb-3" aria-hidden="true"></i>Chưa có danh mục nào.</div>
     </div>
 </div>
-</body>
-</html>
+</body></html>
