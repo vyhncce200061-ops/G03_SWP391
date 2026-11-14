@@ -29,8 +29,11 @@ public class CustomerReviewController {
     public String create(@AuthenticationPrincipal CustomUserDetails user, @RequestParam Long orderItemId,
             @RequestParam(required = false) String redirectUrl,
             @Valid @ModelAttribute("reviewForm") ReviewCreateDto form, BindingResult errors, Model model, RedirectAttributes flash,
-            @RequestHeader(value = "Referer", required = false) String referer) {
-        String target = (redirectUrl != null && !redirectUrl.isBlank()) ? redirectUrl : (referer != null && !referer.isBlank() ? referer : "/customer/reviews");
+            @RequestHeader(value = "Referer", required = false) String referer,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String target = returnTarget(redirectUrl, request);
+        if (target == null) target = returnTarget(referer, request);
+        if (target == null) target = "/customer/reviews";
         try {
             model.addAttribute("item", reviews.eligibleItem(user.getId(), orderItemId));
             if (errors.hasErrors()) {
@@ -44,5 +47,24 @@ public class CustomerReviewController {
             flash.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:" + target;
+    }
+
+    private String returnTarget(String value, jakarta.servlet.http.HttpServletRequest request) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            var uri = java.net.URI.create(value);
+            if (uri.isAbsolute()) {
+                int port = uri.getPort() < 0 ? ("https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80) : uri.getPort();
+                if (!request.getScheme().equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null
+                        || !request.getServerName().equalsIgnoreCase(uri.getHost()) || request.getServerPort() != port
+                        || uri.getRawUserInfo() != null) return null;
+            } else if (uri.getRawAuthority() != null) return null;
+            String path = uri.getPath();
+            if (path == null || !path.matches("/customer/(reviews(?:/create)?|profile|orders/[0-9]+)")) return null;
+            return path + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery())
+                    + (uri.getRawFragment() == null ? "" : "#" + uri.getRawFragment());
+        } catch (IllegalArgumentException invalid) {
+            return null;
+        }
     }
 }

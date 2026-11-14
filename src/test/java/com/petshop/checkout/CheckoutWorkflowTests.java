@@ -47,6 +47,7 @@ class CheckoutWorkflowTests {
     @Autowired VoucherRepository vouchers;
     @Autowired OrderRepository orders;
     @Autowired com.petshop.service.VoucherService voucherService;
+    @Autowired UserAddressRepository addresses;
     private User customer;
     private CustomUserDetails principal;
     private ProductVariant first;
@@ -87,6 +88,55 @@ class CheckoutWorkflowTests {
         assertThat(quote.getTotalAmount()).isEqualByComparingTo("230000");
         assertThat(result.getResponse().getContentAsString()).contains(first.getProduct().getName())
                 .doesNotContain(second.getProduct().getName());
+    }
+
+    @Test
+    void checkoutSelectorsExposeOnlyTheCurrentCustomersWalletAndAddresses() throws Exception {
+        var own = address(customer, "OWN-ADDRESS", true);
+        User other = users.save(User.builder().role(customer.getRole()).fullName("Other buyer")
+                .email(UUID.randomUUID()+"@checkout.test").passwordHash("unused").status("ACTIVE").build());
+        address(other,"OTHER-PRIVATE-ADDRESS",true);
+        var ownVoucher = walletVoucher(customer,"OWN-");
+        var otherVoucher = walletVoucher(other,"PRIVATE-");
+        var result=mvc.perform(get("/checkout").with(user(principal)))
+                .andExpect(status().isOk()).andExpect(model().attributeExists("walletVouchers","addresses"))
+                .andReturn();
+        String html=result.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(html).contains("saved-address","wallet-voucher","OWN-ADDRESS",ownVoucher.getCode())
+                .doesNotContain("OTHER-PRIVATE-ADDRESS",otherVoucher.getCode());
+        assertThat(((com.petshop.dto.order.CheckoutSubmitDto)result.getModelAndView().getModel().get("checkoutForm"))
+                .getShippingAddressLine()).isEqualTo(own.getAddressLine());
+    }
+
+    @Test
+    void invalidPostRetainsCustomAddressAndWalletInsteadOfOverwritingWithDefault() throws Exception {
+        address(customer,"DEFAULT-ADDRESS",true);
+        var saved=walletVoucher(customer,"PRESERVE-");
+        var result=mvc.perform(post("/checkout/place-order").param("recipientName","Người nhận")
+                        .param("recipientPhone","wrong-phone").param("shippingProvince","Cần Thơ")
+                        .param("shippingDistrict","Ninh Kiều").param("shippingWard","Tân An")
+                        .param("paymentMethod","COD").param("shippingAddressLine","CUSTOM-ADDRESS").param("voucherCode",saved.getCode())
+                        .with(user(principal)).with(csrf()))
+                .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("checkoutForm","recipientPhone"))
+                .andExpect(model().attributeExists("walletVouchers","addresses")).andReturn();
+        var form=(com.petshop.dto.order.CheckoutSubmitDto)result.getModelAndView().getModel().get("checkoutForm");
+        assertThat(form.getShippingAddressLine()).isEqualTo("CUSTOM-ADDRESS");
+        assertThat(form.getVoucherCode()).isEqualTo(saved.getCode());
+        assertThat(result.getResponse().getContentAsString()).contains("CUSTOM-ADDRESS",saved.getCode());
+    }
+
+    private UserAddress address(User owner,String line,boolean isDefault) {
+        return addresses.saveAndFlush(UserAddress.builder().customer(owner).recipientName("Người nhận")
+                .recipientPhone("0901234567").province("Cần Thơ").district("Ninh Kiều").ward("Tân An")
+                .addressLine(line).isDefault(isDefault).build());
+    }
+
+    private Voucher walletVoucher(User owner,String prefix) {
+        var saved=vouchers.saveAndFlush(Voucher.builder().code(prefix+UUID.randomUUID().toString().substring(0,8).toUpperCase())
+                .title("Saved voucher").discountType(DiscountType.FIXED).discountValue(new BigDecimal("10000"))
+                .minOrderAmount(BigDecimal.ZERO).startDate(LocalDateTime.now().minusDays(1))
+                .endDate(LocalDateTime.now().plusDays(1)).totalUsageLimit(20).perCustomerLimit(2).status(VoucherStatus.ACTIVE).build());
+        voucherService.saveVoucherToWallet(owner.getId(),saved.getId());return saved;
     }
 
     @Test

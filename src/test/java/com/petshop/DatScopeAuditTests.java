@@ -246,7 +246,8 @@ class DatScopeAuditTests {
         for(int stars:List.of(0,6)) {
             mvc.perform(post("/customer/reviews/create").with(user(new CustomUserDetails(customer))).with(csrf())
                     .param("orderItemId",item.getId().toString()).param("rating",Integer.toString(stars)).param("comment","Valid feedback"))
-                    .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("reviewForm","rating"));
+                    .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/customer/reviews"))
+                    .andExpect(flash().attributeExists("errorMessage"));
         }
         var f=new com.petshop.dto.ReviewCreateDto();f.setRating(5);
         for(String bad:List.of("", "x".repeat(1001), " ".repeat(10))){f.setComment(bad);assertThrows(IllegalArgumentException.class,()->reviews.createReview(customer.getId(),item.getId(),f));}
