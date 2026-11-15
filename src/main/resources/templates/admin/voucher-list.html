@@ -7,19 +7,60 @@
 </head>
 <body>
 <div layout:fragment="admin-header-title">
-    <span>Quản Trị Hệ Thống / Khuyến Mãi & Voucher</span>
+    <span>Quản Trị Hệ Thống / Khuyến Mãi (Voucher)</span>
 </div>
 
 <div layout:fragment="admin-content">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-            <h4 class="fw-bold mb-1">Danh Sách Mã Giảm Giá</h4>
-            <p class="text-muted small mb-0">Quản lý các chương trình ưu đãi, khuyến mãi và voucher giảm giá toàn sàn.</p>
+            <h4 class="fw-bold mb-1" th:text="${deleted ? 'Voucher Đã Xóa' : 'Danh Sách Mã Giảm Giá'}">Danh Sách Mã Giảm Giá</h4>
+            <p class="text-muted small mb-0">Quản lý các chương trình ưu đãi, kiểm soát tỷ lệ chiết khấu và lượt dùng.</p>
         </div>
-        <a th:href="@{/admin/vouchers/create}" class="btn btn-primary d-flex align-items-center gap-2">
+        <div class="d-flex gap-2">
+        <a th:if="${!deleted}" th:href="@{/admin/vouchers(deleted=true)}" class="btn btn-outline-secondary">
+            <i class="bi bi-archive me-1"></i> Voucher đã xóa
+        </a>
+        <a th:if="${deleted}" th:href="@{/admin/vouchers}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Quay lại danh sách
+        </a>
+        <a th:if="${!deleted}" th:href="@{/admin/vouchers/create}" class="btn btn-primary d-flex align-items-center gap-2">
             <i class="bi bi-plus-circle-fill"></i>
             <span>Tạo Voucher Mới</span>
         </a>
+        </div>
+    </div>
+
+    <!-- Filter & Search Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <form th:action="@{/admin/vouchers}" method="get" class="row g-3 align-items-end">
+                <input type="hidden" name="deleted" th:value="${deleted}">
+                <div class="col-md-5">
+                    <label class="form-label small fw-semibold text-secondary">Từ khóa tìm kiếm</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="keyword" th:value="${keyword}" class="form-control bg-light border-start-0"
+                               placeholder="Tìm theo mã voucher hoặc tiêu đề...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-secondary">Trạng thái</label>
+                    <select name="status" class="form-select bg-light">
+                        <option value="">-- Tất cả trạng thái --</option>
+                        <option value="ACTIVE" th:selected="${status != null and status.name() == 'ACTIVE'}">Hoạt động (ACTIVE)</option>
+                        <option value="INACTIVE" th:selected="${status != null and status.name() == 'INACTIVE'}">Tạm khóa (INACTIVE)</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        <i class="bi bi-filter me-1"></i> Lọc Voucher
+                    </button>
+                    <a th:href="@{/admin/vouchers(deleted=${deleted})}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Voucher Table -->
@@ -44,7 +85,7 @@
                     <tr th:if="${vouchers.empty}">
                         <td colspan="10" class="text-center py-5 text-muted">
                             <i class="bi bi-ticket-perforated display-6 d-block mb-2 text-secondary"></i>
-                            Chưa có mã khuyến mãi nào trong hệ thống.
+                            Chưa có mã khuyến mãi nào phù hợp trong hệ thống.
                         </td>
                     </tr>
                     <tr th:each="v : ${vouchers.content}">
@@ -82,23 +123,38 @@
                             </div>
                         </td>
                         <td>
-                            <span th:if="${v.status.name() == 'ACTIVE'}" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                            <span th:if="${v.isDeleted}" class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">Đã xóa</span>
+                            <small th:if="${v.isDeleted}" class="d-block text-muted mt-1" th:text="${#temporals.format(v.deletedAt, 'dd/MM/yyyy HH:mm')}"></small>
+                            <span th:if="${!v.isDeleted and v.status.name() == 'ACTIVE'}" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                                 Hoạt động
                             </span>
-                            <span th:if="${v.status.name() == 'INACTIVE'}" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                            <span th:if="${!v.isDeleted and v.status.name() == 'INACTIVE'}" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
                                 Tạm khóa
                             </span>
                         </td>
                         <td class="text-end pe-4">
-                            <div class="d-inline-flex gap-1">
+                            <form th:if="${v.isDeleted}" th:action="@{/admin/vouchers/{id}/restore(id=${v.id})}" method="post" class="d-inline"
+                                  onsubmit="return confirm('Phục hồi voucher này về trạng thái Tạm dừng? Mã, hạn dùng và số lượt đã dùng được giữ nguyên.');">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Phục hồi voucher">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Phục hồi
+                                </button>
+                            </form>
+                            <div th:if="${!v.isDeleted}" class="d-inline-flex gap-1">
                                 <a th:href="@{/admin/vouchers/{id}/edit(id=${v.id})}" class="btn btn-sm btn-outline-secondary" title="Chỉnh sửa">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form th:action="@{/admin/vouchers/{id}/toggle-status(id=${v.id})}" method="post" class="d-inline">
+                                <form th:action="@{/admin/vouchers/{id}/toggle-status(id=${v.id})}" method="post" class="d-inline"
+                                      onsubmit="return confirm('Bạn có chắc muốn đổi trạng thái voucher này?');">
                                     <button type="submit" class="btn btn-sm"
                                             th:classappend="${v.status.name() == 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}"
                                             th:title="${v.status.name() == 'ACTIVE' ? 'Tạm dừng voucher' : 'Kích hoạt voucher'}">
                                         <i th:class="${v.status.name() == 'ACTIVE' ? 'bi bi-pause-fill' : 'bi bi-play-fill'}"></i>
+                                    </button>
+                                </form>
+                                <form th:action="@{/admin/vouchers/{id}/delete(id=${v.id})}" method="post" class="d-inline"
+                                      onsubmit="return confirm('Xóa voucher này? Khách hàng sẽ không thể sử dụng mã nữa. Lịch sử đơn hàng vẫn được giữ lại.');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa voucher">
+                                        <i class="bi bi-trash"></i> Xóa
                                     </button>
                                 </form>
                             </div>
@@ -111,20 +167,20 @@
         <!-- Pagination -->
         <div th:if="${vouchers.totalPages > 1}" class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center">
             <span class="small text-muted">
-                Hiển thị trang <b th:text="${vouchers.number + 1}">1</b> / <span th:text="${vouchers.totalPages}">1</span>
+                Hiển thị trang <b th:text="${vouchers.number + 1}">1</b> / <span th:text="${vouchers.totalPages}">1</span> (Tổng <span th:text="${vouchers.totalElements}">0</span> mã)
             </span>
             <nav aria-label="Pagination">
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item" th:classappend="${vouchers.first} ? 'disabled'">
-                        <a class="page-link" th:href="@{/admin/vouchers(page=${vouchers.number - 1})}">
+                        <a class="page-link" th:href="@{/admin/vouchers(page=${vouchers.number - 1}, keyword=${keyword}, status=${status}, deleted=${deleted}, size=${vouchers.size})}">
                             <i class="bi bi-chevron-left"></i>
                         </a>
                     </li>
                     <li th:each="i : ${#numbers.sequence(0, vouchers.totalPages - 1)}" class="page-item" th:classappend="${i == vouchers.number} ? 'active'">
-                        <a class="page-link" th:href="@{/admin/vouchers(page=${i})}" th:text="${i + 1}">1</a>
+                        <a class="page-link" th:href="@{/admin/vouchers(page=${i}, keyword=${keyword}, status=${status}, deleted=${deleted}, size=${vouchers.size})}" th:text="${i + 1}">1</a>
                     </li>
                     <li class="page-item" th:classappend="${vouchers.last} ? 'disabled'">
-                        <a class="page-link" th:href="@{/admin/vouchers(page=${vouchers.number + 1})}">
+                        <a class="page-link" th:href="@{/admin/vouchers(page=${vouchers.number + 1}, keyword=${keyword}, status=${status}, deleted=${deleted}, size=${vouchers.size})}">
                             <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/main-layout}">
+<head><title>Đánh giá sản phẩm</title></head><body>
+<div layout:fragment="content" class="container py-4 py-lg-5">
+    <div class="feedback-compose mx-auto">
+        <a th:href="@{/customer/reviews}" class="feedback-back"><i class="bi bi-arrow-left me-2" aria-hidden="true"></i>Đánh giá của tôi</a>
+        <header class="mb-4"><h1 class="h3 mb-2">Chia sẻ trải nghiệm của bạn</h1><p class="text-muted mb-0">Đánh giá sản phẩm bạn đã nhận để những người nuôi thú cưng khác dễ lựa chọn hơn.</p></header>
+        <div class="card feedback-card">
+            <div th:replace="~{fragments/feedback :: purchase(${item},${reviewImages[item.id]})}"></div>
+            <div class="feedback-purchase-badge"><i class="bi bi-patch-check-fill me-1" aria-hidden="true"></i>Đơn hàng đã hoàn tất và thanh toán</div>
+            <form th:action="@{/customer/reviews/create}" th:object="${reviewForm}" method="post" class="feedback-compose-form">
+                <input type="hidden" name="orderItemId" th:value="${item.id}">
+                <fieldset class="mb-4">
+                    <legend class="form-label mb-2">Bạn đánh giá sản phẩm này thế nào?</legend>
+                    <div class="feedback-rating-input">
+                        <label th:each="n : ${#numbers.sequence(1,5)}" class="feedback-rating-choice" th:title="${n + ' sao'}">
+                            <input class="visually-hidden" type="radio" th:field="*{rating}" th:value="${n}" required>
+                            <i class="bi bi-star-fill" aria-hidden="true"></i><span class="visually-hidden" th:text="${n + ' sao'}"></span>
+                        </label>
+                    </div>
+                    <p class="form-text mb-0">1 sao: Rất tệ · 3 sao: Bình thường · 5 sao: Rất hài lòng</p>
+                    <p class="text-danger small" th:errors="*{rating}"></p>
+                </fieldset>
+                <label for="comment" class="form-label">Trải nghiệm của bạn về sản phẩm <span class="text-danger">*</span></label>
+                <textarea id="comment" th:field="*{comment}" maxlength="1000" required rows="5" class="form-control" data-feedback-counter="reviewCommentCount" aria-describedby="reviewCommentHint reviewCommentCount" placeholder="Bạn thấy chất lượng sản phẩm thế nào? Thú cưng của bạn sử dụng có phù hợp không?"></textarea>
+                <div class="feedback-field-help"><span id="reviewCommentHint">Nhận xét từ 1 đến 1000 ký tự.</span><span id="reviewCommentCount">0 / 1000</span></div>
+                <p class="text-danger small" th:errors="*{comment}"></p>
+                <p class="feedback-policy"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Mỗi dòng sản phẩm trong đơn được đánh giá một lần. Vui lòng chia sẻ trải nghiệm thực tế và không đưa thông tin cá nhân vào nhận xét.</p>
+                <div class="feedback-form-actions"><a th:href="@{/customer/reviews}" class="btn btn-outline-secondary">Quay lại</a><button type="submit" class="btn btn-primary"><i class="bi bi-send me-2" aria-hidden="true"></i>Gửi đánh giá</button></div>
+            </form>
+        </div>
+    </div>
+</div></body></html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/admin-layout}">
+<head><title>Báo cáo đánh giá</title></head><body>
+<div layout:fragment="admin-header-title">Báo cáo đánh giá</div>
+<div layout:fragment="admin-content" class="report-page">
+    <header class="feedback-page-heading"><div><h1 class="h4 mb-2">Thống kê đánh giá sản phẩm</h1><p class="text-muted small mb-0">Mỗi dòng tổng hợp các lượt đánh giá của một sản phẩm trong kỳ bạn chọn.</p></div><a th:href="@{/admin/reviews}" class="btn btn-outline-primary"><i class="bi bi-chat-square-text me-2" aria-hidden="true"></i>Quản lý đánh giá</a></header>
+    <div class="card p-4 mb-4">
+        <div class="d-flex flex-wrap gap-2 mb-3"><a th:href="@{/admin/reports/reviews}" class="btn btn-sm btn-outline-secondary">30 ngày gần nhất</a><a th:href="@{/admin/reports/reviews(preset='all')}" class="btn btn-sm btn-outline-primary">Toàn thời gian</a></div>
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4"><label for="reviewStart" class="form-label">Từ ngày</label><input id="reviewStart" class="form-control" type="date" name="startDate" th:value="${startDate}" required></div>
+            <div class="col-md-4"><label for="reviewEnd" class="form-label">Đến ngày</label><input id="reviewEnd" class="form-control" type="date" name="endDate" th:value="${endDate}" required></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel me-2" aria-hidden="true"></i>Xem báo cáo</button></div>
+        </form>
+        <p class="feedback-meta mt-3 mb-0" th:text="${'Theo ngày gửi đánh giá · ' + #temporals.format(startDate,'dd/MM/yyyy') + ' – ' + #temporals.format(endDate,'dd/MM/yyyy')}"></p>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3"><div class="card p-4 h-100"><span class="stat-label">Sản phẩm có đánh giá</span><strong class="stat-value" th:text="${#lists.size(reviewStats)}"></strong><span class="feedback-meta">Trong kỳ đang xem</span></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="card p-4 h-100"><span class="stat-label">Tổng lượt đánh giá</span><strong class="stat-value" th:text="${reviewCount}"></strong><span class="feedback-meta">Mỗi lượt gắn với một sản phẩm đã mua</span></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="card p-4 h-100"><span class="stat-label">Điểm trung bình</span><strong class="stat-value"><span th:text="${#numbers.formatDecimal(averageReviewRating,1,'POINT',1,'COMMA')}"></span><small class="fs-6 text-muted"> / 5</small></strong><span class="feedback-meta">Tính trên tất cả lượt đánh giá trong kỳ</span></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="card p-4 h-100"><span class="stat-label">Trạng thái hiển thị</span><strong class="stat-value" th:text="${visibleReviewCount + ' / ' + hiddenReviewCount}"></strong><span class="feedback-meta">Công khai / Đang ẩn</span></div></div>
+    </div>
+    <div class="card overflow-hidden">
+        <div class="card-header p-4"><h2 class="h6 mb-1">Tổng hợp theo sản phẩm</h2><p class="feedback-meta mb-0">“Lượt đánh giá” là số feedback, không phải số sản phẩm đã bán. Báo cáo nội bộ tính cả đánh giá đang ẩn; trang sản phẩm chỉ hiển thị đánh giá công khai.</p></div>
+        <div class="table-responsive"><table class="table feedback-report-table">
+            <thead><tr><th scope="col">Sản phẩm</th><th scope="col">Lượt đánh giá</th><th scope="col">Điểm trung bình</th><th scope="col">Công khai</th><th scope="col">Đang ẩn</th></tr></thead>
+            <tbody>
+                <tr th:each="row : ${reviewStats}">
+                    <td><div class="feedback-product feedback-product-compact"><img class="feedback-product-image" th:src="${reviewImages[row.productId]}" th:alt="${row.productName}" width="64" height="64" loading="lazy" data-review-image th:data-fallback-src="@{/images/product-placeholder.svg}"><div class="feedback-product-copy"><a class="feedback-product-name" th:href="@{/products/{slug}(slug=${row.productSlug})}" th:text="${row.productName}"></a><span class="feedback-meta" th:text="${'Mã sản phẩm #' + row.productId}"></span></div></div></td>
+                    <td><span class="feedback-count" th:text="${row.reviewCount}"></span><span class="feedback-meta ms-1">lượt</span></td>
+                    <td><i class="bi bi-star-fill text-warning me-1" aria-hidden="true"></i><strong th:text="${#numbers.formatDecimal(row.averageRating,1,'POINT',1,'COMMA')}"></strong><span class="feedback-meta"> / 5</span></td>
+                    <td><span class="badge bg-success-subtle text-success" th:text="${row.visibleCount + ' lượt'}"></span></td>
+                    <td><span class="badge bg-secondary-subtle text-secondary" th:text="${row.hiddenCount + ' lượt'}"></span></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(reviewStats)}"><td colspan="5" class="feedback-empty"><i class="bi bi-chat-square-heart" aria-hidden="true"></i><p class="mt-3 mb-0">Chưa có đánh giá trong kỳ này. Bạn có thể đổi khoảng ngày hoặc chọn Toàn thời gian.</p></td></tr>
+            </tbody>
+        </table></div>
+    </div>
+</div></body></html>

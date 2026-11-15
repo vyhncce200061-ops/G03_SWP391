@@ -15,15 +15,27 @@ import java.util.Optional;
 @Repository
 public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     Optional<Voucher> findByCode(String code);
+    @Query("SELECT v.id FROM Voucher v WHERE v.code = :code")
+    Optional<Long> findIdByCode(@Param("code") String code);
+
+    org.springframework.data.domain.Page<Voucher> findByIsDeletedFalse(org.springframework.data.domain.Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM Voucher v WHERE v.code = :code")
+    Optional<Voucher> findByCodeForUpdate(@Param("code") String code);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM Voucher v WHERE v.id = :id")
+    Optional<Voucher> findByIdForUpdate(@Param("id") Long id);
     Optional<Voucher> findByCodeAndStatus(String code, VoucherStatus status);
 
-    @Query("SELECT v FROM Voucher v WHERE v.status = com.petshop.entity.enums.VoucherStatus.ACTIVE " +
+    @Query("SELECT v FROM Voucher v WHERE v.isDeleted = false AND v.status = com.petshop.entity.enums.VoucherStatus.ACTIVE " +
            "AND :now BETWEEN v.startDate AND v.endDate AND v.usedCount < v.totalUsageLimit")
     List<Voucher> findAvailablePublicVouchers(@Param("now") LocalDateTime now);
 
     @Modifying
     @Query("UPDATE Voucher v SET v.usedCount = v.usedCount + 1, v.updatedAt = CURRENT_TIMESTAMP " +
-           "WHERE v.id = :id AND v.status = com.petshop.entity.enums.VoucherStatus.ACTIVE AND v.usedCount < v.totalUsageLimit " +
+           "WHERE v.id = :id AND v.isDeleted = false AND v.status = com.petshop.entity.enums.VoucherStatus.ACTIVE AND v.usedCount < v.totalUsageLimit " +
            "AND :now BETWEEN v.startDate AND v.endDate")
     int reserveVoucherAtomic(@Param("id") Long id, @Param("now") LocalDateTime now);
 
@@ -31,4 +43,15 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     @Query("UPDATE Voucher v SET v.usedCount = v.usedCount - 1, v.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE v.id = :id AND v.usedCount > 0")
     int restoreVoucherQuota(@Param("id") Long id);
+
+    @Query("SELECT v FROM Voucher v WHERE v.isDeleted = :deleted AND " +
+           "(:status IS NULL OR v.status = :status) AND " +
+           "(:keyword IS NULL OR :keyword = '' OR " +
+           "LOWER(v.code) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    org.springframework.data.domain.Page<Voucher> searchVouchers(
+            @Param("keyword") String keyword,
+            @Param("status") VoucherStatus status,
+            @Param("deleted") boolean deleted,
+            org.springframework.data.domain.Pageable pageable);
 }

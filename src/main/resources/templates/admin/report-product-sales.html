@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/admin-layout}">
+<head><title>Báo cáo bán sản phẩm</title></head>
+<body>
+<div layout:fragment="admin-content" class="container-fluid p-4">
+    <div class="page-heading mb-4"><div><h1 class="h4 fw-bold mb-1">Báo cáo bán sản phẩm</h1><p class="text-muted mb-0">Sản phẩm bán trong các đơn đã hoàn tất và thanh toán.</p></div></div>
+    <div class="card mb-4"><div class="card-body p-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-sm-6 col-lg-4"><label for="from" class="form-label">Từ ngày</label><input id="from" name="startDate" type="date" th:value="${startDate}" class="form-control" required></div>
+            <div class="col-sm-6 col-lg-4"><label for="to" class="form-label">Đến ngày</label><input id="to" name="endDate" type="date" th:value="${endDate}" class="form-control" required></div>
+            <div class="col-lg-4"><button class="btn btn-primary"><i class="bi bi-funnel me-2" aria-hidden="true"></i>Xem báo cáo</button></div>
+        </form>
+    </div></div>
+    <div class="card overflow-hidden">
+        <div class="card-header p-4"><h2 class="h6 mb-1">Chi tiết sản phẩm bán</h2><p class="text-muted small mb-0">Theo ngày hoàn tất. Tiền hàng tính theo giá lúc đặt, trước giảm giá và không gồm phí vận chuyển.</p></div>
+        <div class="table-responsive"><table class="table table-hover align-middle">
+            <thead><tr><th scope="col">Sản phẩm</th><th scope="col" class="text-end">Số lượng bán</th><th scope="col" class="text-end">Số đơn</th><th scope="col" class="text-end">Tiền hàng trước giảm</th></tr></thead>
+            <tbody><tr th:each="r : ${sales.content}"><td th:text="${r[0]}"></td><td class="text-end" th:text="${r[2]}"></td><td class="text-end" th:text="${r[4]}"></td><td class="text-end text-nowrap fw-semibold" th:text="${#numbers.formatDecimal(r[3],1,'POINT',2,'COMMA') + ' đ'}"></td></tr>
+                <tr th:if="${sales.empty}"><td colspan="4" class="empty-state">Chưa có sản phẩm bán trong kỳ này.</td></tr>
+            </tbody>
+        </table></div>
+        <div class="card-footer p-3 d-flex justify-content-between align-items-center flex-wrap gap-2" th:if="${sales.totalPages > 1}">
+            <span class="text-muted small" th:text="'Trang ' + ${sales.number + 1} + ' / ' + ${sales.totalPages}"></span>
+            <nav aria-label="Phân trang báo cáo" class="d-flex gap-2"><a class="btn btn-outline-secondary btn-sm" th:if="${sales.hasPrevious()}" th:href="@{/admin/reports/product-sales(startDate=${startDate},endDate=${endDate},page=${sales.number-1})}"><i class="bi bi-chevron-left me-1" aria-hidden="true"></i>Trước</a><a class="btn btn-outline-secondary btn-sm" th:if="${sales.hasNext()}" th:href="@{/admin/reports/product-sales(startDate=${startDate},endDate=${endDate},page=${sales.number+1})}">Sau<i class="bi bi-chevron-right ms-1" aria-hidden="true"></i></a></nav>
+        </div>
+    </div>
+</div>
+</body></html>

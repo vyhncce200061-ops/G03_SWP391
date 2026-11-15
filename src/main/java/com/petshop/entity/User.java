@@ -36,6 +36,10 @@ public class User {
     @Column(name = "PasswordHash", nullable = false, length = 500)
     private String passwordHash;
 
+    @Column(name = "MustChangePassword", nullable = false)
+    @Builder.Default
+    private Boolean mustChangePassword = false;
+
     @Column(name = "FullName", nullable = false, length = 150)
     private String fullName;
 

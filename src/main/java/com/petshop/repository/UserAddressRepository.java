@@ -16,7 +16,7 @@ public interface UserAddressRepository extends JpaRepository<UserAddress, Long> 
     Optional<UserAddress> findByCustomerIdAndIsDefaultTrueAndIsDeletedFalse(Long customerId);
     Optional<UserAddress> findByIdAndCustomerIdAndIsDeletedFalse(Long id, Long customerId);
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE UserAddress ua SET ua.isDefault = false WHERE ua.customer.id = :customerId")
     void resetDefaultAddresses(@Param("customerId") Long customerId);
 

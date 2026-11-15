@@ -7,7 +7,7 @@
 </head>
 <body>
 <div layout:fragment="admin-header-title">
-    <span>Quản Lý Người Dùng & Phân Quyền</span>
+    <span>Quản Lý Tài Khoản</span>
 </div>
 
 <div layout:fragment="admin-content">
@@ -16,17 +16,29 @@
             <h4 class="fw-bold mb-1">Danh Sách Người Dùng</h4>
             <p class="text-muted small mb-0">Quản lý tài khoản khách hàng, nhân viên và quản trị viên hệ thống.</p>
         </div>
-        <a th:href="@{/admin/users/create}" class="btn btn-primary d-flex align-items-center gap-2">
+        <a th:if="${#strings.isEmpty(role) or role == 'STAFF'}" th:href="@{/admin/users/create}" class="btn btn-primary d-flex align-items-center gap-2">
             <i class="bi bi-person-plus-fill"></i>
             <span>Cấp Tài Khoản Nhân Viên</span>
         </a>
     </div>
 
+    <nav class="nav nav-tabs mb-3" aria-label="Nhóm tài khoản">
+        <a class="nav-link" th:classappend="${#strings.isEmpty(role)} ? 'active'"
+           th:href="@{/admin/users(keyword=${keyword},status=${status},size=${users.size})}">Tất cả</a>
+        <a class="nav-link" th:classappend="${role == 'CUSTOMER'} ? 'active'"
+           th:href="@{/admin/users(role='CUSTOMER',keyword=${keyword},status=${status},size=${users.size})}">Khách hàng</a>
+        <a class="nav-link" th:classappend="${role == 'STAFF'} ? 'active'"
+           th:href="@{/admin/users(role='STAFF',keyword=${keyword},status=${status},size=${users.size})}">Nhân viên</a>
+        <a class="nav-link" th:classappend="${role == 'ADMIN'} ? 'active'"
+           th:href="@{/admin/users(role='ADMIN',keyword=${keyword},status=${status},size=${users.size})}">Quản trị viên</a>
+    </nav>
+
     <!-- Search & Filter Card -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
             <form th:action="@{/admin/users}" method="get" class="row g-3 align-items-end">
-                <div class="col-md-5">
+                <input type="hidden" name="role" th:value="${role}">
+                <div class="col-md-7">
                     <label class="form-label small fw-semibold text-secondary">Từ khóa tìm kiếm</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -35,19 +47,16 @@
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label small fw-semibold text-secondary">Vai trò</label>
-                    <select name="role" class="form-select bg-light">
-                        <option value="">-- Tất cả vai trò --</option>
-                        <option value="CUSTOMER" th:selected="${role == 'CUSTOMER'}">Khách Hàng (CUSTOMER)</option>
-                        <option value="STAFF" th:selected="${role == 'STAFF'}">Nhân Viên (STAFF)</option>
-                        <option value="ADMIN" th:selected="${role == 'ADMIN'}">Quản Trị Viên (ADMIN)</option>
-                    </select>
+                    <label class="form-label">Trạng thái</label>
+                    <select name="status" class="form-select"><option value="">Tất cả</option>
+                    <option value="ACTIVE" th:selected="${status == 'ACTIVE'}">Hoạt động</option>
+                    <option value="LOCKED" th:selected="${status == 'LOCKED'}">Đã khóa</option></select>
                 </div>
-                <div class="col-md-4 d-flex gap-2">
+                <div class="col-md-2 d-flex gap-2">
                     <button type="submit" class="btn btn-primary flex-grow-1">
                         <i class="bi bi-filter me-1"></i> Lọc
                     </button>
-                    <a th:href="@{/admin/users}" class="btn btn-outline-secondary">
+                    <a th:href="@{/admin/users(role=${role})}" class="btn btn-outline-secondary" title="Xóa bộ lọc trong nhóm hiện tại">
                         <i class="bi bi-arrow-counterclockwise"></i>
                     </a>
                 </div>
@@ -91,32 +100,39 @@
                         <td th:text="${u.email}">user@example.com</td>
                         <td th:text="${u.phone != null ? u.phone : 'Chưa cập nhật'}">0901234567</td>
                         <td>
-                            <span th:if="${u.role.code.name() == 'ADMIN'}" class="badge bg-danger">ADMIN</span>
-                            <span th:if="${u.role.code.name() == 'STAFF'}" class="badge bg-info text-dark">STAFF</span>
-                            <span th:if="${u.role.code.name() == 'CUSTOMER'}" class="badge bg-secondary">CUSTOMER</span>
+                            <span th:if="${u.role.code == 'ADMIN'}" class="badge bg-danger">ADMIN</span>
+                            <span th:if="${u.role.code == 'STAFF'}" class="badge bg-info text-dark">STAFF</span>
+                            <span th:if="${u.role.code == 'CUSTOMER'}" class="badge bg-secondary">CUSTOMER</span>
                         </td>
                         <td>
-                            <span th:if="${u.status.name() == 'ACTIVE'}" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                            <span th:if="${u.status == 'ACTIVE'}" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                                 <i class="bi bi-check-circle me-1"></i>Hoạt động
                             </span>
-                            <span th:if="${u.status.name() == 'INACTIVE'}" class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1">
+                            <span th:if="${u.role.code == 'STAFF' and u.mustChangePassword}" class="badge bg-warning-subtle text-warning-emphasis d-block mt-1">Chờ đặt mật khẩu</span>
+                            <span th:if="${u.status == 'LOCKED' || u.status == 'INACTIVE'}" class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
                                 <i class="bi bi-lock me-1"></i>Bị khóa
-                            </span>
-                            <span th:if="${u.status.name() == 'PENDING'}" class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1">
-                                <i class="bi bi-clock me-1"></i>Chờ kích hoạt
                             </span>
                         </td>
                         <td class="text-muted small" th:text="${#temporals.format(u.createdAt, 'dd/MM/yyyy HH:mm')}">01/01/2026 12:00</td>
                         <td class="text-end pe-4">
-                            <form th:action="@{/admin/users/{id}/toggle-status(id=${u.id})}" method="post" class="d-inline"
-                                  onsubmit="return confirm('Bạn có chắc chắn muốn thay đổi trạng thái hoạt động của tài khoản này?');">
-                                <button type="submit" class="btn btn-sm"
-                                        th:classappend="${u.status.name() == 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}"
-                                        title="Khóa / Mở khóa">
-                                    <i th:class="${u.status.name() == 'ACTIVE' ? 'bi bi-lock' : 'bi bi-unlock'}"></i>
-                                    <span th:text="${u.status.name() == 'ACTIVE' ? 'Khóa' : 'Kích hoạt'}"></span>
-                                </button>
-                            </form>
+                            <div class="d-inline-flex gap-1">
+                                <a th:href="@{/admin/users/{id}/edit(id=${u.id})}" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa thông tin">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
+                                <form th:if="${u.role.code == 'STAFF' and u.mustChangePassword and u.status == 'ACTIVE'}"
+                                      th:action="@{/admin/users/{id}/resend-invitation(id=${u.id})}" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-info" title="Gửi lại lời mời nhận tài khoản"><i class="bi bi-envelope-arrow-up"></i> Gửi lại</button>
+                                </form>
+                                <form th:action="@{/admin/users/{id}/toggle-status(id=${u.id})}" method="post" class="d-inline"
+                                      onsubmit="return confirm('Bạn có chắc chắn muốn thay đổi trạng thái hoạt động của tài khoản này?');">
+                                    <button type="submit" class="btn btn-sm"
+                                            th:classappend="${u.status == 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}"
+                                            th:title="${u.status == 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}">
+                                        <i th:class="${u.status == 'ACTIVE' ? 'bi bi-lock' : 'bi bi-unlock'}"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 </tbody>
@@ -131,15 +147,15 @@
             <nav aria-label="Pagination">
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item" th:classappend="${users.first} ? 'disabled'">
-                        <a class="page-link" th:href="@{/admin/users(page=${users.number - 1}, keyword=${keyword}, role=${role})}">
+                        <a class="page-link" th:href="@{/admin/users(page=${users.number - 1}, keyword=${keyword}, role=${role}, status=${status}, size=${users.size})}">
                             <i class="bi bi-chevron-left"></i>
                         </a>
                     </li>
                     <li th:each="i : ${#numbers.sequence(0, users.totalPages - 1)}" class="page-item" th:classappend="${i == users.number} ? 'active'">
-                        <a class="page-link" th:href="@{/admin/users(page=${i}, keyword=${keyword}, role=${role})}" th:text="${i + 1}">1</a>
+                        <a class="page-link" th:href="@{/admin/users(page=${i}, keyword=${keyword}, role=${role}, status=${status}, size=${users.size})}" th:text="${i + 1}">1</a>
                     </li>
                     <li class="page-item" th:classappend="${users.last} ? 'disabled'">
-                        <a class="page-link" th:href="@{/admin/users(page=${users.number + 1}, keyword=${keyword}, role=${role})}">
+                        <a class="page-link" th:href="@{/admin/users(page=${users.number + 1}, keyword=${keyword}, role=${role}, status=${status}, size=${users.size})}">
                             <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>

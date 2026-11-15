@@ -11,6 +11,10 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: create-drop
+    properties:
+      hibernate:
+        hbm2ddl:
+          create_namespaces: true
     show-sql: false
   thymeleaf:
     cache: false

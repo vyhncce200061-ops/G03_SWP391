@@ -87,6 +87,11 @@ public class Order {
     @Column(name = "PaymentMethod", nullable = false, length = 30)
     private PaymentMethod paymentMethod;
 
+    /** True while this order's quantities have been deducted and not restored. */
+    @Column(name = "StockDeducted", nullable = false)
+    @Builder.Default
+    private Boolean stockDeducted = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "PaymentStatus", nullable = false, length = 30)
     @Builder.Default

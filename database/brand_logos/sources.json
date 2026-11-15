@@ -1,0 +1,102 @@
+[
+  {
+    "brand": "Royal Canin",
+    "file": "royal-canin.png",
+    "source_page": "https://www.petmart.vn/thuong-hieu/royal-canin",
+    "image_url": "https://www.petmart.vn/wp-content/uploads/2020/11/royal-canin.png",
+    "sha256": "e25cfda213baee72473cf59aa096405a75aca7c7892ea3c364055287d8336550",
+    "width": 800,
+    "height": 800,
+    "bytes": 67711
+  },
+  {
+    "brand": "Whiskas",
+    "file": "whiskas.png",
+    "source_page": "https://www.petmart.vn/thuong-hieu/whiskas",
+    "image_url": "https://www.petmart.vn/wp-content/uploads/2020/12/Whiskas-3.png",
+    "sha256": "39ebb220ab4267ed7ee12c173f0cd52a8437e132c5d1c5266d429ba07e0d97be",
+    "width": 800,
+    "height": 800,
+    "bytes": 97556
+  },
+  {
+    "brand": "Me-O",
+    "file": "me-o.png",
+    "source_page": "https://www.perfectcompanion.com.tw/tw/brand/6",
+    "image_url": "https://www.perfectcompanion.com.tw/upload/2024_10_1414/20241014093851abma7x4ZI8.png",
+    "sha256": "4e2794d8980a5ca2362035ab66f1d65b2ecae9b34706fa1363776dc3656c6b4d",
+    "width": 2000,
+    "height": 2000,
+    "bytes": 75961
+  },
+  {
+    "brand": "Pedigree",
+    "file": "pedigree.jpg",
+    "source_page": "https://www.petmart.vn/thuong-hieu/pedigree",
+    "image_url": "https://www.petmart.vn/wp-content/uploads/2021/08/logopedigree.jpg",
+    "sha256": "c361a735d7bd24301b8fe320d93e3c824bc483a3f5e6336f6478fc08f0041d5c",
+    "width": 800,
+    "height": 800,
+    "bytes": 198250
+  },
+  {
+    "brand": "SmartHeart",
+    "file": "smartheart.png",
+    "source_page": "https://smartheart.my/",
+    "image_url": "https://smartheart.my/media/logo/websites/1/cropped-logo.png",
+    "sha256": "aa4401c31e7ba6b9a53f210ef9266afd89e27cbd1f27edccdcfb5faa8e63efa6",
+    "width": 839,
+    "height": 1200,
+    "bytes": 457749
+  },
+  {
+    "brand": "INABA",
+    "file": "inaba.jpg",
+    "source_page": "https://www.petmart.vn/thuong-hieu/inaba",
+    "image_url": "https://www.petmart.vn/wp-content/uploads/2021/06/inaba.jpg",
+    "sha256": "82eda5d59c656fe8de557089749e931a093129e2bca5618199ec8c52ce2da148",
+    "width": 733,
+    "height": 733,
+    "bytes": 90744
+  },
+  {
+    "brand": "CIAO",
+    "file": "ciao.jpg",
+    "source_page": "https://www.petmart.vn/thuong-hieu/ciao",
+    "image_url": "https://www.petmart.vn/wp-content/uploads/2020/12/ciao.jpg",
+    "sha256": "b04eac4a7a37b1013a0a433e64ee5960ecaf808d83952dde20f732355360f354",
+    "width": 600,
+    "height": 600,
+    "bytes": 69317
+  },
+  {
+    "brand": "MEOWOW",
+    "file": "meowow.jpg",
+    "source_page": "https://www.petmart.vn/thuong-hieu/meowow",
+    "image_url": "https://www.petmart.vn/wp-content/uploads/2023/09/meowow-logo.jpg",
+    "sha256": "4b8d38c88801772ac0b119f221d7df11be6c3b43ae4c8b95d077a77cf47e4102",
+    "width": 800,
+    "height": 801,
+    "bytes": 159309
+  },
+  {
+    "brand": "BOBO",
+    "file": "bobo.png",
+    "source_page": "https://www.petmart.vn/wp-json/wp/v2/media/92202",
+    "image_url": "https://www.petmart.vn/wp-content/uploads/2020/12/bobo-3.png",
+    "sha256": "a9fcb7f2f780d4c8fe7ff062f69ca8f76260ee927059742332a046c749681465",
+    "width": 800,
+    "height": 800,
+    "bytes": 106502
+  },
+  {
+    "brand": "DELE",
+    "file": "dele.jpg",
+    "source_page": "https://www.petmart.vn/thuong-hieu/dele",
+    "image_url": "https://www.petmart.vn/wp-content/uploads/2020/12/dele.jpg",
+    "sha256": "74aceb51c6bcd6ba4e0516ab2d7a42ac0ca451b3c65763c3b1fe41df9381f2d2",
+    "width": 600,
+    "height": 600,
+    "bytes": 58817
+  }
+]

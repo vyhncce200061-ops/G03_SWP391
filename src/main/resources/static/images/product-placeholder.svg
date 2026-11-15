@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360" fill="none">
+<rect width="480" height="360" rx="20" fill="#F1F6F2"/>
+<circle cx="240" cy="151" r="79" fill="#E2EEE4"/>
+<path d="M211 174C207 154 225 145 240 145C255 145 273 154 269 174C267 187 252 182 240 182C228 182 213 187 211 174Z" fill="#9ABBAB"/>
+<ellipse cx="211" cy="135" rx="10" ry="14" transform="rotate(-25 211 135)" fill="#9ABBAB"/><ellipse cx="231" cy="120" rx="10" ry="14" transform="rotate(-9 231 120)" fill="#9ABBAB"/><ellipse cx="252" cy="120" rx="10" ry="14" transform="rotate(9 252 120)" fill="#9ABBAB"/><ellipse cx="272" cy="135" rx="10" ry="14" transform="rotate(25 272 135)" fill="#9ABBAB"/>
+<text x="240" y="267" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="17" fill="#6C8777">PetShop</text>
+</svg>

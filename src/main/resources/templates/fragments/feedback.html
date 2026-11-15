@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"><body>
+<div th:fragment="purchase(item,imageUrl)" class="feedback-product">
+    <img class="feedback-product-image" th:src="${imageUrl ?: '/images/product-placeholder.svg'}" th:alt="${item.productNameSnapshot}" width="88" height="88" loading="lazy" data-review-image th:data-fallback-src="@{/images/product-placeholder.svg}">
+    <div class="feedback-product-copy">
+        <span class="feedback-eyebrow">Sản phẩm đã mua</span>
+        <a class="feedback-product-name" th:href="@{/products/{slug}(slug=${item.variant.product.slug})}" th:text="${item.productNameSnapshot}"></a>
+        <span class="feedback-variant" th:text="${item.variantNameSnapshot}"></span>
+        <span class="feedback-sku" th:text="${'SKU: ' + item.skuCodeSnapshot + ' · Số lượng: ' + item.quantity}"></span>
+        <span class="feedback-order"><i class="bi bi-bag-check me-1" aria-hidden="true"></i><span th:text="${'Đơn ' + item.order.orderCode}"></span></span>
+    </div>
+</div>
+<div th:fragment="rating(value)" class="feedback-rating" role="img" th:aria-label="${value + ' trên 5 sao'}">
+    <span class="feedback-stars" aria-hidden="true"><i th:each="n : ${#numbers.sequence(1,5)}" class="bi" th:classappend="${n <= value ? 'bi-star-fill' : 'bi-star'}"></i></span>
+    <span class="feedback-rating-value" th:text="${value + '/5'}"></span>
+</div>
+<div th:fragment="reply(review,showAuthor)" th:if="${review.replyText != null}" class="feedback-reply">
+    <div class="feedback-reply-heading"><i class="bi bi-shop" aria-hidden="true"></i><strong>Phản hồi từ PetShop</strong></div>
+    <p class="feedback-comment mb-2" th:text="${review.replyText}"></p>
+    <span class="feedback-meta" th:text="${(showAuthor and review.repliedBy != null ? review.repliedBy.fullName + ' · ' : '') + #temporals.format(review.repliedAt,'dd/MM/yyyy HH:mm')}"></span>
+</div>
+</body></html>

@@ -3,121 +3,180 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/main-layout}">
 <head>
-    <title>Trang Chủ</title>
+    <title>Trang Chủ - PetShop</title>
 </head>
 <body>
-<div layout:fragment="content">
-    
-    <!-- Hero Banner -->
-    <section class="py-5 bg-white border-bottom">
+<div layout:fragment="content" class="home-screen">
+
+    <section class="home-hero py-5 bg-white border-bottom">
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-lg-6">
-                    <span class="badge bg-warning text-dark mb-2 px-3 py-2 fw-semibold">Ưu đãi thành viên mới - Giảm 10%</span>
-                    <h1 class="display-5 fw-bold text-dark mb-3">Dành Trọn Yêu Thương Cho Thú Cưng Của Bạn</h1>
-                    <p class="lead text-muted mb-4">Cung cấp thức ăn chính hãng (Royal Canin, Whiskas), phụ kiện cao cấp, đồ chơi an toàn và cát vệ sinh chất lượng cao.</p>
+                    <span class="badge bg-warning text-dark mb-2 px-3 py-2 fw-semibold">Chào mừng đến với PetShop</span>
+                    <h1 class="display-5 fw-bold text-dark mb-3">Tất cả cho sức khỏe & hạnh phúc của thú cưng</h1>
+                    <p class="lead text-muted mb-4">Khám phá bộ sưu tập thức ăn, đồ chơi và phụ kiện cao cấp dành riêng cho chó mèo. Cam kết chất lượng, giao hàng nhanh chóng trên toàn quốc.</p>
                     <div class="d-flex gap-3">
-                        <a th:href="@{/products}" class="btn btn-pet-primary btn-lg px-4">Mua Ngay</a>
-                        <a th:href="@{/register}" class="btn btn-outline-secondary btn-lg px-4">Đăng Ký Thành Viên</a>
+                        <a th:href="@{/products}" class="btn btn-success btn-lg px-4">Mua sắm ngay</a>
+                        <a th:href="@{/#homeCategories}" class="btn btn-outline-secondary btn-lg px-4">Xem danh mục</a>
                     </div>
                 </div>
                 <div class="col-lg-6 text-center mt-4 mt-lg-0">
-                    <img th:src="@{/images/hero-pets.png}" src="https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=600&auto=format&fit=crop&q=80" alt="Pet Banner" class="img-fluid rounded-4 shadow">
+                    <img th:src="@{/images/hero-pets.svg}" alt="Minh họa chó và mèo của PetShop" class="img-fluid rounded-4 shadow">
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Category Highlights -->
-    <section class="py-5">
+    <section id="homeCategories" class="py-5" aria-labelledby="homeCategoriesTitle">
         <div class="container">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3 class="fw-bold mb-0">Danh Mục Nổi Bật</h3>
-                <a th:href="@{/products}" class="text-decoration-none text-muted">Xem tất cả <i class="bi bi-arrow-right"></i></a>
+            <div class="text-center mb-4">
+                <h2 id="homeCategoriesTitle">Mua sắm theo danh mục</h2>
+                <p class="text-muted">Khám phá sản phẩm dành cho thú cưng của bạn.</p>
             </div>
-            
-            <div class="row g-3">
-                <div class="col-6 col-md-3">
-                    <a th:href="@{/products(category='THUC-AN')}" class="text-decoration-none">
-                        <div class="card h-100 border-0 shadow-sm text-center p-3">
-                            <i class="bi bi-cup-hot fs-1 text-primary mb-2"></i>
-                            <h6 class="fw-bold text-dark mb-0">Thức Ăn Hạt & Pate</h6>
+            <div class="row g-3 justify-content-center">
+                <div class="col-6 col-md-4 col-lg-3" th:each="category : ${categories}">
+                    <a class="card category-card h-100" th:href="@{/products(categoryId=${category.id})}" th:attr="data-category-id=${category.id}">
+                        <div class="category-media" th:switch="${category.code}">
+                            <img th:case="'THUC-AN'" th:src="@{/images/categories/food.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'CAT-VE-SINH'" th:src="@{/images/categories/litter.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'DO-CHOI'" th:src="@{/images/categories/toys.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'PHU-KIEN'" th:src="@{/images/categories/accessories.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'CHAM-SOC'" th:src="@{/images/categories/grooming.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'CHUONG-NEM'" th:src="@{/images/categories/beds.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="'Y-TE'" th:src="@{/images/categories/health.jpg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
+                            <img th:case="*" th:src="@{/images/hero-pets.svg}" class="category-cover" width="720" height="450" alt="" loading="lazy">
                         </div>
+                        <h3 class="category-title" th:text="${category.name}"></h3>
                     </a>
                 </div>
-                <div class="col-6 col-md-3">
-                    <a th:href="@{/products(category='CAT-VE-SINH')}" class="text-decoration-none">
-                        <div class="card h-100 border-0 shadow-sm text-center p-3">
-                            <i class="bi bi-box2-heart fs-1 text-success mb-2"></i>
-                            <h6 class="fw-bold text-dark mb-0">Cát Vệ Sinh</h6>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-3">
-                    <a th:href="@{/products(category='DO-CHOI')}" class="text-decoration-none">
-                        <div class="card h-100 border-0 shadow-sm text-center p-3">
-                            <i class="bi bi-controller fs-1 text-warning mb-2"></i>
-                            <h6 class="fw-bold text-dark mb-0">Đồ Chơi Gặm & Cào</h6>
-                        </div>
-                    </a>
-                </div>
-                <div class="col-6 col-md-3">
-                    <a th:href="@{/products(category='PHU-KIEN')}" class="text-decoration-none">
-                        <div class="card h-100 border-0 shadow-sm text-center p-3">
-                            <i class="bi bi-gem fs-1 text-danger mb-2"></i>
-                            <h6 class="fw-bold text-dark mb-0">Vòng Cổ & Dây Dắt</h6>
-                        </div>
-                    </a>
-                </div>
+            </div>
+            <p class="text-center text-muted mb-0" th:if="${#lists.isEmpty(categories)}">Chưa có danh mục để hiển thị.</p>
+        </div>
+    </section>
+
+    <section id="homeBrands" class="py-5 bg-white border-bottom"
+             th:if="${!#lists.isEmpty(brands)}" aria-labelledby="homeBrandsTitle">
+        <div class="container">
+            <div class="text-center mb-4">
+                <h2 id="homeBrandsTitle">Mua sắm theo thương hiệu</h2>
+            </div>
+            <div class="home-brand-grid">
+                <a class="home-brand-card" th:each="brand : ${brands}"
+                   th:href="@{/products(brandId=${brand.id})}" th:attr="data-brand-id=${brand.id}">
+                    <img th:if="${!#strings.isEmpty(brand.logoUrl)}" th:src="${brand.logoUrl}"
+                         alt="" class="home-brand-logo" loading="lazy" data-brand-logo>
+                    <span th:text="${brand.name}"></span>
+                </a>
             </div>
         </div>
     </section>
 
-    <!-- Featured Products -->
+    <!-- Sản phẩm nổi bật -->
     <section class="py-5 bg-white">
         <div class="container">
-            <h3 class="fw-bold mb-4">Sản Phẩm Bán Chạy Nhất</h3>
-            <div class="row g-4" th:if="${featuredProducts != null and !featuredProducts.empty}">
-                <div class="col-12 col-sm-6 col-lg-3" th:each="product : ${featuredProducts}">
-                    <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
-                        <img th:src="${product.primaryImageUrl != null ? product.primaryImageUrl : 'https://placehold.co/400x300?text=PetShop'}" class="card-img-top" alt="Product" style="height: 200px; object-fit: cover;">
-                        <div class="card-body d-flex flex-column">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="badge bg-secondary" th:text="${product.petType}">DOG</span>
-                                <small class="text-warning"><i class="bi bi-star-fill"></i> <span th:text="${product.avgRating}">5.0</span></small>
+            <div class="text-center mb-5">
+                <h2 class="fw-bold">Sản Phẩm Nổi Bật</h2>
+                <p class="text-muted">Những sản phẩm được PetShop tuyển chọn dành cho thú cưng</p>
+            </div>
+
+            <div class="row g-4"
+                 th:if="${featuredProducts != null and !#lists.isEmpty(featuredProducts)}">
+
+                <div class="col-12 col-sm-6 col-lg-3"
+                     th:each="product : ${featuredProducts}">
+
+                    <div class="card h-100 border shadow-sm rounded-3 overflow-hidden" th:attr="data-product-id=${product.id}">
+
+                        <!-- Ảnh sản phẩm lấy từ database -->
+                        <a th:href="@{/products/{slug}(slug=${product.slug})}"
+                           class="text-decoration-none">
+
+                            <img th:data-fallback-src="@{/images/product-placeholder.svg}" th:if="${product.primaryImageUrl != null and !#strings.isEmpty(product.primaryImageUrl)}"
+                                 th:src="${product.primaryImageUrl}"
+                                 th:alt="${product.name}"
+                                 class="card-img-top"
+                                 loading="lazy" style="height: 220px; object-fit: contain; padding: 18px; background: #fff;">
+
+                            <div th:unless="${product.primaryImageUrl != null and !#strings.isEmpty(product.primaryImageUrl)}"
+                                 class="d-flex align-items-center justify-content-center bg-light"
+                                 style="height: 200px;">
+                                <i class="bi bi-image text-secondary fs-1"></i>
                             </div>
-                            <h6 class="card-title fw-bold text-truncate" th:text="${product.name}">Tên sản phẩm</h6>
-                            <p class="text-danger fw-bold fs-5 mb-3" th:text="${#numbers.formatDecimal(product.minPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">150.000 đ</p>
-                            <a th:href="@{/products/{slug}(slug=${product.slug})}" class="btn btn-outline-primary mt-auto w-100">Chi Tiết</a>
+                        </a>
+
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-success">Nổi bật</span>
+
+                                <span class="badge bg-secondary"
+                                      th:text="${product.petType}">
+                                DOG
+                            </span>
+                            </div>
+
+                            <h6 class="card-title fw-bold"
+                                th:text="${product.name}">
+                                Tên sản phẩm
+                            </h6>
+
+                            <p class="small text-muted mb-2"
+                               th:if="${product.brandName != null and !#strings.isEmpty(product.brandName)}"
+                               th:text="${product.brandName}">
+                                Thương hiệu
+                            </p>
+
+                            <!-- Giá bán từ database -->
+                            <div class="mb-2">
+                            <span th:if="${product.minPrice != null}"
+                                  class="text-danger fw-bold fs-5 featured-price"
+                                  th:text="${#numbers.formatDecimal(product.minPrice, 0, 'POINT', 0, 'COMMA') + ' đ'}">
+                                Giá sản phẩm
+                            </span>
+
+                                <span th:if="${product.minPrice == null}"
+                                      class="text-muted">
+                                Liên hệ
+                            </span>
+                            </div>
+
+                            <!-- Trạng thái tồn kho -->
+                            <div class="mb-3">
+                            <span th:if="${product.totalStock != null and product.totalStock > 0}"
+                                  class="badge bg-success-subtle text-success">
+                                Còn hàng
+                            </span>
+
+                                <span th:unless="${product.totalStock != null and product.totalStock > 0}"
+                                      class="badge bg-danger-subtle text-danger">
+                                Hết hàng
+                            </span>
+                            </div>
+
+                            <a th:href="@{/products/{slug}(slug=${product.slug})}"
+                               class="btn btn-outline-primary mt-auto w-100">
+                                <i class="bi bi-eye me-1"></i> Chi tiết
+                            </a>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
 
-    <!-- Value Propositions -->
-    <section class="py-5 border-top">
-        <div class="container">
-            <div class="row g-4 text-center">
-                <div class="col-md-4">
-                    <i class="bi bi-truck fs-1 text-primary"></i>
-                    <h5 class="fw-bold mt-2">Giao Hàng Toàn Quốc</h5>
-                    <p class="text-muted small">Đồng giá vận chuyển 30.000đ, miễn phí khi áp dụng voucher.</p>
-                </div>
-                <div class="col-md-4">
-                    <i class="bi bi-patch-check fs-1 text-success"></i>
-                    <h5 class="fw-bold mt-2">Cam Kết 100% Chính Hãng</h5>
-                    <p class="text-muted small">Nhập khẩu từ Royal Canin, Whiskas, Me-O có hóa đơn rõ ràng.</p>
-                </div>
-                <div class="col-md-4">
-                    <i class="bi bi-credit-card-2-front fs-1 text-warning"></i>
-                    <h5 class="fw-bold mt-2">Thanh Toán Linh Hoạt</h5>
-                    <p class="text-muted small">Hỗ trợ nhận hàng thanh toán (COD) và VNPay trực tuyến an toàn.</p>
-                </div>
+            <div class="text-center py-5 bg-light rounded-3"
+                 th:if="${featuredProducts == null or #lists.isEmpty(featuredProducts)}">
+                <i class="bi bi-box-seam fs-1 text-secondary"></i>
+                <p class="text-muted fs-5 mt-3 mb-0">
+                    Chưa có sản phẩm nổi bật. Em hãy kiểm tra sản phẩm đã được đánh dấu nổi bật trong quản trị chưa nhé.
+                </p>
+            </div>
+
+            <div class="text-center mt-4">
+                <a th:href="@{/products}" class="btn btn-success px-4">
+                    Xem tất cả sản phẩm
+                </a>
             </div>
         </div>
     </section>
+
 
 </div>
 </body>

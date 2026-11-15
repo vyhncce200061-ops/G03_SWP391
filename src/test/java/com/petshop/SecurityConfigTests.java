@@ -61,11 +61,11 @@ class SecurityConfigTests {
     void testCustomerDeniedFromStaffAndAdmin() throws Exception {
         mockMvc.perform(get("/staff/dashboard"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/error/403"));
+                .andExpect(redirectedUrl("/error/403"));
 
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/error/403"));
+                .andExpect(redirectedUrl("/error/403"));
     }
 
     @Test
@@ -77,7 +77,7 @@ class SecurityConfigTests {
 
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/error/403"));
+                .andExpect(redirectedUrl("/error/403"));
     }
 
     @Test

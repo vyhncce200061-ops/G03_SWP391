@@ -26,7 +26,7 @@ public class OrderProcessController {
                              @RequestParam(defaultValue = "0") int page,
                              @RequestParam(defaultValue = "10") int size,
                              Model model) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = com.petshop.util.PageRequests.bounded(page, size);
         Page<Order> orders = orderService.getOrdersForStaff(status, pageable);
 
         model.addAttribute("orders", orders);
@@ -36,7 +36,13 @@ public class OrderProcessController {
 
     @GetMapping("/{id}")
     public String orderDetail(@PathVariable Long id, Model model) {
-        Order order = orderService.getOrderDetailForStaff(id);
+        Order order;
+        try {
+            order = orderService.getOrderDetailForStaff(id);
+        } catch (IllegalArgumentException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng.");
+        }
         model.addAttribute("order", order);
         return "staff/order-detail";
     }
@@ -45,8 +51,12 @@ public class OrderProcessController {
     public String confirmOrder(@AuthenticationPrincipal CustomUserDetails userDetails,
                                @PathVariable Long id,
                                RedirectAttributes redirectAttributes) {
-        orderService.confirmOrder(id, userDetails.getId());
-        redirectAttributes.addFlashAttribute("successMessage", "Đã xác nhận đơn hàng thành công!");
+        try {
+            orderService.confirmOrder(id, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Đã xác nhận đơn hàng và trừ tồn kho!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -54,8 +64,12 @@ public class OrderProcessController {
     public String markPreparing(@AuthenticationPrincipal CustomUserDetails userDetails,
                                 @PathVariable Long id,
                                 RedirectAttributes redirectAttributes) {
+        try {
         orderService.markPreparing(id, userDetails.getId());
         redirectAttributes.addFlashAttribute("successMessage", "Đã chuyển đơn hàng sang trạng thái đóng gói!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -63,8 +77,12 @@ public class OrderProcessController {
     public String markShipping(@AuthenticationPrincipal CustomUserDetails userDetails,
                                @PathVariable Long id,
                                RedirectAttributes redirectAttributes) {
+        try {
         orderService.markShipping(id, userDetails.getId());
         redirectAttributes.addFlashAttribute("successMessage", "Đã bàn giao đơn hàng cho đơn vị vận chuyển!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -72,8 +90,12 @@ public class OrderProcessController {
     public String markCompleted(@AuthenticationPrincipal CustomUserDetails userDetails,
                                 @PathVariable Long id,
                                 RedirectAttributes redirectAttributes) {
+        try {
         orderService.markCompleted(id, userDetails.getId());
         redirectAttributes.addFlashAttribute("successMessage", "Đã hoàn tất đơn hàng và thu tiền COD thành công!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/staff/orders/" + id;
     }
 
@@ -84,8 +106,8 @@ public class OrderProcessController {
                               RedirectAttributes redirectAttributes) {
         try {
             orderService.staffRejectOrder(id, userDetails.getId(), reason);
-            redirectAttributes.addFlashAttribute("successMessage", "Đã từ chối đơn hàng và hoàn tồn kho!");
-        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("successMessage", "Đã từ chối đơn hàng!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/staff/orders/" + id;

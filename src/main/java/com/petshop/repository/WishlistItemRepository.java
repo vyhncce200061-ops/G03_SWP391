@@ -9,6 +9,8 @@ import java.util.List;
 
 @Repository
 public interface WishlistItemRepository extends JpaRepository<WishlistItem, WishlistItemId> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"product"})
+    List<WishlistItem> findByIdCustomerIdOrderByCreatedAtDesc(Long customerId);
     List<WishlistItem> findByIdCustomerId(Long customerId);
     boolean existsByIdCustomerIdAndIdProductId(Long customerId, Long productId);
     void deleteByIdCustomerIdAndIdProductId(Long customerId, Long productId);

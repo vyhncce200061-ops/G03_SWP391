@@ -71,6 +71,13 @@ public class Voucher {
     @Builder.Default
     private VoucherStatus status = VoucherStatus.ACTIVE;
 
+    @Column(name = "IsDeleted", nullable = false)
+    @Builder.Default
+    private Boolean isDeleted = false;
+
+    @Column(name = "DeletedAt")
+    private LocalDateTime deletedAt;
+
     @Column(name = "CreatedAt", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

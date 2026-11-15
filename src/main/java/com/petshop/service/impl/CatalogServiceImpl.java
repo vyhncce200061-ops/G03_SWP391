@@ -2,6 +2,7 @@ package com.petshop.service.impl;
 
 import com.petshop.dto.catalog.ProductFilterDto;
 import com.petshop.dto.catalog.ProductSummaryDto;
+import com.petshop.dto.catalog.CategoryViewDto;
 import com.petshop.entity.Brand;
 import com.petshop.entity.Category;
 import com.petshop.entity.Product;
@@ -11,6 +12,7 @@ import com.petshop.entity.enums.ProductStatus;
 import com.petshop.entity.enums.ProductVariantStatus;
 import com.petshop.repository.*;
 import com.petshop.service.CatalogService;
+import com.petshop.service.CategoryManageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -29,7 +31,7 @@ import java.util.stream.Collectors;
 public class CatalogServiceImpl implements CatalogService {
 
     private final ProductRepository productRepository;
-    private final CategoryRepository categoryRepository;
+    private final CategoryManageService categoryManageService;
     private final BrandRepository brandRepository;
     private final ProductImageRepository imageRepository;
     private final ProductVariantRepository variantRepository;
@@ -38,16 +40,39 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional(readOnly = true)
     public Page<ProductSummaryDto> searchAndFilterProducts(ProductFilterDto filter, Pageable pageable) {
-        Page<Product> products;
-        if (filter.getPetType() != null) {
-            products = productRepository.findByPetTypeAndStatus(filter.getPetType(), ProductStatus.ACTIVE, pageable);
-        } else if (filter.getCategoryId() != null) {
-            products = productRepository.findByCategoryIdAndStatus(filter.getCategoryId(), ProductStatus.ACTIVE, pageable);
-        } else if (filter.getBrandId() != null) {
-            products = productRepository.findByBrandIdAndStatus(filter.getBrandId(), ProductStatus.ACTIVE, pageable);
-        } else {
-            products = productRepository.findByStatus(ProductStatus.ACTIVE, pageable);
-        }
+        Page<Product> products = productRepository.findAll((root, query, cb) -> {
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            predicates.add(cb.equal(root.get("status"), ProductStatus.ACTIVE));
+            if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
+                String keyword = "%" + filter.getKeyword().trim().toLowerCase(java.util.Locale.ROOT) + "%";
+                var brand = root.join("brand", jakarta.persistence.criteria.JoinType.LEFT);
+                predicates.add(cb.or(cb.like(cb.lower(root.get("name")), keyword),
+                        cb.like(cb.lower(root.get("shortDescription")), keyword),
+                        cb.like(cb.lower(brand.get("name")), keyword)));
+            }
+            if (filter.getPetType() != null) predicates.add(cb.equal(root.get("petType"), filter.getPetType()));
+            if (filter.getBrandId() != null) predicates.add(cb.equal(root.get("brand").get("id"), filter.getBrandId()));
+            if (filter.getCategoryId() != null || (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank())) {
+                var category = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
+                var parent = category.join("parentCategory", jakarta.persistence.criteria.JoinType.LEFT);
+                if (filter.getCategoryId() != null) predicates.add(cb.or(cb.equal(category.get("id"), filter.getCategoryId()), cb.equal(parent.get("id"), filter.getCategoryId())));
+                if (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank())
+                    predicates.add(cb.or(cb.equal(category.get("code"), filter.getCategoryCode()), cb.equal(parent.get("code"), filter.getCategoryCode())));
+            }
+            var priceQuery = query.subquery(BigDecimal.class);
+            var variant = priceQuery.from(ProductVariant.class);
+            priceQuery.select(cb.min(variant.get("price"))).where(cb.equal(variant.get("product"), root), cb.equal(variant.get("status"), ProductVariantStatus.ACTIVE));
+            if (filter.getMinPrice() != null) predicates.add(cb.ge(priceQuery, filter.getMinPrice()));
+            if (filter.getMaxPrice() != null) predicates.add(cb.le(priceQuery, filter.getMaxPrice()));
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                if ("price_asc".equals(filter.getSortBy())) query.orderBy(cb.asc(priceQuery), cb.asc(root.get("id")));
+                else if ("price_desc".equals(filter.getSortBy())) query.orderBy(cb.desc(priceQuery), cb.asc(root.get("id")));
+                else if ("asc".equals(filter.getSortBy())) query.orderBy(cb.asc(root.get("name")), cb.asc(root.get("id")));
+                else if ("desc".equals(filter.getSortBy())) query.orderBy(cb.desc(root.get("name")), cb.asc(root.get("id")));
+                else query.orderBy(cb.desc(root.get("createdAt")), cb.desc(root.get("id")));
+            }
+            return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        }, pageable);
 
         return products.map(this::mapToSummaryDto);
     }
@@ -62,13 +87,13 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional(readOnly = true)
     public List<Category> getAllCategories() {
-        return categoryRepository.findByIsActiveTrueOrderBySortOrderAsc();
+        return categoryManageService.activeCategories();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Category> getActiveCategoryTree() {
-        return categoryRepository.findAllActiveHierarchy();
+    public List<CategoryViewDto> getActiveCategoryTree() {
+        return categoryManageService.activeTree();
     }
 
     @Override
@@ -79,7 +104,16 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<Brand> getBrandOptions(Integer selectedId) {
+        return brandRepository.findAllByOrderByNameAsc().stream()
+                .filter(brand -> Boolean.TRUE.equals(brand.getIsActive()) || brand.getId().equals(selectedId))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProductSummaryDto> getFeaturedProducts(int limit) {
+        if (limit <= 0) return List.of();
         Pageable pageable = PageRequest.of(0, limit);
         Page<Product> featured = productRepository.findByStatusAndIsFeaturedTrue(ProductStatus.ACTIVE, pageable);
         return featured.getContent().stream()
@@ -93,12 +127,12 @@ public class CatalogServiceImpl implements CatalogService {
         BigDecimal minPrice = variants.stream()
                 .map(ProductVariant::getPrice)
                 .min(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
+                .orElse(null);
 
         BigDecimal maxPrice = variants.stream()
                 .map(ProductVariant::getPrice)
                 .max(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
+                .orElse(null);
 
         int totalStock = variants.stream()
                 .mapToInt(ProductVariant::getStockQuantity)
@@ -122,11 +156,28 @@ public class CatalogServiceImpl implements CatalogService {
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : "")
                 .petType(product.getPetType())
                 .primaryImageUrl(primaryImageUrl)
+                .imageUrl(primaryImageUrl)
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
                 .totalStock(totalStock)
-                .avgRating(avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : 5.0)
+                .avgRating(avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount != null ? reviewCount : 0L)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> filterProducts(String keyword, Long categoryId, Pageable pageable) {
+        return productRepository.findAll((root, query, cb) -> {
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            predicates.add(cb.equal(root.get("status"), ProductStatus.ACTIVE));
+            if (keyword != null && !keyword.isBlank()) predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
+            if (categoryId != null) {
+                var category = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
+                var parent = category.join("parentCategory", jakarta.persistence.criteria.JoinType.LEFT);
+                predicates.add(cb.or(cb.equal(category.get("id"), categoryId), cb.equal(parent.get("id"), categoryId)));
+            }
+            return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        }, pageable);
     }
 }
