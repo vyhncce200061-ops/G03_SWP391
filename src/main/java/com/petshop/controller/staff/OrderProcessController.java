@@ -92,7 +92,7 @@ public class OrderProcessController {
                                 RedirectAttributes redirectAttributes) {
         try {
         orderService.markCompleted(id, userDetails.getId());
-        redirectAttributes.addFlashAttribute("successMessage", "Đã hoàn tất đơn hàng và thu tiền COD thành công!");
+        redirectAttributes.addFlashAttribute("successMessage", "Đã hoàn tất đơn hàng thành công!");
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }

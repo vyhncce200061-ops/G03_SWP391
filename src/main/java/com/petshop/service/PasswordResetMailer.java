@@ -9,7 +9,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequiredArgsConstructor
 public class PasswordResetMailer {
     private final EmailService emailService;
-    @Value("${petshop.public-base-url:http://localhost:8080}") private String baseUrl;
+    @Value("${petshop.public-base-url:http://localhost:${server.port:8081}}") private String baseUrl;
 
     public void requireConfigured() {
         emailService.requireConfigured();

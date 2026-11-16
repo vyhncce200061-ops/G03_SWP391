@@ -3,20 +3,20 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/admin-layout}">
 <head>
-    <title>Chỉnh Sửa Tài Khoản</title>
+    <title th:text="${canEditStaff ? 'Chỉnh sửa nhân viên' : 'Chi tiết tài khoản'}">Chi tiết tài khoản</title>
 </head>
 <body>
 <div layout:fragment="admin-header-title">
-    <span>Quản Trị Hệ Thống / Chỉnh Sửa Tài Khoản</span>
+    <span th:text="${canEditStaff ? 'Quản lý tài khoản / Chỉnh sửa nhân viên' : 'Quản lý tài khoản / Chi tiết tài khoản'}"></span>
 </div>
 
 <div layout:fragment="admin-content">
     <div class="row justify-content-center">
         <div class="col-lg-8">
-            <div class="d-flex align-items-center justify-content-between mb-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
                 <div>
-                    <h4 class="fw-bold mb-1">Chỉnh Sửa Tài Khoản</h4>
-                    <p class="text-muted small mb-0">Cập nhật thông tin và trạng thái hoạt động của người dùng.</p>
+                    <h4 class="fw-bold mb-1" th:text="${canEditStaff ? 'Chỉnh sửa nhân viên' : 'Chi tiết tài khoản'}"></h4>
+                    <p class="text-muted small mb-0" th:text="${canEditStaff ? 'Cập nhật họ tên nhân viên; thông tin đăng nhập được giữ nguyên.' : 'Thông tin tài khoản và trạng thái hoạt động.'}"></p>
                 </div>
                 <a th:href="@{/admin/users}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i> Quay lại danh sách
@@ -24,54 +24,56 @@
             </div>
 
             <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5">
-                <form th:action="@{/admin/users/{id}/edit(id=${userForm.id})}" th:object="${userForm}" method="post">
-                    <input type="hidden" th:field="*{id}">
+                <dl class="row gy-3 mb-0">
+                    <dt class="col-sm-4 text-muted fw-normal" th:unless="${canEditStaff}">Họ và tên</dt>
+                    <dd class="col-sm-8 fw-semibold mb-0 text-break" th:unless="${canEditStaff}" th:text="${targetUser.fullName}"></dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Email đăng nhập</dt>
+                    <dd class="col-sm-8 mb-0 text-break" th:text="${#strings.isEmpty(targetUser.email) ? 'Chưa cập nhật' : targetUser.email}"></dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Số điện thoại</dt>
+                    <dd class="col-sm-8 mb-0" th:text="${#strings.isEmpty(targetUser.phone) ? 'Chưa cập nhật' : targetUser.phone}"></dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Vai trò</dt>
+                    <dd class="col-sm-8 mb-0" th:switch="${targetUser.role.code}">
+                        <span th:case="'STAFF'" class="badge bg-info-subtle text-info-emphasis">Nhân viên</span>
+                        <span th:case="'CUSTOMER'" class="badge bg-secondary-subtle text-secondary-emphasis">Khách hàng</span>
+                        <span th:case="'ADMIN'" class="badge bg-danger-subtle text-danger-emphasis">Quản trị viên</span>
+                    </dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Trạng thái</dt>
+                    <dd class="col-sm-8 mb-0">
+                        <span th:if="${targetUser.status == 'ACTIVE'}" class="badge bg-success-subtle text-success">Đang hoạt động</span>
+                        <span th:unless="${targetUser.status == 'ACTIVE'}" class="badge bg-danger-subtle text-danger">Bị khóa</span>
+                        <span th:if="${targetUser.role.code == 'STAFF' and targetUser.mustChangePassword}" class="badge bg-warning-subtle text-warning-emphasis ms-1">Chờ đặt mật khẩu</span>
+                    </dd>
+                    <dt class="col-sm-4 text-muted fw-normal">Ngày tạo</dt>
+                    <dd class="col-sm-8 mb-0" th:text="${#temporals.format(targetUser.createdAt, 'dd/MM/yyyy HH:mm')}"></dd>
+                </dl>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Họ và Tên <span class="text-danger">*</span></label>
+                <form th:if="${canEditStaff}" th:action="@{/admin/users/{id}/edit(id=${targetUser.id})}"
+                      th:object="${userForm}" method="post" class="mt-4 pt-4 border-top">
+                    <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger" role="alert">
+                        <p th:each="err : ${#fields.globalErrors()}" th:text="${err}" class="mb-0"></p>
+                    </div>
+                    <div class="mb-4">
+                        <label for="fullName" class="form-label fw-semibold">Họ và tên nhân viên <span class="text-danger">*</span></label>
                         <input type="text" th:field="*{fullName}" class="form-control form-control-lg"
-                               placeholder="VD: Nguyễn Văn A" th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'">
+                               autocomplete="name" required maxlength="150" placeholder="VD: Nguyễn Văn An"
+                               th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'">
                         <div class="invalid-feedback" th:errors="*{fullName}"></div>
                     </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Địa chỉ Email</label>
-                            <input type="email" th:field="*{email}" class="form-control"
-                                   placeholder="user@example.com" th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'">
-                            <div class="invalid-feedback" th:errors="*{email}"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Số Điện Thoại</label>
-                            <input type="text" th:field="*{phone}" class="form-control"
-                                   placeholder="0912345678" th:classappend="${#fields.hasErrors('phone')} ? 'is-invalid'">
-                            <div class="invalid-feedback" th:errors="*{phone}"></div>
-                        </div>
-                    </div>
-
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Vai trò hệ thống</label>
-                            <input class="form-control" th:value="${targetUser.role.code}" readonly aria-label="Vai trò cố định">
-                            <div class="form-text">Vai trò được xác định khi tạo tài khoản và không chuyển đổi tại màn hình này.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Trạng Thái Tài Khoản <span class="text-danger">*</span></label>
-                            <select th:field="*{status}" class="form-select" th:classappend="${#fields.hasErrors('status')} ? 'is-invalid'">
-                                <option value="ACTIVE">ACTIVE (Đang hoạt động)</option>
-                                <option value="LOCKED">LOCKED (Tạm khóa)</option>
-                            </select>
-                            <div class="invalid-feedback" th:errors="*{status}"></div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
-                        <a th:href="@{/admin/users}" class="btn btn-light px-4">Hủy bỏ</a>
+                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                        <a th:href="@{/admin/users/{id}(id=${targetUser.id})}" class="btn btn-light px-4">Hủy bỏ</a>
                         <button type="submit" class="btn btn-primary px-4 fw-semibold">
-                            <i class="bi bi-save me-1"></i> Lưu Thay Đổi
+                            <i class="bi bi-save me-1"></i> Lưu họ tên
                         </button>
                     </div>
                 </form>
+
+                <div th:unless="${canEditStaff}" class="mt-4 pt-4 border-top">
+                    <p th:if="${targetUser.role.code == 'CUSTOMER'}" class="text-muted small mb-0">Khách hàng tự cập nhật hồ sơ cá nhân. Khóa hoặc mở khóa tài khoản tại danh sách người dùng.</p>
+                    <p th:if="${targetUser.role.code == 'ADMIN'}" class="text-muted small mb-0">Quản trị viên tự cập nhật hồ sơ cá nhân.</p>
+                    <a th:if="${targetUser.role.code == 'STAFF'}" th:href="@{/admin/users/{id}/edit(id=${targetUser.id})}" class="btn btn-primary">
+                        <i class="bi bi-pencil me-1"></i> Chỉnh sửa họ tên
+                    </a>
+                </div>
             </div>
         </div>
     </div>

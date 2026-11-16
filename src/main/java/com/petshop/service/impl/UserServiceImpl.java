@@ -35,7 +35,6 @@ public class UserServiceImpl implements UserService {
     private final com.petshop.service.AccountAccessService accountAccessService;
     private final com.petshop.service.PasswordResetMailer resetMailer;
     private final jakarta.validation.Validator validator;
-    private final com.petshop.repository.PasswordResetTokenRepository tokenRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -268,20 +267,25 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void toggleUserStatus(Long userId, Long adminId) {
+    public void setUserStatus(Long userId, String targetStatus, Long adminId) {
         roleRepository.lockAdminRole().orElseThrow(() -> new IllegalStateException("Thiếu vai trò ADMIN."));
+        requireActiveAdmin(adminId);
+        if (!java.util.Set.of("ACTIVE", "LOCKED").contains(targetStatus == null ? "" : targetStatus)) {
+            throw new IllegalArgumentException("Trạng thái tài khoản không hợp lệ. Vui lòng tải lại danh sách người dùng.");
+        }
         User user = lockUser(userId);
+        if (targetStatus.equals(user.getStatus())) return;
+        if (user.getId().equals(adminId) && "LOCKED".equals(targetStatus)) {
+            throw new IllegalArgumentException("Không thể tự khóa tài khoản của chính mình.");
+        }
         if ("ACTIVE".equals(user.getStatus()) && "ADMIN".equals(user.getRole().getCode())
+                && "LOCKED".equals(targetStatus)
                 && userRepository.countByRoleCodeAndStatus("ADMIN", "ACTIVE") <= 1) {
             throw new IllegalArgumentException("Phải giữ ít nhất một quản trị viên đang hoạt động.");
         }
-        if (user.getId().equals(adminId)) {
-            throw new IllegalArgumentException("Không thể tự khóa tài khoản của chính mình.");
-        }
-        String newStatus = "ACTIVE".equalsIgnoreCase(user.getStatus()) ? "LOCKED" : "ACTIVE";
-        user.setStatus(newStatus);
+        user.setStatus(targetStatus);
         userRepository.save(user);
-        log.info("Admin {} changed status of user {} to {}", adminId, userId, newStatus);
+        log.info("Admin {} changed status of user {} to {}", adminId, userId, targetStatus);
     }
 
     @Override
@@ -322,53 +326,32 @@ public class UserServiceImpl implements UserService {
     public void updateUserByAdmin(Long userId, com.petshop.dto.admin.UserAdminUpdateDto request, Long currentAdminId) {
         if (request == null || !validator.validate(request).isEmpty()) throw new IllegalArgumentException("Thông tin tài khoản không hợp lệ.");
         roleRepository.lockAdminRole().orElseThrow(() -> new IllegalStateException("Thiếu vai trò ADMIN."));
+        requireActiveAdmin(currentAdminId);
         User user = lockUser(userId);
-        if (!java.util.Set.of("ACTIVE", "LOCKED").contains(request.getStatus())) {
-            throw new IllegalArgumentException("Trạng thái không hợp lệ.");
+        if (user.getRole() == null || !"STAFF".equals(user.getRole().getCode())) {
+            throw new IllegalArgumentException("Admin chỉ được chỉnh sửa họ tên của tài khoản Staff. Chủ tài khoản tự cập nhật hồ sơ cá nhân.");
         }
-        if ("ACTIVE".equals(user.getStatus()) && "ADMIN".equals(user.getRole().getCode())
-                && !"ACTIVE".equals(request.getStatus())
-                && userRepository.countByRoleCodeAndStatus("ADMIN", "ACTIVE") <= 1) {
-            throw new IllegalArgumentException("Phải giữ ít nhất một quản trị viên đang hoạt động.");
-        }
-
-        if (user.getId().equals(currentAdminId) && !"ACTIVE".equalsIgnoreCase(request.getStatus())) {
-            throw new IllegalArgumentException("Không thể tự khóa tài khoản của chính mình.");
-        }
-
-        // Check email uniqueness if modified
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            String newEmail = request.getEmail().trim().toLowerCase();
-            userRepository.findByEmail(newEmail).ifPresent(existing -> {
-                if (!existing.getId().equals(user.getId())) {
-                    throw new IllegalArgumentException("Email '" + newEmail + "' đã được sử dụng bởi tài khoản khác.");
-                }
-            });
-            if (!newEmail.equals(user.getEmail())) tokenRepository.revokeUnusedForUser(userId, LocalDateTime.now());
-            user.setEmail(newEmail);
-        }
-
-        // Check phone uniqueness if modified
-        if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            String newPhone = request.getPhone().trim();
-            userRepository.findByPhone(newPhone).ifPresent(existing -> {
-                if (!existing.getId().equals(user.getId())) {
-                    throw new IllegalArgumentException("Số điện thoại '" + newPhone + "' đã được sử dụng bởi tài khoản khác.");
-                }
-            });
-            user.setPhone(newPhone);
-        }
-
+        // Only the staff display name is editable here. Login identifiers and status are never copied from a form.
         user.setFullName(request.getFullName().trim());
-        user.setStatus(request.getStatus().trim().toUpperCase());
         userRepository.save(user);
-        log.info("Admin {} updated details for user {}", currentAdminId, userId);
+        log.info("Admin {} updated staff name for user {}", currentAdminId, userId);
     }
 
     @Override
     @Transactional
     public void resendStaffInvitation(Long userId) {
         accountAccessService.sendLink(userId, true);
+    }
+
+    private void requireActiveAdmin(Long adminId) {
+        if (adminId == null) throw new org.springframework.security.access.AccessDeniedException("Yêu cầu quản trị viên đang hoạt động.");
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Yêu cầu quản trị viên đang hoạt động."));
+        // A request may already have loaded this entity before another admin locked it.
+        entityManager.refresh(admin);
+        if (!"ACTIVE".equals(admin.getStatus()) || admin.getRole() == null || !"ADMIN".equals(admin.getRole().getCode())) {
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu quản trị viên đang hoạt động.");
+        }
     }
 
     private User lockUser(Long userId) {

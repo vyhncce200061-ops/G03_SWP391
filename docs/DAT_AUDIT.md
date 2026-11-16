@@ -1,5 +1,7 @@
 # Rà soát chức năng của Đạt — 08/11/2026
 
+Chính sách sửa tài khoản đã được chốt lại sau báo cáo này: chỉ sửa họ tên Staff; Customer tự sửa hồ sơ, email/SĐT đăng nhập không sửa từ Admin, khóa/mở khóa tách riêng. Xem [ACCOUNT_MANAGEMENT.md](ACCOUNT_MANAGEMENT.md). Các kết quả dưới đây mô tả phiên bản tại thời điểm rà soát.
+
 ## Kết luận và phạm vi
 
 Cả **18 mục chức năng đã chốt đều có trong source và đã được đối chiếu/kiểm thử**. Trong các ca rà soát lần này, phát hiện và sửa 7 nhóm lỗi đầu vào/điều hướng/giới hạn kỹ thuật; bổ sung xử lý thông báo lỗi và giải thích đúng điều kiện ước tính tồn kho. Không bổ sung nghiệp vụ, đổi phân quyền, thêm/xóa bảng/cột hoặc chạy script sửa dữ liệu.
