@@ -2,12 +2,12 @@ package com.petshop.controller.admin;
 
 import com.petshop.config.security.CustomUserDetails;
 import com.petshop.dto.admin.StaffCreateRequestDto;
+import com.petshop.dto.admin.UserAdminUpdateDto;
 import com.petshop.entity.User;
 import com.petshop.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -25,8 +25,13 @@ public class UserManageController {
 
     @InitBinder("userForm")
     public void bindForm(org.springframework.web.bind.WebDataBinder binder) {
-        // The path identifies the edited record; ignore a client-supplied form ID.
-        binder.setDisallowedFields("id");
+        // The path identifies the record; no login identifiers, role or status are bindable.
+        binder.setAllowedFields("fullName");
+    }
+
+    @ModelAttribute("currentAdminId")
+    public Long currentAdminId(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return userDetails == null ? null : userDetails.getId();
     }
 
     @GetMapping
@@ -76,47 +81,61 @@ public class UserManageController {
     @PostMapping("/{id}/toggle-status")
     public String toggleUserStatus(@AuthenticationPrincipal CustomUserDetails userDetails,
                                    @PathVariable Long id,
+                                   @RequestParam(required = false) String targetStatus,
                                    RedirectAttributes redirectAttributes) {
         try {
-            userService.toggleUserStatus(id, userDetails.getId());
-            redirectAttributes.addFlashAttribute("successMessage", "Thay đổi trạng thái tài khoản thành công!");
+            userService.setUserStatus(id, targetStatus, currentAdminId(userDetails));
+            redirectAttributes.addFlashAttribute("successMessage", "LOCKED".equals(targetStatus) ? "Đã khóa tài khoản." : "Đã mở khóa tài khoản.");
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/admin/users";
     }
 
+    @GetMapping("/{id}")
+    public String viewUser(@PathVariable Long id, Model model) {
+        model.addAttribute("targetUser", userService.findById(id));
+        model.addAttribute("canEditStaff", false);
+        return "admin/user-edit";
+    }
+
     @GetMapping("/{id}/edit")
     public String editUserForm(@PathVariable Long id, Model model) {
         User user = userService.findById(id);
-        com.petshop.dto.admin.UserAdminUpdateDto updateDto = com.petshop.dto.admin.UserAdminUpdateDto.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .status(user.getStatus())
-                .build();
-        model.addAttribute("userForm", updateDto);
+        if (!"STAFF".equals(user.getRole().getCode())) return "redirect:/admin/users/" + id;
+        model.addAttribute("userForm", UserAdminUpdateDto.builder().fullName(user.getFullName()).build());
         model.addAttribute("targetUser", user);
+        model.addAttribute("canEditStaff", true);
         return "admin/user-edit";
     }
 
     @PostMapping("/{id}/edit")
     public String updateUser(@AuthenticationPrincipal CustomUserDetails userDetails,
                              @PathVariable Long id,
-                             @Valid @ModelAttribute("userForm") com.petshop.dto.admin.UserAdminUpdateDto userForm,
+                             @Valid @ModelAttribute("userForm") UserAdminUpdateDto userForm,
                              BindingResult bindingResult,
+                             jakarta.servlet.http.HttpServletRequest request,
                              RedirectAttributes redirectAttributes,
                              Model model) {
-        userForm.setId(id);
+        User targetUser = userService.findById(id);
+        if (!"STAFF".equals(targetUser.getRole().getCode())) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Admin chỉ được chỉnh sửa họ tên của Staff. Chủ tài khoản tự cập nhật hồ sơ cá nhân.");
+            return "redirect:/admin/users/" + id;
+        }
+        model.addAttribute("targetUser", targetUser);
+        model.addAttribute("canEditStaff", true);
+        // Spring also supplies the URI variable "id" to the binder. Check submitted parameters
+        // separately so the trusted path is accepted while a forged form ID is rejected.
+        if (request.getParameterMap().keySet().stream().anyMatch(field -> !java.util.Set.of("fullName", "_csrf").contains(field))) {
+            bindingResult.reject("restrictedFields", "Chỉ được cập nhật họ tên Staff. Vui lòng tải lại trang nếu đang dùng form cũ.");
+        }
         if (bindingResult.hasErrors()) {
-            model.addAttribute("targetUser", userService.findById(id));
             return "admin/user-edit";
         }
 
         try {
-            userService.updateUserByAdmin(id, userForm, userDetails.getId());
-            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật thông tin tài khoản thành công!");
+            userService.updateUserByAdmin(id, userForm, currentAdminId(userDetails));
+            redirectAttributes.addFlashAttribute("successMessage", "Đã cập nhật họ tên nhân viên.");
             return "redirect:/admin/users";
         } catch (IllegalArgumentException e) {
             model.addAttribute("errorMessage", e.getMessage());

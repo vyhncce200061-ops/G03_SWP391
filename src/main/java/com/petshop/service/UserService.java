@@ -27,7 +27,7 @@ public interface UserService {
     void deleteAddress(Long customerId, Long addressId);
 
     Page<User> getAllUsers(String keyword, String roleCode, String status, Pageable pageable);
-    void toggleUserStatus(Long userId, Long adminId);
+    void setUserStatus(Long userId, String targetStatus, Long adminId);
     User createStaffAccount(com.petshop.dto.admin.StaffCreateRequestDto request);
     void updateUserByAdmin(Long userId, com.petshop.dto.admin.UserAdminUpdateDto request, Long currentAdminId);
     void resendStaffInvitation(Long userId);

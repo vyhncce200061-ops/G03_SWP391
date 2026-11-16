@@ -26,7 +26,7 @@ Lưu thành công → hủy session đặt mật khẩu → trang login ở tr�
 - Admin bấm Gửi lại cho Staff ACTIVE đang chờ đặt mật khẩu. Link cũ hết hiệu lực, token mới có hạn 30 phút.
 - Không gửi lời mời cho Customer, tài khoản bị khóa hoặc Staff đã thiết lập mật khẩu.
 - Nếu SMTP lỗi, rollback việc thay token để link cũ còn hiệu lực trong thời gian còn lại.
-- Nếu Admin sửa email, link đã gửi đến email cũ hết hiệu lực; dùng Gửi lại để gửi link đến địa chỉ mới.
+- Admin chỉ sửa họ tên Staff; không đổi email/SĐT đăng nhập. Sửa họ tên giữ nguyên email nhận thư và link đã gửi. Quyền quản lý tài khoản hiện tại: [ACCOUNT_MANAGEMENT.md](ACCOUNT_MANAGEMENT.md).
 
 Thu hồi token bằng mốc UsedAt (đã dùng hoặc đã bị thu hồi), giữ nguyên ExpiresAt ban đầu. Cách này giữ CHECK ExpiresAt > CreatedAt của schema hiện có, kể cả khi gửi lại ngay trong cùng giây.
 

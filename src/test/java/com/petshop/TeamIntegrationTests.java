@@ -581,6 +581,37 @@ class TeamIntegrationTests {
         assertEquals(8,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(PaymentMethod.class)
+    void completionNoticeAndPaymentStateMatchThePaymentMethod(PaymentMethod method) throws Exception {
+        var order=purchasedOrder();
+        orderService.confirmOrder(order.getId(),staff.getId());
+        if(method==PaymentMethod.VNPAY) {
+            new TransactionTemplate(transactionManager).executeWithoutResult(tx->{
+                var paid=orderRepository.findById(order.getId()).orElseThrow();
+                paid.setPaymentMethod(PaymentMethod.VNPAY);paid.setPaymentStatus(PaymentStatus.PAID);orderRepository.save(paid);
+                paymentTransactions.save(PaymentTransaction.builder().transactionCode("NOTICE-"+key).order(paid).customer(customer)
+                        .paymentMethod(PaymentMethod.VNPAY).amount(paid.getTotalAmount()).transactionStatus(TransactionStatus.SUCCESS)
+                        .paidAt(java.time.LocalDateTime.now()).build());
+            });
+        }
+        orderService.markPreparing(order.getId(),staff.getId());
+        orderService.markShipping(order.getId(),staff.getId());
+        int allocatedStock=variants.findById(variant.getId()).orElseThrow().getStockQuantity();
+        var result=mvc.perform(post("/staff/orders/"+order.getId()+"/complete").with(user(new CustomUserDetails(staff))).with(csrf()))
+                .andExpect(redirectedUrl("/staff/orders/"+order.getId())).andExpect(flash().attributeExists("successMessage")).andReturn();
+        String notice=String.valueOf(result.getFlashMap().get("successMessage"));
+        assertTrue(notice.contains("hoàn tất"));
+        if(method==PaymentMethod.VNPAY) assertFalse(notice.contains("COD"),"Completing prepaid VNPay must not claim that COD was collected");
+        var completed=orderRepository.findById(order.getId()).orElseThrow();
+        assertEquals(OrderStatus.COMPLETED,completed.getOrderStatus());
+        assertEquals(PaymentStatus.PAID,completed.getPaymentStatus());
+        assertEquals(allocatedStock,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        mvc.perform(post("/staff/orders/"+order.getId()+"/complete").with(user(new CustomUserDetails(staff))).with(csrf()))
+                .andExpect(flash().attributeExists("errorMessage"));
+        assertEquals(allocatedStock,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+    }
+
     @Test void productAndReceiptPaginationRetainsEscapedKeywordAndAdminRoutes() throws Exception {
         product.setName("A&B " + key);products.save(product);
         products.save(Product.builder().category(category).createdBy(admin).name("A&B "+key+" extra").slug("extra-"+key).petType(PetType.DOG).build());
