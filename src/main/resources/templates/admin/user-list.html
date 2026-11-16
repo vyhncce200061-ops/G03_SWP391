@@ -116,7 +116,10 @@
                         <td class="text-muted small" th:text="${#temporals.format(u.createdAt, 'dd/MM/yyyy HH:mm')}">01/01/2026 12:00</td>
                         <td class="text-end pe-4">
                             <div class="d-inline-flex gap-1">
-                                <a th:href="@{/admin/users/{id}/edit(id=${u.id})}" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa thông tin">
+                                <a th:href="@{/admin/users/{id}(id=${u.id})}" class="btn btn-sm btn-outline-secondary" title="Xem tài khoản" aria-label="Xem tài khoản">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a th:if="${u.role.code == 'STAFF'}" th:href="@{/admin/users/{id}/edit(id=${u.id})}" class="btn btn-sm btn-outline-primary" title="Chỉnh sửa họ tên Staff" aria-label="Chỉnh sửa họ tên Staff">
                                     <i class="bi bi-pencil"></i>
                                 </a>
 
@@ -124,8 +127,9 @@
                                       th:action="@{/admin/users/{id}/resend-invitation(id=${u.id})}" method="post" class="d-inline">
                                     <button type="submit" class="btn btn-sm btn-outline-info" title="Gửi lại lời mời nhận tài khoản"><i class="bi bi-envelope-arrow-up"></i> Gửi lại</button>
                                 </form>
-                                <form th:action="@{/admin/users/{id}/toggle-status(id=${u.id})}" method="post" class="d-inline"
+                                <form th:if="${currentAdminId == null or u.id != currentAdminId}" th:action="@{/admin/users/{id}/toggle-status(id=${u.id})}" method="post" class="d-inline"
                                       onsubmit="return confirm('Bạn có chắc chắn muốn thay đổi trạng thái hoạt động của tài khoản này?');">
+                                    <input type="hidden" name="targetStatus" th:value="${u.status == 'ACTIVE' ? 'LOCKED' : 'ACTIVE'}">
                                     <button type="submit" class="btn btn-sm"
                                             th:classappend="${u.status == 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}"
                                             th:title="${u.status == 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}">

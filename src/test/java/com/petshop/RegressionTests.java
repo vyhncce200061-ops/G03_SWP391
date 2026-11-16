@@ -333,7 +333,7 @@ class RegressionTests {
         em.clear();assertEquals(10,vouchers.findById(v.getId()).orElseThrow().getTotalUsageLimit());
     }
     @Test void activeLastAdminCannotBeLocked() {
-        assertThrows(IllegalArgumentException.class,()->userService.toggleUserStatus(admin.getId(),staff.getId()));
+        assertThrows(IllegalArgumentException.class,()->userService.setUserStatus(admin.getId(),"LOCKED",admin.getId()));
         assertEquals("ACTIVE",users.findById(admin.getId()).orElseThrow().getStatus());
     }
     @Test void existingSessionIsRevokedWhenAccountLockedOrRoleChanged() throws Exception {
@@ -455,17 +455,20 @@ class RegressionTests {
         assertEquals(0,tokens.count());
     }
 
-    @Test void changingInvitedStaffEmailRevokesPreviouslySentLink() {
+    @Test void editingInvitedStaffNameKeepsOriginalEmailAndInvitationUsable() {
         var created=userService.createStaffAccount(StaffCreateRequestDto.builder().fullName("Staff pending")
                 .email("previous@regression.test").phone("0901000010").build());
         var links=org.mockito.ArgumentCaptor.forClass(String.class);
         verify(emailService).sendStaffInvitation(eq(created.getEmail()),anyString(),links.capture());
         String previous=java.net.URI.create(links.getValue()).getQuery().substring(6);
         userService.updateUserByAdmin(created.getId(),com.petshop.dto.admin.UserAdminUpdateDto.builder()
-                .fullName(created.getFullName()).email("changed@regression.test").phone(created.getPhone()).status("ACTIVE").build(),admin.getId());
-        assertFalse(auth.verifyPasswordResetToken(previous));
+                .fullName("Updated staff name").build(),admin.getId());
+        assertTrue(auth.verifyPasswordResetToken(previous));
+        assertEquals("previous@regression.test",users.findById(created.getId()).orElseThrow().getEmail());
+        verify(emailService,times(1)).sendStaffInvitation(eq("previous@regression.test"),anyString(),anyString());
         userService.resendStaffInvitation(created.getId());
-        verify(emailService).sendStaffInvitation(eq("changed@regression.test"),anyString(),contains("/reset-password?token="));
+        assertFalse(auth.verifyPasswordResetToken(previous));
+        verify(emailService,times(2)).sendStaffInvitation(eq("previous@regression.test"),anyString(),contains("/reset-password?token="));
     }
 
     @Test void accountEditingCannotChangeRolesOrReassignRelatedData() throws Exception {
@@ -473,10 +476,11 @@ class RegressionTests {
         var order=orderService.checkoutOrder(customer.getId(),checkout());
         product.setCreatedBy(staff);products.saveAndFlush(product);
         for (User target : List.of(customer,staff)) {
-            mvc.perform(post("/admin/users/"+target.getId()+"/edit").with(user(new CustomUserDetails(admin))).with(csrf())
+            var result=mvc.perform(post("/admin/users/"+target.getId()+"/edit").with(user(new CustomUserDetails(admin))).with(csrf())
                     .param("fullName",target.getFullName()).param("email",target.getEmail()).param("phone",target.getPhone())
-                    .param("status","ACTIVE").param("roleCode",target==customer?"STAFF":"CUSTOMER").param("roleId",admin.getRole().getId().toString()))
-                    .andExpect(redirectedUrl("/admin/users"));
+                    .param("status","ACTIVE").param("roleCode",target==customer?"STAFF":"CUSTOMER").param("roleId",admin.getRole().getId().toString()));
+            if (target==customer) result.andExpect(redirectedUrl("/admin/users/"+target.getId()));
+            else result.andExpect(status().isOk()).andExpect(model().attributeHasErrors("userForm"));
         }
         em.flush();em.clear();
         assertEquals("CUSTOMER",users.findById(customer.getId()).orElseThrow().getRole().getCode());

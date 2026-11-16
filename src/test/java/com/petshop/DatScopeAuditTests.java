@@ -57,12 +57,13 @@ class DatScopeAuditTests {
             .startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(1))
             .totalUsageLimit(10).perCustomerLimit(1).status(VoucherStatus.ACTIVE).build();}
 
-    @Test void accountUpdateRejectsPipeAsPhoneDigit() throws Exception {
+    @Test void adminCannotEditCustomerContactInformation() throws Exception {
         mvc.perform(post("/admin/users/"+customer.getId()+"/edit").with(user(new CustomUserDetails(admin))).with(csrf())
                 .param("id",customer.getId().toString()).param("fullName","Valid customer").param("email",customer.getEmail())
                 .param("phone","0|12345678").param("status","ACTIVE"))
-                .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("userForm","phone"));
+                .andExpect(redirectedUrl("/admin/users/"+customer.getId())).andExpect(flash().attributeExists("errorMessage"));
         assertNull(users.findById(customer.getId()).orElseThrow().getPhone());
+        assertEquals(customer.getFullName(),users.findById(customer.getId()).orElseThrow().getFullName());
     }
 
     @Test void invalidVoucherEditRetainsPathIdAndEditFormAction() throws Exception {
@@ -79,7 +80,7 @@ class DatScopeAuditTests {
     }
 
     @Test void invalidAccountEditRetainsPathIdAndEditFormAction() throws Exception {
-        String path="/admin/users/"+customer.getId()+"/edit";
+        String path="/admin/users/"+staff.getId()+"/edit";
         String html=mvc.perform(post(path).with(user(new CustomUserDetails(admin))).with(csrf()).param("id","-1")
                 .param("fullName","").param("status","ACTIVE"))
                 .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("userForm","fullName"))
@@ -144,7 +145,7 @@ class DatScopeAuditTests {
         }finally{pool.shutdownNow();}
     }
 
-    @Test void invalidAccountFormsAndDuplicateContactsCannotMutateUsers() throws Exception {
+    @Test void invalidStaffCreationAndCustomerEditCannotMutateUsers() throws Exception {
         for(String field:List.of("fullName","email","phone")) {
             String name=field.equals("fullName")?" ":"Staff test";
             String email=field.equals("email")?"invalid":"newstaff"+key+"@scope.test";
@@ -154,7 +155,7 @@ class DatScopeAuditTests {
                     .andExpect(status().isOk()).andExpect(model().attributeHasFieldErrors("staffForm",field));
         }
         assertFalse(users.existsByEmail("newstaff"+key+"@scope.test"));
-        var dto=UserAdminUpdateDto.builder().fullName("Changed name").email(admin.getEmail()).status("ACTIVE").build();
+        var dto=UserAdminUpdateDto.builder().fullName("Changed name").build();
         assertThrows(IllegalArgumentException.class,()->accounts.updateUserByAdmin(customer.getId(),dto,admin.getId()));
         assertEquals(customer.getFullName(),users.findById(customer.getId()).orElseThrow().getFullName());
         org.mockito.Mockito.verifyNoInteractions(mail);
@@ -173,8 +174,8 @@ class DatScopeAuditTests {
     @Test void simultaneousAdminLocksKeepOneActiveAdmin() throws Exception {
         var other=account("ADMIN");
         jdbc.update("UPDATE dbo.Users SET Status='LOCKED' WHERE RoleId=? AND Id NOT IN (?,?)",admin.getRole().getId(),admin.getId(),other.getId());
-        var result=race(()->{try{accounts.toggleUserStatus(other.getId(),admin.getId());return true;}catch(IllegalArgumentException e){return false;}},
-                ()->{try{accounts.toggleUserStatus(admin.getId(),other.getId());return true;}catch(IllegalArgumentException e){return false;}});
+        var result=race(()->{try{accounts.setUserStatus(other.getId(),"LOCKED",admin.getId());return true;}catch(IllegalArgumentException | org.springframework.security.access.AccessDeniedException e){return false;}},
+                ()->{try{accounts.setUserStatus(admin.getId(),"LOCKED",other.getId());return true;}catch(IllegalArgumentException | org.springframework.security.access.AccessDeniedException e){return false;}});
         assertEquals(1,result.stream().filter(Boolean::booleanValue).count());assertEquals(1,users.countByRoleCodeAndStatus("ADMIN","ACTIVE"));
     }
 

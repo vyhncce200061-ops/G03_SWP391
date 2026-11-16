@@ -37,7 +37,7 @@ public class AuthServiceImpl implements AuthService {
     private final com.petshop.config.security.JwtService registrationTokens;
     private final com.petshop.service.EmailService emailService;
     private final jakarta.validation.Validator validator;
-    @org.springframework.beans.factory.annotation.Value("${petshop.public-base-url:http://localhost:8080}")
+    @org.springframework.beans.factory.annotation.Value("${petshop.public-base-url:http://localhost:${server.port:8081}}")
     private String baseUrl;
 
     @Override
