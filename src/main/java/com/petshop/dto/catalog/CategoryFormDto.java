@@ -2,7 +2,6 @@ package com.petshop.dto.catalog;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -24,7 +23,7 @@ public class CategoryFormDto {
     private Integer parentId;
 
     @Min(value = 0, message = "Thứ tự hiển thị không được âm.")
-    private Integer sortOrder = 0;
+    private Integer sortOrder;
 
-    private Boolean isActive = true;
+    private Boolean isActive;
 }

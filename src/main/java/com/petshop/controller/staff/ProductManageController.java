@@ -50,7 +50,7 @@ public class ProductManageController {
         model.addAttribute("keyword", keyword);
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("selectedStatus", status);
-        model.addAttribute("categories", catalogService.getAllCategories());
+        model.addAttribute("categories", categories.listCategories());
         return "staff/product-list";
     }
 
@@ -271,12 +271,14 @@ public class ProductManageController {
 
     private String productForm(Model model) {
         ProductFormDto dto = (ProductFormDto) model.getAttribute("productForm");
+        Integer currentCategoryId = null;
         if (dto.getId() != null) {
             ProductFormDto stored = ProductFormDto.fromEntity(productManageService.findById(dto.getId()));
+            currentCategoryId = stored.getCategoryId();
             dto.setExistingImageIds(stored.getExistingImageIds());
             dto.setExistingImageUrls(stored.getExistingImageUrls());
         }
-        model.addAttribute("categories", categories.productOptions(dto.getCategoryId()));
+        model.addAttribute("categories", categories.productOptions(currentCategoryId));
         model.addAttribute("brands", catalogService.getBrandOptions(dto.getBrandId()));
         return "staff/product-form";
     }

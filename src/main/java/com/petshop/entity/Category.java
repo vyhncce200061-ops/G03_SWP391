@@ -29,7 +29,7 @@ public class Category {
     @JoinColumn(name = "ParentCategoryId")
     private Category parentCategory;
 
-    @OneToMany(mappedBy = "parentCategory", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "parentCategory")
     @Builder.Default
     private List<Category> subCategories = new ArrayList<>();
 

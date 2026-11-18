@@ -5,6 +5,7 @@ import com.petshop.exception.ResourceNotFoundException;
 import com.petshop.entity.*;
 import com.petshop.entity.enums.ProductStatus;
 import com.petshop.repository.*;
+import com.petshop.service.CategoryManageService;
 import com.petshop.service.ProductManageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +32,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final UserRepository userRepository;
-    private final CategoryRepository categoryRepository;
+    private final CategoryManageService categories;
     private final BrandRepository brandRepository;
     private final ProductImageRepository productImageRepository;
     private final jakarta.validation.Validator validator;
@@ -115,8 +116,7 @@ public class ProductManageServiceImpl implements ProductManageService {
 
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên"));
-        Category category = categoryRepository.findById(form.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục"));
+        Category category = categories.categoryForProduct(form.getCategoryId(), null);
         Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thương hiệu đã chọn.")) : null;
 
@@ -143,8 +143,8 @@ public class ProductManageServiceImpl implements ProductManageService {
 
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên"));
-        Category category = categoryRepository.findById(form.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục"));
+        Integer currentCategoryId = product.getCategory() == null ? null : product.getCategory().getId();
+        Category category = categories.categoryForProduct(form.getCategoryId(), currentCategoryId);
         Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thương hiệu đã chọn.")) : null;
 

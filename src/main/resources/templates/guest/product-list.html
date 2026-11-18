@@ -386,10 +386,8 @@
                             <div class="card-body d-flex flex-column">
 
                                 <!-- DANH MỤC -->
-                                <p class="small text-success mb-2"
-                                   th:text="${product.categoryName != null
-                                       ? product.categoryName
-                                       : 'Chưa phân loại'}">
+                                <p class="small text-success mb-2" th:if="${product.categoryName != null}"
+                                   th:text="${product.categoryName}">
                                     Danh mục
                                 </p>
 
