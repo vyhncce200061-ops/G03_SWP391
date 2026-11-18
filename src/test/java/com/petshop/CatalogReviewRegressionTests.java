@@ -152,6 +152,36 @@ class CatalogReviewRegressionTests {
         }
     }
 
+    @Test
+    void concurrentParentShutdownAndChildActivationLeaveTheWholeBranchInactive() throws Exception {
+        Category root = category("Root", null);
+        Category child = category("Child", root);
+        categoryService.setActive(child.getId(), false);
+        var pool = Executors.newFixedThreadPool(2);
+        CountDownLatch childStarted = new CountDownLatch(1);
+        try {
+            var childActivation = new TransactionTemplate(transactionManager).execute(status -> {
+                categoryService.setActive(root.getId(), false);
+                var activation = pool.submit(() -> {
+                    childStarted.countDown();
+                    return assertThrows(IllegalArgumentException.class, () -> categoryService.setActive(child.getId(), true));
+                });
+                try {
+                    assertTrue(childStarted.await(5, TimeUnit.SECONDS));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError(ex);
+                }
+                return activation;
+            });
+            assertTrue(childActivation.get(10, TimeUnit.SECONDS).getMessage().contains("danh mục cha trước"));
+            assertFalse(categoryService.editForm(root.getId()).getIsActive());
+            assertFalse(categories.findById(child.getId()).orElseThrow().getIsActive());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     private boolean moveAfter(CountDownLatch start, Category category, Category parent) throws Exception {
         start.await();
         try {

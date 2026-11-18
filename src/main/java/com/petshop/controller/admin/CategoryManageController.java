@@ -28,8 +28,11 @@ public class CategoryManageController {
     }
 
     @GetMapping
-    public String listCategories(@RequestParam(required = false) Integer expanded, Model model) {
-        var roots = categories.listTree();
+    public String listCategories(@RequestParam(required = false) Integer expanded,
+                                 @RequestParam(defaultValue = "all") String status, Model model) {
+        boolean activeOnly = "active".equals(status);
+        var roots = activeOnly ? categories.activeManagementTree() : categories.listTree();
+        model.addAttribute("activeOnly", activeOnly);
         model.addAttribute("categories", roots);
         model.addAttribute("childCount", roots.stream().mapToInt(c -> c.getChildren().size()).sum());
         model.addAttribute("expandedParentId", roots.stream().filter(c -> c.getId().equals(expanded))
@@ -39,7 +42,9 @@ public class CategoryManageController {
 
     @GetMapping("/create")
     public String showCreateForm(Model model) {
-        model.addAttribute("categoryForm", new CategoryFormDto());
+        CategoryFormDto dto = new CategoryFormDto();
+        dto.setIsActive(true);
+        model.addAttribute("categoryForm", dto);
         return form(model, null, null);
     }
 
@@ -49,6 +54,7 @@ public class CategoryManageController {
             CategoryViewDto parent = categories.parentForCreation(parentId);
             CategoryFormDto dto = new CategoryFormDto();
             dto.setParentId(parentId);
+            dto.setIsActive(parent.isVisible());
             model.addAttribute("categoryForm", dto);
             return form(model, null, parent);
         } catch (IllegalArgumentException ex) {
@@ -99,7 +105,7 @@ public class CategoryManageController {
             return missing(redirect, ex);
         }
         if (categories.isParent(id) && dto.getParentId() != null) {
-            errors.reject("category.rootCannotHaveParent", "Danh mục cha là cấp cao nhất, không thể thêm danh mục cha mà chỉ có thể thêm danh mục con.");
+            errors.reject("category.rootCannotHaveParent", "Không thể chuyển danh mục cha thành danh mục con.");
         }
         return save(id, dto, errors, model, redirect, null);
     }
@@ -115,6 +121,9 @@ public class CategoryManageController {
             return form(model, id, creationParent);
         } catch (DataIntegrityViolationException ex) {
             errors.reject("category.conflict", "Không thể lưu. Mã có thể đã tồn tại hoặc danh mục cha vừa thay đổi. Vui lòng kiểm tra lại.");
+            return form(model, id, creationParent);
+        } catch (TransientDataAccessException ex) {
+            errors.reject("category.busy", "Danh mục vừa được cập nhật bởi thao tác khác. Vui lòng tải lại trang rồi thử lại.");
             return form(model, id, creationParent);
         }
         redirect.addFlashAttribute("successMessage", id == null ? "Thêm danh mục thành công." : "Cập nhật danh mục thành công.");

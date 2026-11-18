@@ -5,10 +5,17 @@ import com.petshop.dto.catalog.CategoryViewDto;
 import com.petshop.entity.Category;
 import com.petshop.repository.CategoryRepository;
 import com.petshop.repository.ProductRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,14 +25,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class CategoryManageService {
     private final CategoryRepository categories;
     private final ProductRepository products;
-    private final jakarta.persistence.EntityManager entityManager;
+    private final EntityManager entityManager;
 
     public List<CategoryViewDto> listCategories() {
-        return flatten(tree(false));
+        return flatten(listTree());
     }
 
     public List<CategoryViewDto> listTree() {
-        return tree(false);
+        return tree(categories.findAllByOrderBySortOrderAscNameAscIdAsc());
+    }
+
+    public List<CategoryViewDto> activeManagementTree() {
+        List<Category> active = categories.findAllByOrderBySortOrderAscNameAscIdAsc().stream()
+                .filter(CategoryManageService::isActiveInHierarchy).toList();
+        return tree(active);
     }
 
     public CategoryViewDto parentForCreation(Integer parentId) {
@@ -37,20 +50,19 @@ public class CategoryManageService {
     }
 
     public List<CategoryViewDto> activeTree() {
-        return tree(true);
+        return tree(activeCategories());
     }
 
     public List<Category> activeCategories() {
-        List<Category> all = categories.findAllByOrderBySortOrderAscNameAscIdAsc();
-        List<Category> result = new ArrayList<>();
-        for (Category root : all) {
-            if (root.getParentCategory() != null || !Boolean.TRUE.equals(root.getIsActive())) continue;
-            result.add(root);
-            all.stream().filter(c -> c.getParentCategory() != null
-                    && root.getId().equals(c.getParentCategory().getId())
-                    && Boolean.TRUE.equals(c.getIsActive())).forEach(result::add);
-        }
-        return result;
+        return categories.findStorefrontCategories();
+    }
+
+    public static boolean isActiveInHierarchy(Category category) {
+        return Boolean.TRUE.equals(category.getIsActive()) && allowsActiveChild(category.getParentCategory());
+    }
+
+    private static boolean allowsActiveChild(Category parent) {
+        return parent == null || (parent.getParentCategory() == null && Boolean.TRUE.equals(parent.getIsActive()));
     }
 
     public List<CategoryViewDto> productOptions(Integer selectedId) {
@@ -59,7 +71,7 @@ public class CategoryManageService {
     }
 
     public List<CategoryViewDto> parentOptions(Integer id) {
-        return tree(false).stream().filter(c -> !c.getId().equals(id)).toList();
+        return listTree().stream().filter(c -> !c.getId().equals(id)).toList();
     }
 
     public boolean hasChildren(Integer id) {
@@ -80,34 +92,41 @@ public class CategoryManageService {
         form.setName(category.getName());
         form.setDescription(category.getDescription());
         form.setSortOrder(category.getSortOrder());
-        form.setIsActive(category.getIsActive());
-        form.setParentId(category.getParentCategory() == null ? null : category.getParentCategory().getId());
+        form.setIsActive(isActiveInHierarchy(category));
+        form.setParentId(parentId(category));
         return form;
     }
 
     @Transactional
     public Integer save(Integer id, CategoryFormDto form) {
-        // Lock the edited category and the proposed parent in one stable order.
-        // Re-read their levels after a concurrent move before checking the tree.
-        java.util.stream.Stream.of(id, form.getParentId()).filter(Objects::nonNull)
-                .distinct().sorted().forEach(this::lockCategory);
-        Category category = id == null ? new Category() : requireCategory(id);
+        Integer destination = form.getParentId();
+        if (destination != null && Objects.equals(destination, id)) {
+            throw new IllegalArgumentException("Danh mục không thể là cha của chính nó.");
+        }
+        Category category = id == null ? new Category() : lockForChange(id, destination);
+        Category parent = destination == null ? null : (id == null ? lockCategory(destination) : requireCategory(destination));
         categories.findByCodeIgnoreCase(form.getCode()).filter(c -> !c.getId().equals(id))
                 .ifPresent(c -> { throw new IllegalArgumentException("Mã danh mục đã tồn tại."); });
-        Category parent = form.getParentId() == null ? null : requireCategory(form.getParentId());
         if (parent != null) {
-            if (Objects.equals(parent.getId(), id)) {
-                throw new IllegalArgumentException("Danh mục không thể là cha của chính nó.");
-            }
             if (parent.getParentCategory() != null) {
                 throw new IllegalArgumentException("Chỉ được chọn danh mục cấp cha; hệ thống hỗ trợ tối đa hai cấp.");
             }
             if (id != null && category.getParentCategory() == null) {
-                throw new IllegalArgumentException("Danh mục cha là cấp cao nhất, không thể thêm danh mục cha mà chỉ có thể thêm danh mục con.");
+                throw new IllegalArgumentException("Không thể chuyển danh mục cha thành danh mục con.");
             }
             if (hasChildren(id)) {
                 throw new IllegalArgumentException("Danh mục đang có danh mục con nên phải giữ ở cấp cha.");
             }
+        }
+        boolean active = id == null ? allowsActiveChild(parent) : isActiveInHierarchy(category);
+        if (form.getIsActive() != null) {
+            active = form.getIsActive();
+        }
+        requireActiveParent(parent, active);
+        // Clean up old data before reopening a branch. An inactive root may still
+        // have children marked active by earlier versions of the application.
+        if (id != null && parent == null && (!active || !Boolean.TRUE.equals(category.getIsActive()))) {
+            deactivateChildren(id);
         }
         category.setCode(form.getCode());
         category.setName(form.getName());
@@ -117,7 +136,7 @@ public class CategoryManageService {
         } else if (category.getSortOrder() == null) {
             category.setSortOrder(0);
         }
-        category.setIsActive(Boolean.TRUE.equals(form.getIsActive()));
+        category.setIsActive(active);
         category.setParentCategory(parent);
         categories.saveAndFlush(category);
         return category.getId();
@@ -125,25 +144,58 @@ public class CategoryManageService {
 
     @Transactional
     public Integer toggleStatus(Integer id) {
-        Category category = lockCategory(id);
-        return saveStatus(category, !Boolean.TRUE.equals(category.getIsActive()));
+        Category category = lockForChange(id, null);
+        return saveStatus(category, !isActiveInHierarchy(category));
     }
 
     @Transactional
     public Integer setActive(Integer id, boolean active) {
-        return saveStatus(lockCategory(id), active);
+        return saveStatus(lockForChange(id, null), active);
     }
 
     private Integer saveStatus(Category category, boolean active) {
-        // Explicit targets keep repeated submissions from reversing the requested action.
+        Category parent = category.getParentCategory();
+        requireActiveParent(parent, active);
+        if (parent == null && (!active || !Boolean.TRUE.equals(category.getIsActive()))) {
+            deactivateChildren(category.getId());
+        }
         category.setIsActive(active);
-        categories.save(category);
-        return category.getParentCategory() == null ? category.getId() : category.getParentCategory().getId();
+        return parent == null ? category.getId() : parent.getId();
+    }
+
+    private void requireActiveParent(Category parent, boolean active) {
+        if (active && !allowsActiveChild(parent)) {
+            throw new IllegalArgumentException("Hãy kích hoạt danh mục cha trước khi kích hoạt danh mục con.");
+        }
+    }
+
+    private void deactivateChildren(Integer rootId) {
+        for (Category child : categories.findByParentCategory_IdAndIsActiveTrue(rootId)) {
+            entityManager.refresh(child, LockModeType.PESSIMISTIC_WRITE);
+            child.setIsActive(false);
+        }
+    }
+
+    @Transactional
+    public Category categoryForProduct(Integer id, Integer existingId) {
+        if (Objects.equals(id, existingId)) {
+            return requireCategory(id);
+        }
+        Category category;
+        try {
+            category = lockForChange(id, null);
+        } catch (TransientDataAccessException ex) {
+            throw new IllegalArgumentException("Danh mục vừa thay đổi. Vui lòng tải lại trang rồi chọn danh mục.", ex);
+        }
+        if (!isActiveInHierarchy(category)) {
+            throw new IllegalArgumentException("Vui lòng chọn danh mục đang hoạt động cho sản phẩm.");
+        }
+        return category;
     }
 
     @Transactional
     public Integer delete(Integer id) {
-        Category category = lockCategory(id);
+        Category category = lockForChange(id, null);
         // Include inactive children and hidden products: their references must be preserved.
         if (categories.existsByParentCategory_Id(id)) {
             throw new IllegalArgumentException("Danh mục còn danh mục con nên không thể xóa. Bạn có thể ngừng hoạt động thay vì xóa.");
@@ -166,19 +218,41 @@ public class CategoryManageService {
     private Category lockCategory(Integer id) {
         Category category = categories.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Danh mục không tồn tại."));
-        entityManager.refresh(category, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        entityManager.refresh(category, LockModeType.PESSIMISTIC_WRITE);
         return category;
     }
 
-    private List<CategoryViewDto> tree(boolean activeOnly) {
-        List<Category> all = categories.findAllByOrderBySortOrderAscNameAscIdAsc();
+    private Category lockForChange(Integer id, Integer destination) {
+        // A fresh scalar read avoids using an old parent from the persistence context.
+        Integer currentParent = categories.findParentId(id);
+        if (destination != null && categories.findParentId(destination) != null) {
+            throw new IllegalArgumentException("Chỉ được chọn danh mục cấp cha; hệ thống hỗ trợ tối đa hai cấp.");
+        }
+        // Lock both roots in ID order, then the child. A parent shutdown uses the same order.
+        Integer currentRoot = currentParent == null ? id : currentParent;
+        Stream.of(currentRoot, destination).filter(Objects::nonNull)
+                .distinct().sorted().forEach(this::lockCategory);
+        Category category = currentParent == null ? requireCategory(id) : lockCategory(id);
+        if (!Objects.equals(currentParent, parentId(category))) {
+            throw new OptimisticLockingFailureException("Danh mục vừa được chuyển sang nhánh khác.");
+        }
+        return category;
+    }
+
+    private Integer parentId(Category category) {
+        return category.getParentCategory() == null ? null : category.getParentCategory().getId();
+    }
+
+    private List<CategoryViewDto> tree(List<Category> all) {
+        Map<Integer, List<CategoryViewDto>> children = new LinkedHashMap<>();
+        for (Category category : all) {
+            Integer parentId = parentId(category);
+            if (parentId != null) {
+                children.computeIfAbsent(parentId, key -> new ArrayList<>()).add(view(category, List.of()));
+            }
+        }
         return all.stream().filter(c -> c.getParentCategory() == null)
-                .filter(c -> !activeOnly || Boolean.TRUE.equals(c.getIsActive()))
-                .map(root -> view(root, all.stream()
-                        .filter(child -> child.getParentCategory() != null
-                                && root.getId().equals(child.getParentCategory().getId()))
-                        .filter(child -> !activeOnly || Boolean.TRUE.equals(child.getIsActive()))
-                        .map(child -> view(child, List.of())).toList())).toList();
+                .map(root -> view(root, children.getOrDefault(root.getId(), List.of()))).toList();
     }
 
     private CategoryViewDto view(Category category, List<CategoryViewDto> children) {
@@ -186,7 +260,7 @@ public class CategoryManageService {
         return new CategoryViewDto(category.getId(), category.getCode(), category.getName(),
                 category.getDescription(), category.getSortOrder(), category.getIsActive(),
                 parent == null ? null : parent.getId(), parent == null ? null : parent.getName(),
-                parent == null || Boolean.TRUE.equals(parent.getIsActive()), children);
+                allowsActiveChild(parent), List.copyOf(children));
     }
 
     private List<CategoryViewDto> flatten(List<CategoryViewDto> roots) {

@@ -13,6 +13,10 @@ import com.petshop.entity.enums.ProductVariantStatus;
 import com.petshop.repository.*;
 import com.petshop.service.CatalogService;
 import com.petshop.service.CategoryManageService;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -53,8 +57,9 @@ public class CatalogServiceImpl implements CatalogService {
             if (filter.getPetType() != null) predicates.add(cb.equal(root.get("petType"), filter.getPetType()));
             if (filter.getBrandId() != null) predicates.add(cb.equal(root.get("brand").get("id"), filter.getBrandId()));
             if (filter.getCategoryId() != null || (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank())) {
-                var category = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
-                var parent = category.join("parentCategory", jakarta.persistence.criteria.JoinType.LEFT);
+                var category = root.<Product, Category>join("category");
+                var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
+                predicates.add(activeCategory(cb, category, parent));
                 if (filter.getCategoryId() != null) predicates.add(cb.or(cb.equal(category.get("id"), filter.getCategoryId()), cb.equal(parent.get("id"), filter.getCategoryId())));
                 if (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank())
                     predicates.add(cb.or(cb.equal(category.get("code"), filter.getCategoryCode()), cb.equal(parent.get("code"), filter.getCategoryCode())));
@@ -75,6 +80,11 @@ public class CatalogServiceImpl implements CatalogService {
         }, pageable);
 
         return products.map(this::mapToSummaryDto);
+    }
+
+    private Predicate activeCategory(CriteriaBuilder cb, Path<Category> category, Path<Category> parent) {
+        return cb.and(cb.isTrue(category.get("isActive")), cb.or(cb.isNull(parent.get("id")),
+                cb.and(cb.isTrue(parent.get("isActive")), cb.isNull(parent.get("parentCategory")))));
     }
 
     @Override
@@ -152,7 +162,8 @@ public class CatalogServiceImpl implements CatalogService {
                 .id(product.getId())
                 .name(product.getName())
                 .slug(product.getSlug())
-                .categoryName(product.getCategory() != null ? product.getCategory().getName() : "")
+                .categoryName(product.getCategory() != null && CategoryManageService.isActiveInHierarchy(product.getCategory())
+                        ? product.getCategory().getName() : null)
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : "")
                 .petType(product.getPetType())
                 .primaryImageUrl(primaryImageUrl)
@@ -173,8 +184,9 @@ public class CatalogServiceImpl implements CatalogService {
             predicates.add(cb.equal(root.get("status"), ProductStatus.ACTIVE));
             if (keyword != null && !keyword.isBlank()) predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
             if (categoryId != null) {
-                var category = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
-                var parent = category.join("parentCategory", jakarta.persistence.criteria.JoinType.LEFT);
+                var category = root.<Product, Category>join("category");
+                var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
+                predicates.add(activeCategory(cb, category, parent));
                 predicates.add(cb.or(cb.equal(category.get("id"), categoryId), cb.equal(parent.get("id"), categoryId)));
             }
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));

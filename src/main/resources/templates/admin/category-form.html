@@ -39,7 +39,7 @@
                         </select>
                         <input th:if="${parentLocked}" type="hidden" name="parentId" value="">
                         <div class="invalid-feedback" th:errors="*{parentId}"></div>
-                        <div id="parentHelp" class="form-text" th:if="${parentLocked}">Danh mục cha là cấp cao nhất, chỉ có thể thêm danh mục con chứ không thể thêm danh mục cha.</div>
+                        <div id="parentHelp" class="form-text" th:if="${parentLocked}">Danh mục cha luôn ở cấp cao nhất.</div>
                     </th:block>
                 </div>
                 <div class="col-12">
@@ -48,8 +48,15 @@
                     <div class="invalid-feedback" th:errors="*{description}"></div>
                 </div>
                 <div class="col-12">
-                    <div class="form-check"><input id="isActive" type="checkbox" th:field="*{isActive}" class="form-check-input"><label for="isActive" class="form-check-label">Đang hoạt động</label></div>
-                    <p class="form-text mb-0">Danh mục ngừng hoạt động sẽ không xuất hiện trong menu cửa hàng. Ngừng danh mục cha sẽ ẩn cả nhánh khỏi menu, không đổi trạng thái bán của sản phẩm.</p>
+                    <div class="form-check">
+                        <input id="isActive" type="checkbox" th:field="*{isActive}" class="form-check-input"
+                               th:disabled="${creationParent != null and !creationParent.visible}">
+                        <label for="isActive" class="form-check-label">Đang hoạt động</label>
+                    </div>
+                    <input th:if="${creationParent != null and !creationParent.visible}" type="hidden" name="isActive" value="false">
+                    <div class="small text-danger mt-1" th:errors="*{isActive}"></div>
+                    <p class="form-text mb-0" th:if="${creationParent == null and (categoryId == null or isParentCategory)}">Ngừng hoạt động danh mục cha sẽ ngừng luôn các danh mục con. Khi bật lại danh mục cha, bạn có thể bật từng danh mục con.</p>
+                    <p class="form-text mb-0" th:if="${creationParent != null or (categoryId != null and !isParentCategory)}">Danh mục con chỉ hiện ở cửa hàng khi đang hoạt động và có sản phẩm đang bán. Bạn có thể gắn sản phẩm trực tiếp vào danh mục cha nếu không cần chia nhóm.</p>
                 </div>
             </div>
             <div class="d-flex flex-wrap gap-2 mt-4">

@@ -29,7 +29,7 @@
                     <select name="categoryId" class="form-select">
                         <option value="">Tất cả danh mục</option>
                         <option th:each="category : ${categories}" th:value="${category.id}"
-                                th:text="${category.parentCategory == null ? category.name : category.parentCategory.name + ' / ' + category.name}"
+                                th:text="${category.optionLabel}"
                                 th:selected="${selectedCategoryId != null and selectedCategoryId == category.id}">
                         </option>
                     </select>
