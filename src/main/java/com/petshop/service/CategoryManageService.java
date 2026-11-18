@@ -123,6 +123,9 @@ public class CategoryManageService {
             active = form.getIsActive();
         }
         requireActiveParent(parent, active);
+        if (id != null) {
+            validateDeactivation(category, parent, active);
+        }
         // Clean up old data before reopening a branch. An inactive root may still
         // have children marked active by earlier versions of the application.
         if (id != null && parent == null && (!active || !Boolean.TRUE.equals(category.getIsActive()))) {
@@ -156,11 +159,25 @@ public class CategoryManageService {
     private Integer saveStatus(Category category, boolean active) {
         Category parent = category.getParentCategory();
         requireActiveParent(parent, active);
+        validateDeactivation(category, parent, active);
         if (parent == null && (!active || !Boolean.TRUE.equals(category.getIsActive()))) {
             deactivateChildren(category.getId());
         }
         category.setIsActive(active);
         return parent == null ? category.getId() : parent.getId();
+    }
+
+    private void validateDeactivation(Category category, Category parent, boolean active) {
+        Integer newParentId = parent == null ? null : parent.getId();
+        // Keep repeated requests safe, including old records already inactive.
+        if (active || (!isActiveInHierarchy(category) && Objects.equals(parentId(category), newParentId))) {
+            return;
+        }
+        long activeProducts = products.countActiveProductsInBranch(category.getId());
+        if (activeProducts > 0) {
+            throw new IllegalArgumentException("Nhánh danh mục còn " + activeProducts
+                    + " sản phẩm đang bán. Hãy chuyển chúng sang danh mục đang hoạt động hoặc ngừng bán trước.");
+        }
     }
 
     private void requireActiveParent(Category parent, boolean active) {
@@ -177,20 +194,12 @@ public class CategoryManageService {
     }
 
     @Transactional
-    public Category categoryForProduct(Integer id, Integer existingId) {
-        if (Objects.equals(id, existingId)) {
-            return requireCategory(id);
-        }
-        Category category;
+    public Category lockProductCategory(Integer id) {
         try {
-            category = lockForChange(id, null);
+            return lockForChange(id, null);
         } catch (TransientDataAccessException ex) {
             throw new IllegalArgumentException("Danh mục vừa thay đổi. Vui lòng tải lại trang rồi chọn danh mục.", ex);
         }
-        if (!isActiveInHierarchy(category)) {
-            throw new IllegalArgumentException("Vui lòng chọn danh mục đang hoạt động cho sản phẩm.");
-        }
-        return category;
     }
 
     @Transactional

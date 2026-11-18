@@ -31,6 +31,19 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     boolean existsByBrand_Id(Integer brandId);
     boolean existsByCategory_Id(Integer categoryId);
 
+    @Query("SELECT p.category.id FROM Product p WHERE p.id = :id")
+    Optional<Integer> findCategoryId(@Param("id") Long id);
+
+    @Query("""
+            SELECT COUNT(p) FROM Product p
+            WHERE p.status = com.petshop.entity.enums.ProductStatus.ACTIVE
+              AND p.category.id IN (
+                  SELECT c.id FROM Category c
+                  WHERE c.id = :id OR c.parentCategory.id = :id
+              )
+            """)
+    long countActiveProductsInBranch(@Param("id") Integer id);
+
     @Override
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"category", "brand"})
     Page<Product> findAll(org.springframework.data.jpa.domain.Specification<Product> spec, Pageable pageable);

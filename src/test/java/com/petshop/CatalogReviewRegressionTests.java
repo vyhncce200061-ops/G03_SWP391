@@ -5,12 +5,14 @@ import com.petshop.entity.Category;
 import com.petshop.entity.Product;
 import com.petshop.entity.Role;
 import com.petshop.entity.User;
+import com.petshop.entity.enums.ProductStatus;
 import com.petshop.repository.CategoryRepository;
 import com.petshop.repository.ProductRepository;
 import com.petshop.repository.RoleRepository;
 import com.petshop.repository.UserRepository;
 import com.petshop.service.CategoryManageService;
 import com.petshop.service.EmailService;
+import com.petshop.service.ProductManageService;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -43,6 +45,7 @@ class CatalogReviewRegressionTests {
     @Autowired CategoryRepository categories;
     @Autowired CategoryManageService categoryService;
     @Autowired ProductRepository products;
+    @Autowired ProductManageService productService;
     @Autowired RoleRepository roles;
     @Autowired UserRepository users;
     @Autowired PlatformTransactionManager transactionManager;
@@ -179,6 +182,45 @@ class CatalogReviewRegressionTests {
             assertFalse(categories.findById(child.getId()).orElseThrow().getIsActive());
         } finally {
             pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void concurrentParentShutdownAndProductActivationCannotBothSucceed() throws Exception {
+        Category root = category("Root with product", null);
+        Category child = category("Child with product", root);
+        Role role = roles.findByCode("CUSTOMER").orElseGet(() -> roles.save(Role.builder()
+                .code("CUSTOMER").name("Customer").build()));
+        String key = UUID.randomUUID().toString();
+        User author = users.save(User.builder().role(role).fullName("Catalog fixture")
+                .email(key + "@catalog.test").passwordHash("unused-test-hash").build());
+        Product product = products.saveAndFlush(Product.builder().category(child).createdBy(author)
+                .name("Pending product").slug(key).status(ProductStatus.HIDDEN).build());
+
+        CountDownLatch start = new CountDownLatch(1);
+        var pool = Executors.newFixedThreadPool(2);
+        try {
+            var shutdown = pool.submit(() -> doAfter(start, () -> categoryService.setActive(root.getId(), false)));
+            var activation = pool.submit(() -> doAfter(start, () -> productService.toggleProductStatus(product.getId(), ProductStatus.ACTIVE)));
+            start.countDown();
+            boolean deactivated = shutdown.get(12, TimeUnit.SECONDS);
+            boolean selling = activation.get(12, TimeUnit.SECONDS);
+            assertNotEquals(deactivated, selling);
+            assertEquals(selling, categoryService.editForm(root.getId()).getIsActive());
+            assertEquals(selling, categoryService.editForm(child.getId()).getIsActive());
+            assertEquals(selling ? ProductStatus.ACTIVE : ProductStatus.HIDDEN, products.findById(product.getId()).orElseThrow().getStatus());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private boolean doAfter(CountDownLatch start, Runnable action) throws InterruptedException {
+        assertTrue(start.await(5, TimeUnit.SECONDS));
+        try {
+            action.run();
+            return true;
+        } catch (IllegalArgumentException rejected) {
+            return false;
         }
     }
 
