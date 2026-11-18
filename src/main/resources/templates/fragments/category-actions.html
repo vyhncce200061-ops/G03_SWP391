@@ -2,6 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="actions(cat)" class="category-actions">
+    <a th:href="@{/admin/products(categoryId=${cat.id},status='ACTIVE')}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-seam me-1" aria-hidden="true"></i>Sản phẩm đang bán</a>
     <a th:href="@{/admin/categories/edit/{id}(id=${cat.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa</a>
     <form th:if="${cat.parentActive}"
           th:action="${cat.visible} ? @{/admin/categories/deactivate/{id}(id=${cat.id})} : @{/admin/categories/activate/{id}(id=${cat.id})}" method="post"

@@ -116,7 +116,8 @@ public class ProductManageServiceImpl implements ProductManageService {
 
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên"));
-        Category category = categories.categoryForProduct(form.getCategoryId(), null);
+        Category category = categories.lockProductCategory(form.getCategoryId());
+        requireActiveCategory(category);
         Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thương hiệu đã chọn.")) : null;
 
@@ -133,9 +134,9 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Transactional
     public Product updateProduct(Long id, ProductFormDto form, Long staffId) {
         validateForm(form);
-        Product product = productRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm."));
-        entityManager.refresh(product, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        // Keep the same category-before-product lock order as product activation.
+        Category category = categories.lockProductCategory(form.getCategoryId());
+        Product product = lockProduct(id);
 
         if (!product.getSlug().equals(form.getSlug()) && productRepository.existsBySlug(form.getSlug())) {
             throw new IllegalArgumentException("Slug \"" + form.getSlug() + "\" đã tồn tại.");
@@ -143,8 +144,9 @@ public class ProductManageServiceImpl implements ProductManageService {
 
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên"));
-        Integer currentCategoryId = product.getCategory() == null ? null : product.getCategory().getId();
-        Category category = categories.categoryForProduct(form.getCategoryId(), currentCategoryId);
+        if (form.getStatus() == ProductStatus.ACTIVE || !category.getId().equals(product.getCategory().getId())) {
+            requireActiveCategory(category);
+        }
         Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thương hiệu đã chọn.")) : null;
 
@@ -168,9 +170,30 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional
     public void toggleProductStatus(Long id, ProductStatus status) {
-        Product product = findById(id);
+        Integer categoryId = productRepository.findCategoryId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm."));
+        Category category = categories.lockProductCategory(categoryId);
+        Product product = lockProduct(id);
+        if (!categoryId.equals(product.getCategory().getId())) {
+            throw new IllegalArgumentException("Danh mục của sản phẩm vừa thay đổi. Vui lòng tải lại trang rồi thử lại.");
+        }
+        if (status == ProductStatus.ACTIVE) {
+            requireActiveCategory(category);
+        }
         product.setStatus(status);
-        productRepository.save(product);
+    }
+
+    private Product lockProduct(Long id) {
+        Product product = productRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm."));
+        entityManager.refresh(product, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return product;
+    }
+
+    private void requireActiveCategory(Category category) {
+        if (!CategoryManageService.isActiveInHierarchy(category)) {
+            throw new IllegalArgumentException("Vui lòng chọn danh mục đang hoạt động cho sản phẩm.");
+        }
     }
 
     @Override

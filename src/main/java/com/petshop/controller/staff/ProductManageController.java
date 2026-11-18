@@ -121,24 +121,34 @@ public class ProductManageController {
     public String toggleStatus(@PathVariable Long id,
                                @RequestParam ProductStatus status,
                                RedirectAttributes redirectAttributes) {
-        productManageService.toggleProductStatus(id, status);
-        redirectAttributes.addFlashAttribute("successMessage", "Cập nhật trạng thái thành công!");
-        return "redirect:/staff/products";
+        return changeStatus(id, status, "Cập nhật trạng thái thành công!", redirectAttributes);
     }
 
     // ============ SOFT DELETE PRODUCT ============
     @PostMapping("/{id}/delete")
     public String deleteProduct(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        productManageService.deleteProduct(id);
-        redirectAttributes.addFlashAttribute("successMessage", "Đã xóa mềm sản phẩm thành công! Sản phẩm đã chuyển sang trạng thái tạm ẩn.");
+        try {
+            productManageService.deleteProduct(id);
+            redirectAttributes.addFlashAttribute("successMessage", "Đã xóa mềm sản phẩm. Sản phẩm đã chuyển sang trạng thái tạm ẩn.");
+        } catch (IllegalArgumentException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+        }
         return "redirect:/staff/products";
     }
 
     // ============ RESTORE PRODUCT ============
     @PostMapping("/{id}/restore")
     public String restoreProduct(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        productManageService.toggleProductStatus(id, ProductStatus.ACTIVE);
-        redirectAttributes.addFlashAttribute("successMessage", "Đã khôi phục sản phẩm thành công! Sản phẩm đang được mở bán.");
+        return changeStatus(id, ProductStatus.ACTIVE, "Đã khôi phục sản phẩm. Sản phẩm đang được mở bán.", redirectAttributes);
+    }
+
+    private String changeStatus(Long id, ProductStatus status, String success, RedirectAttributes redirect) {
+        try {
+            productManageService.toggleProductStatus(id, status);
+            redirect.addFlashAttribute("successMessage", success);
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
+        }
         return "redirect:/staff/products";
     }
 
