@@ -26,4 +26,5 @@ public class CategoryFormDto {
     private Integer sortOrder;
 
     private Boolean isActive;
+    private boolean moveDirectProducts;
 }

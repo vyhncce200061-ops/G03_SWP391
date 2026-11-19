@@ -7,6 +7,7 @@ import com.petshop.entity.enums.ProductStatus;
 import com.petshop.repository.*;
 import com.petshop.service.CategoryManageService;
 import com.petshop.service.ProductManageService;
+import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -58,10 +59,15 @@ public class ProductManageServiceImpl implements ProductManageService {
             if (keyword != null && !keyword.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
             }
-            if (categoryId != null) {
-                var category = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
-                var parent = category.join("parentCategory", jakarta.persistence.criteria.JoinType.LEFT);
-                predicates.add(cb.or(cb.equal(category.get("id"), categoryId), cb.equal(parent.get("id"), categoryId)));
+            if (categoryId != null || status == ProductStatus.ACTIVE) {
+                var category = root.<Product, Category>join("category", JoinType.LEFT);
+                var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
+                if (categoryId != null) {
+                    predicates.add(cb.or(cb.equal(category.get("id"), categoryId), cb.equal(parent.get("id"), categoryId)));
+                }
+                if (status == ProductStatus.ACTIVE) {
+                    predicates.add(CategoryManageService.activeHierarchyPredicate(cb, category, parent));
+                }
             }
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
@@ -117,6 +123,7 @@ public class ProductManageServiceImpl implements ProductManageService {
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên"));
         Category category = categories.lockProductCategory(form.getCategoryId());
+        categories.requireLeafForProduct(category);
         requireActiveCategory(category);
         Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thương hiệu đã chọn.")) : null;
@@ -136,6 +143,7 @@ public class ProductManageServiceImpl implements ProductManageService {
         validateForm(form);
         // Keep the same category-before-product lock order as product activation.
         Category category = categories.lockProductCategory(form.getCategoryId());
+        categories.requireLeafForProduct(category);
         Product product = lockProduct(id);
 
         if (!product.getSlug().equals(form.getSlug()) && productRepository.existsBySlug(form.getSlug())) {
@@ -144,7 +152,9 @@ public class ProductManageServiceImpl implements ProductManageService {
 
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên"));
-        if (form.getStatus() == ProductStatus.ACTIVE || !category.getId().equals(product.getCategory().getId())) {
+        boolean changingCategory = !category.getId().equals(product.getCategory().getId());
+        boolean reopeningProduct = form.getStatus() == ProductStatus.ACTIVE && product.getStatus() != ProductStatus.ACTIVE;
+        if (changingCategory || reopeningProduct) {
             requireActiveCategory(category);
         }
         Brand brand = form.getBrandId() != null ? brandRepository.findById(form.getBrandId())
@@ -178,6 +188,7 @@ public class ProductManageServiceImpl implements ProductManageService {
             throw new IllegalArgumentException("Danh mục của sản phẩm vừa thay đổi. Vui lòng tải lại trang rồi thử lại.");
         }
         if (status == ProductStatus.ACTIVE) {
+            categories.requireLeafForProduct(category);
             requireActiveCategory(category);
         }
         product.setStatus(status);

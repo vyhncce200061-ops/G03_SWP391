@@ -68,7 +68,8 @@
                 </tr>
                 </thead>
                 <tbody>
-                <tr th:each="p : ${products.content}">
+                <tr th:each="p : ${products.content}"
+                    th:with="categoryActive=${T(com.petshop.service.CategoryManageService).isActiveInHierarchy(p.category)}">
                     <!-- Display Product Image -->
                     <td class="align-middle" style="width: 60px;">
                         <!-- Display primary image. If no image data, show placeholder icon -->
@@ -91,7 +92,10 @@
                         <div class="fw-semibold" th:text="${p.name}">Tên SP</div>
                         <div class="small text-muted" th:text="${p.slug}">slug</div>
                     </td>
-                    <td th:text="${p.category == null ? '-' : (p.category.parentCategory == null ? p.category.name : p.category.parentCategory.name + ' / ' + p.category.name)}">Danh mục</td>
+                    <td>
+                        <span th:text="${p.category == null ? '-' : (p.category.parentCategory == null ? p.category.name : p.category.parentCategory.name + ' / ' + p.category.name)}">Danh mục</span>
+                        <small th:if="${!categoryActive and p.status.name() != 'ACTIVE'}" class="d-block text-muted">Danh mục ngừng hiển thị</small>
+                    </td>
 
                     <!-- Pet Type Badges -->
                     <td class="text-center">
@@ -110,7 +114,7 @@
                     </td>
 
                     <!-- Status Badges -->
-                    <td class="text-center" th:with="categoryActive=${T(com.petshop.service.CategoryManageService).isActiveInHierarchy(p.category)}">
+                    <td class="text-center">
                         <span th:if="${p.status.name() == 'ACTIVE' and categoryActive}"
                               class="badge status-badge bg-success">
                             Đang bán
@@ -144,7 +148,7 @@
                             </button>
                         </form>
                         <!-- Nút Khôi phục (khi sản phẩm đang HIDDEN hoặc DISCONTINUED) -->
-                        <form th:if="${p.status.name() == 'HIDDEN' or p.status.name() == 'DISCONTINUED'}" th:action="@{${productBasePath + '/' + p.id + '/restore'}}" method="post" class="d-inline"
+                        <form th:if="${p.status.name() != 'ACTIVE' and categoryActive}" th:action="@{${productBasePath + '/' + p.id + '/restore'}}" method="post" class="d-inline"
                               onsubmit="return confirm('Bạn có chắc muốn khôi phục sản phẩm này? Sản phẩm sẽ được mở bán trở lại.');">
                             <button type="submit" class="btn btn-sm btn-outline-success ms-1" title="Khôi phục sản phẩm">
                                 <i class="bi bi-arrow-counterclockwise"></i> Khôi phục

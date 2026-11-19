@@ -326,7 +326,8 @@
                             Không tìm thấy sản phẩm
                         </h5>
 
-                        <p class="text-muted mb-4">
+                        <p class="text-muted mb-4"
+                           th:text="${categoryUnavailable ? 'Danh mục này hiện chưa có sản phẩm hiển thị.' : 'Hãy thử thay đổi điều kiện lọc sản phẩm.'}">
                             Hãy thử thay đổi điều kiện lọc sản phẩm.
                         </p>
 

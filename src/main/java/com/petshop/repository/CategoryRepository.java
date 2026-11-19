@@ -39,11 +39,19 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     @EntityGraph(attributePaths = "parentCategory")
     @Query("""
             SELECT c FROM Category c LEFT JOIN c.parentCategory parent
-            WHERE c.isActive = true AND (parent.id IS NULL OR (
-                parent.parentCategory IS NULL AND parent.isActive = true AND EXISTS (
-                    SELECT p.id FROM Product p WHERE p.category = c AND p.status = com.petshop.entity.enums.ProductStatus.ACTIVE
+            WHERE c.isActive = true
+              AND (parent.id IS NULL OR (parent.isActive = true AND parent.parentCategory IS NULL))
+              AND (
+                (parent.id IS NULL AND NOT EXISTS (
+                    SELECT child.id FROM Category child WHERE child.parentCategory = c
+                ))
+                OR EXISTS (
+                    SELECT p.id FROM Product p JOIN p.category assigned
+                    WHERE p.status = com.petshop.entity.enums.ProductStatus.ACTIVE
+                      AND assigned.isActive = true
+                      AND (assigned = c OR (parent.id IS NULL AND assigned.parentCategory = c))
                 )
-            ))
+              )
             ORDER BY c.sortOrder, c.name, c.id
             """)
     List<Category> findStorefrontCategories();

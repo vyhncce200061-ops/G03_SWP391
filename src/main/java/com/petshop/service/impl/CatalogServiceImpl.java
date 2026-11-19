@@ -13,10 +13,7 @@ import com.petshop.entity.enums.ProductVariantStatus;
 import com.petshop.repository.*;
 import com.petshop.service.CatalogService;
 import com.petshop.service.CategoryManageService;
-import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.JoinType;
-import jakarta.persistence.criteria.Path;
-import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -60,7 +57,7 @@ public class CatalogServiceImpl implements CatalogService {
             // Always enforce active category in hierarchy so deactivating a category immediately hides its products
             var category = root.<Product, Category>join("category");
             var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
-            predicates.add(activeCategory(cb, category, parent));
+            predicates.add(CategoryManageService.activeHierarchyPredicate(cb, category, parent));
 
             if (filter.getCategoryId() != null) {
                 predicates.add(cb.or(cb.equal(category.get("id"), filter.getCategoryId()), cb.equal(parent.get("id"), filter.getCategoryId())));
@@ -84,11 +81,6 @@ public class CatalogServiceImpl implements CatalogService {
         }, pageable);
 
         return products.map(this::mapToSummaryDto);
-    }
-
-    private Predicate activeCategory(CriteriaBuilder cb, Path<Category> category, Path<Category> parent) {
-        return cb.and(cb.isTrue(category.get("isActive")), cb.or(cb.isNull(parent.get("id")),
-                cb.and(cb.isTrue(parent.get("isActive")), cb.isNull(parent.get("parentCategory")))));
     }
 
     @Override
@@ -190,7 +182,7 @@ public class CatalogServiceImpl implements CatalogService {
             // Always enforce active category in hierarchy
             var category = root.<Product, Category>join("category");
             var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
-            predicates.add(activeCategory(cb, category, parent));
+            predicates.add(CategoryManageService.activeHierarchyPredicate(cb, category, parent));
 
             if (keyword != null && !keyword.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));

@@ -3,10 +3,14 @@ package com.petshop.service;
 import com.petshop.dto.catalog.CategoryFormDto;
 import com.petshop.dto.catalog.CategoryViewDto;
 import com.petshop.entity.Category;
+import com.petshop.entity.enums.ProductStatus;
 import com.petshop.repository.CategoryRepository;
 import com.petshop.repository.ProductRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,13 +65,29 @@ public class CategoryManageService {
         return category != null && Boolean.TRUE.equals(category.getIsActive()) && allowsActiveChild(category.getParentCategory());
     }
 
+    public static Predicate activeHierarchyPredicate(CriteriaBuilder cb, Path<Category> category, Path<Category> parent) {
+        return cb.and(cb.isTrue(category.get("isActive")), cb.or(cb.isNull(parent.get("id")),
+                cb.and(cb.isTrue(parent.get("isActive")), cb.isNull(parent.get("parentCategory")))));
+    }
+
     private static boolean allowsActiveChild(Category parent) {
         return parent == null || (parent.getParentCategory() == null && Boolean.TRUE.equals(parent.getIsActive()));
     }
 
     public List<CategoryViewDto> productOptions(Integer selectedId) {
-        // Keep an inactive assignment selectable when editing other product information.
-        return listCategories().stream().filter(c -> c.isVisible() || c.getId().equals(selectedId)).toList();
+        // A root with children serves as a browse group, even when its children are inactive.
+        return listCategories().stream().filter(c -> c.getChildren().isEmpty())
+                .filter(c -> c.isVisible() || c.getId().equals(selectedId)).toList();
+    }
+
+    public long directProductsBeforeFirstChild(Integer parentId) {
+        return hasChildren(parentId) ? 0 : products.countByCategory_Id(parentId);
+    }
+
+    public void requireLeafForProduct(Category category) {
+        if (hasChildren(category.getId())) {
+            throw new IllegalArgumentException("Danh mục này đã có nhóm con. Vui lòng chọn danh mục cuối nhánh cho sản phẩm.");
+        }
     }
 
     public List<CategoryViewDto> parentOptions(Integer id) {
@@ -123,9 +143,7 @@ public class CategoryManageService {
             active = form.getIsActive();
         }
         requireActiveParent(parent, active);
-        if (id != null) {
-            validateDeactivation(category, parent, active);
-        }
+        boolean moveDirectProducts = prepareFirstChild(category, parent, form, active);
         // Clean up old data before reopening a branch. An inactive root may still
         // have children marked active by earlier versions of the application.
         if (id != null && parent == null && (!active || !Boolean.TRUE.equals(category.getIsActive()))) {
@@ -142,7 +160,24 @@ public class CategoryManageService {
         category.setIsActive(active);
         category.setParentCategory(parent);
         categories.saveAndFlush(category);
+        if (moveDirectProducts) {
+            products.moveDirectProducts(parent.getId(), category);
+        }
         return category.getId();
+    }
+
+    private boolean prepareFirstChild(Category category, Category parent, CategoryFormDto form, boolean active) {
+        if (parent == null || Objects.equals(parentId(category), parent.getId()) || hasChildren(parent.getId())
+                || !products.existsByCategory_Id(parent.getId())) {
+            return false;
+        }
+        if (category.getId() != null || !form.isMoveDirectProducts()) {
+            throw new IllegalArgumentException("Danh mục đang có sản phẩm. Khi thêm danh mục con đầu tiên, hãy tạo nhóm con phù hợp và xác nhận chuyển sản phẩm vào nhóm đó.");
+        }
+        if (!active && parent.getIsActive() && products.existsByCategory_IdAndStatus(parent.getId(), ProductStatus.ACTIVE)) {
+            throw new IllegalArgumentException("Hãy bật danh mục con mới để các sản phẩm đang bán vẫn hiển thị sau khi chuyển.");
+        }
+        return true;
     }
 
     @Transactional
@@ -159,17 +194,11 @@ public class CategoryManageService {
     private Integer saveStatus(Category category, boolean active) {
         Category parent = category.getParentCategory();
         requireActiveParent(parent, active);
-        validateDeactivation(category, parent, active);
         if (parent == null && (!active || !Boolean.TRUE.equals(category.getIsActive()))) {
             deactivateChildren(category.getId());
         }
         category.setIsActive(active);
         return parent == null ? category.getId() : parent.getId();
-    }
-
-    private void validateDeactivation(Category category, Category parent, boolean active) {
-        // When a category is deactivated, products under this category branch are automatically
-        // hidden from storefront search and catalog queries until the category is reactivated.
     }
 
     private void requireActiveParent(Category parent, boolean active) {

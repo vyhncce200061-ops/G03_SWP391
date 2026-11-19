@@ -45,6 +45,7 @@ class CatalogHierarchyTests {
     @Autowired BrandRepository brands;
     @Autowired ProductRepository products;
     @Autowired ProductVariantRepository variants;
+    @Autowired ProductImageRepository images;
     @Autowired UserRepository users;
     @Autowired RoleRepository roles;
     @Autowired ProductManageService productService;
@@ -195,6 +196,38 @@ class CatalogHierarchyTests {
         return "/admin/categories?expanded=" + id + "#category-" + id;
     }
 
+    @Test void firstChildMovesExistingProductsOnlyWithConfirmationAndKeepsThemVisible() throws Exception {
+        Product previous = product(otherRoot, "first-child");
+        String path = "/admin/categories/" + otherRoot.getId() + "/children/create";
+        String code = "FIRST" + key;
+        assertThat(adminGet(path).getResponse().getContentAsString()).contains("Chuyển 1 sản phẩm hiện có");
+        mvc.perform(categoryPost(path, code, "New child", ""))
+                .andExpect(status().isOk()).andExpect(model().attributeHasErrors("categoryForm"));
+        mvc.perform(post(path).with(user("admin").roles("ADMIN")).with(csrf())
+                        .param("code", code).param("name", "New child").param("isActive", "false")
+                        .param("moveDirectProducts", "true"))
+                .andExpect(status().isOk()).andExpect(model().attributeHasErrors("categoryForm"));
+        assertTrue(categories.findByCode(code).isEmpty());
+        assertEquals(otherRoot.getId(), products.findCategoryId(previous.getId()).orElseThrow());
+        mvc.perform(categoryPost(path, code, "New child", "").param("moveDirectProducts", "true"))
+                .andExpect(redirectedUrl(branchUrl(otherRoot.getId())));
+        Category newChild = categories.findByCode(code).orElseThrow();
+        Product moved = products.findById(previous.getId()).orElseThrow();
+        assertEquals(newChild.getId(), moved.getCategory().getId());
+        assertEquals(previous.getStatus(), moved.getStatus());
+        assertThat(moved.getVariants()).extracting(ProductVariant::getStockQuantity).containsExactly(10);
+        mvc.perform(get("/products/" + moved.getSlug())).andExpect(status().isOk());
+    }
+
+    @Test void reparentingAnExistingCategoryCannotStrandProductsOnTheNewParent() throws Exception {
+        Product previous = product(otherRoot, "reparent");
+        mvc.perform(categoryPost("/admin/categories/update/" + child.getId(), child.getCode(), child.getName(),
+                        otherRoot.getId().toString()).param("moveDirectProducts", "true"))
+                .andExpect(status().isOk()).andExpect(model().attributeHasErrors("categoryForm"));
+        assertEquals(root.getId(), categories.findById(child.getId()).orElseThrow().getParentCategory().getId());
+        assertEquals(otherRoot.getId(), products.findCategoryId(previous.getId()).orElseThrow());
+    }
+
     @Test void validCreateMoveAndPromotePreserveTheProductAssignment() throws Exception {
         String code = "NEW" + key;
         mvc.perform(categoryPost("/admin/categories/" + root.getId() + "/children/create", "  " + code + "  ", "  New child  ", otherRoot.getId().toString())
@@ -329,9 +362,9 @@ class CatalogHierarchyTests {
         mvc.perform(post("/admin/categories/toggle-status/" + root.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
                 .andExpect(redirectedUrl(branchUrl(root.getId())));
         String restored = mvc.perform(get("/")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(restored).contains(root.getName()).doesNotContain(child.getName(), inactiveChild.getName());
+        assertThat(restored).doesNotContain(root.getName(), child.getName(), inactiveChild.getName());
         String catalog = mvc.perform(get("/products")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(catalog).contains(root.getName()).doesNotContain(child.getName(), inactiveChild.getName());
+        assertThat(catalog).doesNotContain(root.getName(), child.getName(), inactiveChild.getName());
         assertFalse(categories.findById(child.getId()).orElseThrow().getIsActive());
         mvc.perform(post("/admin/categories/activate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
                 .andExpect(flash().attributeExists("successMessage"));
@@ -340,6 +373,84 @@ class CatalogHierarchyTests {
         var parentFilter = mvc.perform(get("/products").param("categoryId", root.getId().toString()))
                 .andExpect(status().isOk()).andReturn();
         assertThat(ids(parentFilter, "productPage")).containsExactly(childProduct.getId());
+    }
+
+    @Test void reopeningOnlyTheParentDoesNotAdvertiseAnEmptyBranch() throws Exception {
+        directProduct.setStatus(ProductStatus.HIDDEN);
+        products.saveAndFlush(directProduct);
+        for (String action : List.of("deactivate", "activate")) {
+            mvc.perform(post("/admin/categories/" + action + "/" + root.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                    .andExpect(redirectedUrl(branchUrl(root.getId())));
+        }
+        assertTrue(categories.findById(root.getId()).orElseThrow().getIsActive());
+        assertFalse(categories.findById(child.getId()).orElseThrow().getIsActive());
+        assertFalse(categories.findById(sibling.getId()).orElseThrow().getIsActive());
+        assertThat(ids(mvc.perform(get("/products").param("categoryId", root.getId().toString()))
+                .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("Danh mục này hiện chưa có sản phẩm hiển thị.")))
+                .andReturn(), "productPage")).isEmpty();
+        mvc.perform(get("/")).andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(root.getName()))));
+        mvc.perform(get("/products/suggestions").param("keyword", root.getName())).andExpect(jsonPath("$.categories").isEmpty());
+        mvc.perform(post("/admin/categories/activate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl(branchUrl(root.getId())));
+        mvc.perform(get("/")).andExpect(content().string(org.hamcrest.Matchers.containsString(root.getName())));
+        assertThat(ids(mvc.perform(get("/products").param("categoryCode", root.getCode()))
+                .andExpect(status().isOk()).andReturn(), "productPage")).containsExactly(childProduct.getId());
+        mvc.perform(get("/products/" + childProduct.getSlug())).andExpect(status().isOk());
+        mvc.perform(get("/products/" + siblingProduct.getSlug())).andExpect(status().isNotFound());
+    }
+
+    @ParameterizedTest @CsvSource({"/admin/products,ADMIN", "/staff/products,STAFF"})
+    void anInactiveCategoryDoesNotBlockEditingAnAlreadyActiveProduct(String base, String roleCode) throws Exception {
+        Role role = roles.findByCode(roleCode).orElseGet(() -> roles.save(Role.builder().code(roleCode).name(roleCode).build()));
+        User operator = users.save(User.builder().role(role).fullName("Operator").email(key + "@operator.test")
+                .passwordHash("unused-hash").build());
+        var principal = user(new com.petshop.config.security.CustomUserDetails(operator));
+        var primary = images.saveAndFlush(ProductImage.builder().product(childProduct).isPrimary(true)
+                .imageUrl("/images/product-placeholder.svg").build());
+        mvc.perform(post("/admin/categories/deactivate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl(branchUrl(root.getId())));
+        mvc.perform(get(base + "/" + childProduct.getId() + "/edit").with(principal))
+                .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString(child.getName() + " (ngừng hiển thị)")));
+        mvc.perform(multipart(base + "/" + childProduct.getId() + "/edit").with(principal).with(csrf())
+                        .param("name", "Đã sửa " + key).param("slug", childProduct.getSlug())
+                        .param("categoryId", child.getId().toString()).param("petType", "DOG").param("status", "ACTIVE")
+                        .param("primaryImageId", primary.getId().toString()))
+                .andExpect(redirectedUrl(base)).andExpect(flash().attributeExists("successMessage"));
+        var saved = products.findById(childProduct.getId()).orElseThrow();
+        assertEquals("Đã sửa " + key, saved.getName());
+        assertEquals(ProductStatus.ACTIVE, saved.getStatus());
+        assertEquals(child.getId(), saved.getCategory().getId());
+        assertThat(saved.getVariants()).extracting(ProductVariant::getStockQuantity).containsExactly(10);
+        assertTrue(images.findById(primary.getId()).orElseThrow().getIsPrimary());
+        mvc.perform(get("/products/" + saved.getSlug())).andExpect(status().isNotFound());
+        mvc.perform(post("/admin/categories/activate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl(branchUrl(root.getId())));
+        mvc.perform(get("/products/" + saved.getSlug())).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(saved.getName())));
+    }
+
+    @ParameterizedTest @CsvSource({"/admin/products,ADMIN", "/staff/products,STAFF"})
+    void sellingFilterUsesEffectiveAvailabilityAndAllProductsRemainManageable(String base, String role) throws Exception {
+        mvc.perform(post("/admin/categories/deactivate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl(branchUrl(root.getId())));
+        var all = mvc.perform(get(base).param("keyword", keyword).with(user("operator").roles(role)))
+                .andExpect(status().isOk()).andReturn();
+        assertThat(ids(all, "products")).containsExactlyInAnyOrder(directProduct.getId(), childProduct.getId(), siblingProduct.getId());
+        assertThat(all.getResponse().getContentAsString()).contains("Ẩn do danh mục", childProduct.getName());
+        var selling = mvc.perform(get(base).param("keyword", keyword).param("status", "ACTIVE").with(user("operator").roles(role)))
+                .andExpect(status().isOk()).andReturn();
+        assertThat(ids(selling, "products")).containsExactlyInAnyOrder(directProduct.getId(), siblingProduct.getId());
+        productService.toggleProductStatus(childProduct.getId(), ProductStatus.HIDDEN);
+        var hidden = mvc.perform(get(base).param("keyword", keyword).param("status", "HIDDEN").with(user("operator").roles(role)))
+                .andExpect(status().isOk()).andReturn();
+        assertThat(ids(hidden, "products")).containsExactly(childProduct.getId());
+        assertThat(hidden.getResponse().getContentAsString()).doesNotContain(base + "/" + childProduct.getId() + "/restore");
+        mvc.perform(post("/admin/categories/activate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(redirectedUrl(branchUrl(root.getId())));
+        var nowRestorable = mvc.perform(get(base).param("keyword", keyword).param("status", "HIDDEN").with(user("operator").roles(role)))
+                .andExpect(status().isOk()).andReturn();
+        assertThat(nowRestorable.getResponse().getContentAsString()).contains(base + "/" + childProduct.getId() + "/restore");
+        assertEquals(ProductStatus.HIDDEN, products.findById(childProduct.getId()).orElseThrow().getStatus());
     }
 
     @Test void emptyAndHiddenOnlyChildrenStayOutOfTheStorefrontUntilTheyHaveAnActiveProduct() throws Exception {
@@ -419,7 +530,7 @@ class CatalogHierarchyTests {
         assertEquals(inactiveChild.getSortOrder(), updated.getSortOrder());
     }
 
-    @Test void legacyProductCanBePausedAndEditedButCannotBeActiveInAnInactiveBranch() {
+    @Test void cannotAssignOrResumeSellingInAnInactiveBranch() {
         root.setIsActive(false);
         categories.saveAndFlush(root);
         ProductFormDto draft = ProductFormDto.fromEntity(productService.findById(directProduct.getId()));
@@ -433,9 +544,9 @@ class CatalogHierarchyTests {
         assertEquals(root.getId(), products.findById(directProduct.getId()).orElseThrow().getCategory().getId());
         ProductFormDto existing = ProductFormDto.fromEntity(productService.findById(childProduct.getId()));
         existing.setName("Edited " + key);
+        productService.toggleProductStatus(childProduct.getId(), ProductStatus.HIDDEN);
         assertThat(assertThrows(IllegalArgumentException.class, () -> productService.updateProduct(childProduct.getId(), existing, author.getId())))
                 .hasMessageContaining("danh mục đang hoạt động");
-        productService.toggleProductStatus(childProduct.getId(), ProductStatus.HIDDEN);
         existing.setStatus(ProductStatus.HIDDEN);
         assertEquals(existing.getName(), productService.updateProduct(childProduct.getId(), existing, author.getId()).getName());
         assertEquals(child.getId(), products.findById(childProduct.getId()).orElseThrow().getCategory().getId());
@@ -464,6 +575,33 @@ class CatalogHierarchyTests {
         List<CategoryViewDto> options = list(result, "categories");
         assertThat(options).extracting(CategoryViewDto::getId).contains(child.getId()).doesNotContain(inactiveChild.getId());
         assertThat(result.getResponse().getContentAsString()).contains(root.getName() + " / " + child.getName() + " (ngừng hiển thị)");
+    }
+
+    @ParameterizedTest @CsvSource({"/admin/products/create,ADMIN", "/staff/products/create,STAFF"})
+    void productCreationFormOnlyListsActiveLeafCategories(String path, String role) throws Exception {
+        var result = mvc.perform(get(path).with(user("operator").roles(role)))
+                .andExpect(status().isOk()).andReturn();
+        List<CategoryViewDto> options = list(result, "categories");
+        assertThat(options).extracting(CategoryViewDto::getId)
+                .contains(child.getId(), otherRoot.getId()).doesNotContain(root.getId(), inactiveChild.getId());
+    }
+
+    @Test void serverRejectsParentAssignmentEvenWhenEveryChildIsInactive() {
+        child.setIsActive(false);
+        categories.saveAndFlush(child);
+        sibling.setIsActive(false);
+        categories.saveAndFlush(sibling);
+        var draft = ProductFormDto.fromEntity(productService.findById(childProduct.getId()));
+        draft.setSlug("leaf-" + key);
+        draft.setCategoryId(root.getId());
+        assertThat(assertThrows(IllegalArgumentException.class, () -> productService.createProduct(draft, author.getId())))
+                .hasMessageContaining("danh mục cuối nhánh");
+        assertThat(assertThrows(IllegalArgumentException.class, () -> productService.updateProduct(childProduct.getId(), draft, author.getId())))
+                .hasMessageContaining("danh mục cuối nhánh");
+        assertFalse(products.existsBySlug(draft.getSlug()));
+        assertEquals(child.getId(), products.findCategoryId(childProduct.getId()).orElseThrow());
+        draft.setCategoryId(otherRoot.getId());
+        assertEquals(otherRoot.getId(), productService.createProduct(draft, author.getId()).getCategory().getId());
     }
 
     @Test void brandLogoUploadLivesInTheSharedModalWithoutTrustingSubmittedUrls() throws Exception {

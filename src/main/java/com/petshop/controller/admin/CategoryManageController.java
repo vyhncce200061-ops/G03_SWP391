@@ -23,7 +23,7 @@ public class CategoryManageController {
 
     @InitBinder("categoryForm")
     public void bindForm(WebDataBinder binder) {
-        binder.setAllowedFields("code", "name", "description", "parentId", "sortOrder", "isActive");
+        binder.setAllowedFields("code", "name", "description", "parentId", "sortOrder", "isActive", "moveDirectProducts");
         binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
     }
 
@@ -135,6 +135,9 @@ public class CategoryManageController {
         boolean parentLocked = isParent || categories.hasChildren(id);
         model.addAttribute("categoryId", id);
         model.addAttribute("creationParent", creationParent);
+        if (creationParent != null) {
+            model.addAttribute("directProductsBeforeFirstChild", categories.directProductsBeforeFirstChild(creationParent.getId()));
+        }
         model.addAttribute("isParentCategory", isParent);
         model.addAttribute("parentCategories", id == null ? java.util.List.of() : categories.parentOptions(id));
         model.addAttribute("parentLocked", parentLocked);
@@ -186,7 +189,11 @@ public class CategoryManageController {
     private String setActive(Integer id, boolean active, RedirectAttributes redirect) {
         try {
             Integer branchId = categories.setActive(id, active);
-            redirect.addFlashAttribute("successMessage", active ? "Đã kích hoạt danh mục." : "Đã ngừng hoạt động danh mục.");
+            String message = active ? "Đã kích hoạt danh mục." : "Đã ngừng hoạt động danh mục.";
+            if (active && branchId.equals(id) && categories.hasChildren(id)) {
+                message = "Đã kích hoạt danh mục cha. Hãy bật các danh mục con cần mở bán.";
+            }
+            redirect.addFlashAttribute("successMessage", message);
             return "redirect:" + branchUrl(branchId);
         } catch (IllegalArgumentException ex) {
             return missing(redirect, ex);
