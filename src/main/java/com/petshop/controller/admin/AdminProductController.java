@@ -37,7 +37,7 @@ public class AdminProductController {
         model.addAttribute("keyword", keyword);
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("selectedStatus", status);
-        model.addAttribute("categories", catalog.getAllCategories());
+        model.addAttribute("categories", categories.listCategories());
         return "staff/product-list";
     }
 
@@ -87,22 +87,32 @@ public class AdminProductController {
 
     @PostMapping("/{id}/status")
     public String status(@PathVariable Long id, @RequestParam ProductStatus status, RedirectAttributes redirect) {
-        products.toggleProductStatus(id, status);
-        redirect.addFlashAttribute("successMessage", "Cập nhật trạng thái thành công!");
-        return "redirect:/admin/products";
+        return changeStatus(id, status, "Cập nhật trạng thái thành công!", redirect);
     }
 
     @PostMapping("/{id}/delete")
     public String deleteProduct(@PathVariable Long id, RedirectAttributes redirect) {
-        products.deleteProduct(id);
-        redirect.addFlashAttribute("successMessage", "Đã xóa mềm sản phẩm thành công! Sản phẩm đã chuyển sang trạng thái tạm ẩn.");
+        try {
+            products.deleteProduct(id);
+            redirect.addFlashAttribute("successMessage", "Đã xóa mềm sản phẩm. Sản phẩm đã chuyển sang trạng thái tạm ẩn.");
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
+        }
         return "redirect:/admin/products";
     }
 
     @PostMapping("/{id}/restore")
     public String restoreProduct(@PathVariable Long id, RedirectAttributes redirect) {
-        products.toggleProductStatus(id, ProductStatus.ACTIVE);
-        redirect.addFlashAttribute("successMessage", "Đã khôi phục sản phẩm thành công! Sản phẩm đang được mở bán.");
+        return changeStatus(id, ProductStatus.ACTIVE, "Đã khôi phục sản phẩm. Sản phẩm đang được mở bán.", redirect);
+    }
+
+    private String changeStatus(Long id, ProductStatus status, String success, RedirectAttributes redirect) {
+        try {
+            products.toggleProductStatus(id, status);
+            redirect.addFlashAttribute("successMessage", success);
+        } catch (IllegalArgumentException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
+        }
         return "redirect:/admin/products";
     }
 
@@ -204,12 +214,14 @@ public class AdminProductController {
 
     private String form(Model model) {
         ProductFormDto dto = (ProductFormDto) model.getAttribute("productForm");
+        Integer currentCategoryId = null;
         if (dto.getId() != null) {
             ProductFormDto stored = ProductFormDto.fromEntity(products.findById(dto.getId()));
+            currentCategoryId = stored.getCategoryId();
             dto.setExistingImageIds(stored.getExistingImageIds());
             dto.setExistingImageUrls(stored.getExistingImageUrls());
         }
-        model.addAttribute("categories", categories.productOptions(dto.getCategoryId()));
+        model.addAttribute("categories", categories.productOptions(currentCategoryId));
         model.addAttribute("brands", catalog.getBrandOptions(dto.getBrandId()));
         return "staff/product-form";
     }

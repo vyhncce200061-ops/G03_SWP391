@@ -30,12 +30,14 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     Optional<Voucher> findByCodeAndStatus(String code, VoucherStatus status);
 
     @Query("SELECT v FROM Voucher v WHERE v.isDeleted = false AND v.status = com.petshop.entity.enums.VoucherStatus.ACTIVE " +
+           "AND UPPER(TRIM(v.code)) <> '" + Voucher.RETIRED_SHIPPING_CODE + "' " +
            "AND :now BETWEEN v.startDate AND v.endDate AND v.usedCount < v.totalUsageLimit")
     List<Voucher> findAvailablePublicVouchers(@Param("now") LocalDateTime now);
 
     @Modifying
     @Query("UPDATE Voucher v SET v.usedCount = v.usedCount + 1, v.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE v.id = :id AND v.isDeleted = false AND v.status = com.petshop.entity.enums.VoucherStatus.ACTIVE AND v.usedCount < v.totalUsageLimit " +
+           "AND UPPER(TRIM(v.code)) <> '" + Voucher.RETIRED_SHIPPING_CODE + "' " +
            "AND :now BETWEEN v.startDate AND v.endDate")
     int reserveVoucherAtomic(@Param("id") Long id, @Param("now") LocalDateTime now);
 

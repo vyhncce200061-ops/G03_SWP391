@@ -50,10 +50,16 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
        @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "customer" })
        Page<Order> findAll(Pageable pageable);
 
-       @Query("SELECT COUNT(o) FROM Order o WHERE o.customer.id = :customerId AND o.voucher.id = :voucherId AND o.orderStatus <> com.petshop.entity.enums.OrderStatus.CANCELLED")
+       @Query("""
+              SELECT COUNT(o) FROM Order o WHERE o.customer.id = :customerId AND o.voucher.id = :voucherId
+                AND o.orderStatus NOT IN (com.petshop.entity.enums.OrderStatus.CANCELLED, com.petshop.entity.enums.OrderStatus.RETURNED)
+              """)
        long countVoucherUsageByCustomer(@Param("customerId") Long customerId, @Param("voucherId") Long voucherId);
 
-       @Query("SELECT MAX(o.createdAt) FROM Order o WHERE o.customer.id = :customerId AND o.voucher.id = :voucherId AND o.orderStatus <> com.petshop.entity.enums.OrderStatus.CANCELLED")
+       @Query("""
+              SELECT MAX(o.createdAt) FROM Order o WHERE o.customer.id = :customerId AND o.voucher.id = :voucherId
+                AND o.orderStatus NOT IN (com.petshop.entity.enums.OrderStatus.CANCELLED, com.petshop.entity.enums.OrderStatus.RETURNED)
+              """)
        java.time.LocalDateTime findLastVoucherUsageAt(@Param("customerId") Long customerId,
                      @Param("voucherId") Long voucherId);
 

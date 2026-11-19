@@ -221,6 +221,8 @@ CREATE TABLE dbo.ProductVariants (
     ProductId         BIGINT         NOT NULL,
     SkuCode           VARCHAR(80)    NOT NULL,
     VariantName       NVARCHAR(200)  NOT NULL,       -- "Bao 1kg", "Vị Gà", "Size S"
+    Color             NVARCHAR(50)   NULL,           -- "Đỏ", "Xanh", "Vàng", ...
+    WeightKg          DECIMAL(10,2)  NULL,           -- Khối lượng tính bằng Kilogram (kg)
     Price             DECIMAL(18,2)  NOT NULL,       -- giá bán hiện tại (VNĐ)
     OriginalPrice     DECIMAL(18,2)  NULL,           -- giá gốc gạch ngang (nếu đang giảm giá)
     StockQuantity     INT            NOT NULL CONSTRAINT DF_Variants_Stock DEFAULT 0,
@@ -374,6 +376,8 @@ CREATE TABLE dbo.Orders (
     TotalAmount         DECIMAL(18,2)  NOT NULL,
     -- Trạng thái
     OrderStatus         VARCHAR(30)    NOT NULL,
+    DeliveryAttempts    INT            NOT NULL CONSTRAINT DF_Orders_DeliveryAttempts DEFAULT 0,
+    FailedDeliveryReason NVARCHAR(1000) NULL,
     PaymentMethod       VARCHAR(30)    NOT NULL,
     PaymentStatus       VARCHAR(30)    NOT NULL CONSTRAINT DF_Orders_PayStatus DEFAULT 'UNPAID',
     -- Hủy / hoàn thành
@@ -397,7 +401,7 @@ CREATE TABLE dbo.Orders (
     CONSTRAINT CK_Orders_Voucher  CHECK (VoucherId IS NOT NULL OR (VoucherCodeSnapshot IS NULL AND DiscountAmount = 0)),
     -- Giá trị hợp lệ
     CONSTRAINT CK_Orders_OrderStatus CHECK (OrderStatus IN
-        ('PENDING_CONFIRMATION','PENDING_PAYMENT','CONFIRMED','PREPARING','SHIPPING','COMPLETED','CANCELLED')),
+        ('PENDING_CONFIRMATION','PENDING_PAYMENT','CONFIRMED','PREPARING','SHIPPING','DELIVERY_FAILED','RETURNED','COMPLETED','CANCELLED')),
     CONSTRAINT CK_Orders_PayMethod   CHECK (PaymentMethod IN ('COD','VNPAY')),
     CONSTRAINT CK_Orders_PayStatus   CHECK (PaymentStatus IN ('UNPAID','PAID','FAILED','CANCELLED')),
     CONSTRAINT CK_Orders_CancelType  CHECK (CancelType IS NULL OR CancelType IN
@@ -453,9 +457,9 @@ CREATE TABLE dbo.OrderStatusHistories (
     CONSTRAINT FK_OSH_Orders FOREIGN KEY (OrderId)         REFERENCES dbo.Orders(Id),
     CONSTRAINT FK_OSH_Users  FOREIGN KEY (ChangedByUserId) REFERENCES dbo.Users(Id),
     CONSTRAINT CK_OSH_NewStatus CHECK (NewStatus IN
-        ('PENDING_CONFIRMATION','PENDING_PAYMENT','CONFIRMED','PREPARING','SHIPPING','COMPLETED','CANCELLED')),
+        ('PENDING_CONFIRMATION','PENDING_PAYMENT','CONFIRMED','PREPARING','SHIPPING','DELIVERY_FAILED','RETURNED','COMPLETED','CANCELLED')),
     CONSTRAINT CK_OSH_OldStatus CHECK (OldStatus IS NULL OR OldStatus IN
-        ('PENDING_CONFIRMATION','PENDING_PAYMENT','CONFIRMED','PREPARING','SHIPPING','COMPLETED','CANCELLED'))
+        ('PENDING_CONFIRMATION','PENDING_PAYMENT','CONFIRMED','PREPARING','SHIPPING','DELIVERY_FAILED','RETURNED','COMPLETED','CANCELLED'))
 );
 CREATE INDEX IX_OSH_Order ON dbo.OrderStatusHistories(OrderId, ChangedAt);
 GO
@@ -716,9 +720,7 @@ INSERT INTO dbo.Vouchers (Code, Title, Description, DiscountType, DiscountValue,
  ('PETVIP50K',    N'Giảm 50.000đ',             N'Đơn từ 500.000đ',           'FIXED',   50000,  500000,  NULL,
    SYSDATETIME(), DATEADD(YEAR, 1, SYSDATETIME()), 500, 2),
  ('MEGASAVE100K', N'Siêu tiết kiệm 100.000đ',  N'Đơn từ 1.000.000đ',         'FIXED',   100000, 1000000, NULL,
-   SYSDATETIME(), DATEADD(YEAR, 1, SYSDATETIME()), 200, 1),
- ('FREESHIP30K',  N'Miễn phí vận chuyển',      N'Giảm 30.000đ phí ship, đơn từ 300.000đ', 'FIXED', 30000, 300000, NULL,
-   SYSDATETIME(), DATEADD(YEAR, 1, SYSDATETIME()), 1000, 3);
+   SYSDATETIME(), DATEADD(YEAR, 1, SYSDATETIME()), 200, 1);
 
 -- Ví voucher mẫu cho khách hàng (customer@petshop.vn)
 INSERT INTO dbo.CustomerVouchers (CustomerId, VoucherId, SavedAt, IsUsed, UsedAt)
@@ -726,12 +728,6 @@ SELECT u.Id, v.Id, DATEADD(DAY, -2, SYSDATETIME()), 0, NULL
 FROM dbo.Users u
 CROSS JOIN dbo.Vouchers v
 WHERE u.Email = N'customer@petshop.vn' AND v.Code = 'PETWELCOME10';
-
-INSERT INTO dbo.CustomerVouchers (CustomerId, VoucherId, SavedAt, IsUsed, UsedAt)
-SELECT u.Id, v.Id, DATEADD(DAY, -1, SYSDATETIME()), 0, NULL
-FROM dbo.Users u
-CROSS JOIN dbo.Vouchers v
-WHERE u.Email = N'customer@petshop.vn' AND v.Code = 'FREESHIP30K';
 
 -- Phiếu nhập kho ban đầu (vừa là dữ liệu mẫu, vừa nạp tồn kho)
 INSERT INTO dbo.StockImports (ImportCode, SupplierName, Note, CreatedByUserId)

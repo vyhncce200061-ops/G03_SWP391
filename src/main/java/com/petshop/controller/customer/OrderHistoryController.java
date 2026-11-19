@@ -51,6 +51,8 @@ public class OrderHistoryController {
                 "CONFIRMED", "Đã xác nhận",
                 "PREPARING", "Đang chuẩn bị",
                 "SHIPPING", "Đang giao hàng",
+                "DELIVERY_FAILED", "Giao thất bại",
+                "RETURNED", "Đã hoàn hàng",
                 "COMPLETED", "Đã hoàn thành",
                 "CANCELLED", "Đã hủy");
     }
@@ -174,6 +176,25 @@ public class OrderHistoryController {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/customer/orders/" + id;
+    }
+
+    @PostMapping("/{id}/buy-again")
+    public String buyAgain(@AuthenticationPrincipal CustomUserDetails userDetails,
+                           @PathVariable Long id,
+                           RedirectAttributes redirectAttributes) {
+        try {
+            var result = orderService.buyAgain(id, userDetails.getId());
+            if (result.getAddedCount() > 0) {
+                redirectAttributes.addFlashAttribute("successMessage", result.getMessage());
+                return "redirect:/cart";
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage", result.getMessage());
+                return "redirect:/customer/orders/" + id;
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/customer/orders/" + id;
+        }
     }
 
     private OrderStatus parseStatus(String value) {

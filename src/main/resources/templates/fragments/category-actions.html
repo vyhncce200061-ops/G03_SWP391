@@ -2,15 +2,17 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="actions(cat)" class="category-actions">
+    <a th:href="@{/admin/products(categoryId=${cat.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-seam me-1" aria-hidden="true"></i>Xem sản phẩm</a>
     <a th:href="@{/admin/categories/edit/{id}(id=${cat.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa</a>
-    <form th:action="${cat.isActive} ? @{/admin/categories/deactivate/{id}(id=${cat.id})} : @{/admin/categories/activate/{id}(id=${cat.id})}" method="post"
-          th:attr="onsubmit=${cat.isActive} ? 'return confirm(\'Ngừng hoạt động danh mục này? Danh mục sẽ bị ẩn khỏi cửa hàng; dữ liệu vẫn được giữ lại.\');' : 'return confirm(\'Kích hoạt lại danh mục này?\');'">
-        <button type="submit" class="btn btn-sm" th:classappend="${cat.isActive ? 'btn-outline-warning' : 'btn-outline-success'}" th:text="${cat.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'}"></button>
+    <form th:if="${cat.parentActive}"
+          th:action="${cat.visible} ? @{/admin/categories/deactivate/{id}(id=${cat.id})} : @{/admin/categories/activate/{id}(id=${cat.id})}" method="post"
+          th:attr="onsubmit=${!cat.visible} ? (${#lists.isEmpty(cat.children)} ? 'return confirm(\'Kích hoạt danh mục? Sản phẩm đang bật bán trong danh mục sẽ hiện lại.\');' : 'return confirm(\'Kích hoạt danh mục cha? Hãy bật các danh mục con cần mở bán để sản phẩm hiển thị lại.\');') : (${cat.parentId == null} ? 'return confirm(\'Tắt danh mục cha và các danh mục con? Sản phẩm trong nhánh sẽ bị ẩn khỏi cửa hàng và khách không thể đặt thêm.\');' : 'return confirm(\'Tắt danh mục con? Sản phẩm trong danh mục này sẽ bị ẩn khỏi cửa hàng và khách không thể đặt thêm.\');')">
+        <button type="submit" class="btn btn-sm" th:classappend="${cat.visible ? 'btn-outline-warning' : 'btn-outline-success'}" th:text="${cat.visible ? 'Ngừng hoạt động' : 'Kích hoạt'}"></button>
     </form>
     <form th:action="@{/admin/categories/delete/{id}(id=${cat.id})}" method="post"
           onsubmit="return confirm('Xóa vĩnh viễn danh mục này? Không thể khôi phục. Chỉ xóa được khi danh mục không có danh mục con và không còn sản phẩm sử dụng.');">
         <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Xóa</button>
     </form>
 </div>
-<span th:fragment="status(cat)" class="badge" th:classappend="${cat.isActive ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}" th:text="${cat.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}"></span>
+<span th:fragment="status(cat)" class="badge" th:classappend="${cat.visible ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}" th:text="${cat.visible ? 'Đang hoạt động' : 'Ngừng hoạt động'}"></span>
 </body></html>

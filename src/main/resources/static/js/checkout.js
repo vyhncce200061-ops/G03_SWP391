@@ -37,7 +37,8 @@
             }
             allowed = quote.checkoutAllowed;
             document.getElementById('quote-subtotal').textContent = formatMoney(quote.subtotal);
-            document.getElementById('quote-shipping').textContent = formatMoney(quote.shippingFee);
+            document.getElementById('quote-shipping').textContent =
+                quote.items.length > 0 && Number(quote.shippingFee) === 0 ? 'Miễn phí' : formatMoney(quote.shippingFee);
             document.getElementById('quote-discount').textContent = '-' + formatMoney(quote.discountAmount);
             document.getElementById('quote-total').textContent = formatMoney(quote.totalAmount);
             quote.items.forEach((item, index) => {

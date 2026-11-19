@@ -51,6 +51,7 @@
                                 <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.optionLabel}"></option>
                             </select>
                             <div class="invalid-feedback" th:if="${#fields.hasErrors('categoryId')}" th:errors="*{categoryId}"></div>
+                            <div class="form-text">Chọn danh mục cuối nhánh. Nếu danh mục đã có nhóm con, hãy chọn một nhóm con.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Thương hiệu</label>
@@ -82,12 +83,13 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Trạng thái <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold" for="status">Trạng thái bán <span class="text-danger">*</span></label>
                             <select class="form-select" th:field="*{status}">
-                                <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+                                <option value="ACTIVE">Bật bán (ACTIVE)</option>
                                 <option value="HIDDEN">Ẩn (HIDDEN)</option>
                                 <option value="DISCONTINUED">Ngừng kinh doanh (DISCONTINUED)</option>
                             </select>
+                            <div class="form-text">Sản phẩm bật bán hiển thị khi danh mục đang hoạt động.</div>
                         </div>
                         <div class="col-md-6 d-flex align-items-center pt-4">
                             <div class="form-check">

@@ -11,6 +11,12 @@
         </div>
         <a th:href="@{/admin/categories/create}" class="btn btn-success"><i class="bi bi-plus-lg me-2" aria-hidden="true"></i>Thêm danh mục cha</a>
     </div>
+    <nav class="d-flex gap-2 mb-3" aria-label="Lọc trạng thái danh mục">
+        <a class="btn btn-sm" th:classappend="${activeOnly ? 'btn-success' : 'btn-outline-secondary'}"
+           th:href="@{/admin/categories(status='active')}" th:attr="aria-current=${activeOnly ? 'page' : null}">Đang hoạt động</a>
+        <a class="btn btn-sm" th:classappend="${activeOnly ? 'btn-outline-secondary' : 'btn-success'}"
+           th:href="@{/admin/categories}" th:attr="aria-current=${activeOnly ? null : 'page'}">Tất cả danh mục</a>
+    </nav>
     <div class="category-management-tree">
         <section class="card category-group mb-3" th:each="parent : ${categories}"
                  th:id="${'category-' + parent.id}" th:attr="data-category-id=${parent.id}">
@@ -34,7 +40,7 @@
             <div class="collapse" th:id="${'children-' + parent.id}" th:classappend="${expandedParentId == parent.id} ? 'show'">
                 <div class="category-group-body">
                     <p th:if="${!#strings.isEmpty(parent.description)}" class="text-muted small mb-3" th:text="${parent.description}"></p>
-                    <p th:unless="${parent.isActive}" class="small text-muted mb-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Danh mục cha đang ngừng hoạt động; các danh mục con trong nhánh này không hiển thị ở menu cửa hàng.</p>
+                    <p th:unless="${parent.visible}" class="small text-muted mb-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Hãy kích hoạt danh mục cha trước khi kích hoạt từng danh mục con.</p>
                     <div class="table-responsive" th:unless="${#lists.isEmpty(parent.children)}">
                         <table class="table align-middle category-children-table mb-0">
                             <caption class="visually-hidden" th:text="${'Danh mục con của ' + parent.name}"></caption>
@@ -54,7 +60,10 @@
                 </div>
             </div>
         </section>
-        <div th:if="${#lists.isEmpty(categories)}" class="card text-center p-5 text-muted"><i class="bi bi-folder2 fs-2 mb-3" aria-hidden="true"></i>Chưa có danh mục nào.</div>
+        <div th:if="${#lists.isEmpty(categories)}" class="card text-center p-5 text-muted">
+            <i class="bi bi-folder2 fs-2 mb-3" aria-hidden="true"></i>
+            <span th:text="${activeOnly ? 'Chưa có danh mục nào đang hoạt động.' : 'Chưa có danh mục nào.'}"></span>
+        </div>
     </div>
 </div>
 </body></html>

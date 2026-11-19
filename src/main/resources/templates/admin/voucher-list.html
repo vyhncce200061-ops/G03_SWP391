@@ -133,13 +133,14 @@
                             </span>
                         </td>
                         <td class="text-end pe-4">
-                            <form th:if="${v.isDeleted}" th:action="@{/admin/vouchers/{id}/restore(id=${v.id})}" method="post" class="d-inline"
+                            <span th:if="${v.retiredShippingVoucher}" class="small text-muted">Mã vận chuyển đã ngừng</span>
+                            <form th:if="${v.isDeleted and !v.retiredShippingVoucher}" th:action="@{/admin/vouchers/{id}/restore(id=${v.id})}" method="post" class="d-inline"
                                   onsubmit="return confirm('Phục hồi voucher này về trạng thái Tạm dừng? Mã, hạn dùng và số lượt đã dùng được giữ nguyên.');">
                                 <button type="submit" class="btn btn-sm btn-outline-success" title="Phục hồi voucher">
                                     <i class="bi bi-arrow-counterclockwise"></i> Phục hồi
                                 </button>
                             </form>
-                            <div th:if="${!v.isDeleted}" class="d-inline-flex gap-1">
+                            <div th:if="${!v.isDeleted and !v.retiredShippingVoucher}" class="d-inline-flex gap-1">
                                 <a th:href="@{/admin/vouchers/{id}/edit(id=${v.id})}" class="btn btn-sm btn-outline-secondary" title="Chỉnh sửa">
                                     <i class="bi bi-pencil"></i>
                                 </a>

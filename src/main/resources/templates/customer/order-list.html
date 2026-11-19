@@ -54,6 +54,12 @@
                               th:action="@{/customer/orders/{id}/pay(id=${order.id})}" method="post">
                             <button type="submit" class="btn btn-sm btn-primary">Tiếp tục thanh toán</button>
                         </form>
+                        <form th:if="${order.orderStatus.name() == 'COMPLETED' or order.orderStatus.name() == 'CANCELLED' or order.orderStatus.name() == 'RETURNED'}"
+                              th:action="@{/customer/orders/{id}/buy-again(id=${order.id})}" method="post" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-arrow-repeat me-1"></i>Mua lại
+                            </button>
+                        </form>
                         <a th:href="@{/customer/orders/{id}(id=${order.id})}" class="btn btn-sm btn-outline-primary">Chi Tiết</a>
                     </div>
                 </div>

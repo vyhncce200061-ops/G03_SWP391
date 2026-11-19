@@ -116,8 +116,10 @@
                     <div class="d-flex justify-content-between mb-3 text-muted">
                         <span>Phí vận chuyển:</span>
                         <span id="cart-shipping"
-                              th:text="${#numbers.formatDecimal(cart.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
+                              th:text="${cart.selectedItemCount > 0 and cart.shippingFee.signum() == 0 ? 'Miễn phí' : #numbers.formatDecimal(cart.shippingFee, 0, 'POINT', 0, 'COMMA') + ' đ'}">0đ</span>
                     </div>
+                    <p class="small text-muted"
+                       th:text="${'Tự động miễn phí giao hàng từ ' + #numbers.formatDecimal(@shippingFeeConfig.freeShippingThreshold, 0, 'POINT', 0, 'COMMA') + ' đ tiền hàng đã chọn.'}"></p>
                     <hr>
                     <div class="d-flex justify-content-between mb-3 fw-bold">
                         <span>Tổng cộng:</span>

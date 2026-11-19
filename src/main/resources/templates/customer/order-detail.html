@@ -45,7 +45,12 @@
                 <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
                     <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
                         <h5 class="fw-bold mb-0">Sản Phẩm Đã Mua</h5>
-
+                        <form th:if="${order.orderStatus.name() == 'COMPLETED' or order.orderStatus.name() == 'CANCELLED' or order.orderStatus.name() == 'RETURNED'}"
+                              th:action="@{/customer/orders/{id}/buy-again(id=${order.id})}" method="post" class="ms-auto">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="bi bi-arrow-repeat me-1"></i>Mua lại đơn hàng này
+                            </button>
+                        </form>
                     </div>
                     <ul class="list-group list-group-flush">
                         <li th:each="item : ${order.items}"
@@ -82,9 +87,9 @@
                                 </div>
                                 <form th:if="${!isOutOfStock}" th:action="@{/cart/reorder-item}" method="post" class="m-0">
                                     <input type="hidden" name="variantId" th:value="${item.variant.id}">
-                                    <input type="hidden" name="quantity" th:value="${item.quantity}">
+                                    <input type="hidden" name="quantity" value="1">
                                     <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 small">
-                                        <i class="bi bi-bag-plus me-1"></i> Mua Lại
+                                        <i class="bi bi-bag-plus me-1"></i> Mua Lại (1)
                                     </button>
                                 </form>
                                 <button th:if="${isOutOfStock}" type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 small disabled" disabled title="Món hàng này hiện đã hết hàng">

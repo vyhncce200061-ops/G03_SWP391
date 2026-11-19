@@ -24,8 +24,11 @@ public interface OrderService {
     void reservePendingVnpayStock(Long orderId);
     void markPreparing(Long orderId, Long staffId);
     void markShipping(Long orderId, Long staffId);
+    void recordDeliveryFailure(Long orderId, Long staffId, String reason);
+    void confirmReturn(Long orderId, Long staffId);
     void markCompleted(Long orderId, Long staffId);
     void staffRejectOrder(Long orderId, Long staffId, String rejectReason);
+    com.petshop.dto.order.BuyAgainResultDto buyAgain(Long orderId, Long customerId);
     void cancelExpiredPendingPaymentOrders();
     void cancelPendingPaymentOrder(Long orderId, CancelType cancelType, String reason);
 }

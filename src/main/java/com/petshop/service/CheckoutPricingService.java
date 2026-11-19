@@ -23,7 +23,10 @@ public class CheckoutPricingService {
         BigDecimal subtotal = selected.stream().map(CartItemDto::getLineTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal discount = BigDecimal.ZERO;
-        BigDecimal fee = selected.isEmpty() ? BigDecimal.ZERO : shippingFeeConfig.getShippingFee();
+        BigDecimal fee = selected.isEmpty() ? BigDecimal.ZERO : shippingFeeConfig.calculateShippingFee(subtotal);
+        if (fee == null) {
+            fee = shippingFeeConfig.getShippingFee() != null ? shippingFeeConfig.getShippingFee() : BigDecimal.ZERO;
+        }
         boolean allowed = cart.isCheckoutAllowed();
         String message = selected.isEmpty() ? "Vui lòng chọn ít nhất một sản phẩm trong giỏ hàng."
                 : allowed ? null : "Có sản phẩm không còn bán hoặc không đủ tồn. Vui lòng kiểm tra lại giỏ hàng.";

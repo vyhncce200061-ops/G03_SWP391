@@ -9,6 +9,9 @@ import com.petshop.repository.*;
 import com.petshop.service.CartService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
         "vnpay.tmn-code=", "vnpay.hash-secret=", "vnpay.return-url=",
+        "petshop.free-shipping-threshold=300000",
         "spring.jpa.properties.hibernate.hbm2ddl.create_namespaces=true",
         "spring.datasource.url=jdbc:h2:mem:checkoutworkflow;DB_CLOSE_DELAY=-1;MODE=MSSQLServer;DATABASE_TO_UPPER=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
 })
@@ -137,6 +141,131 @@ class CheckoutWorkflowTests {
                 .minOrderAmount(BigDecimal.ZERO).startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(1)).totalUsageLimit(20).perCustomerLimit(2).status(VoucherStatus.ACTIVE).build());
         voucherService.saveVoucherToWallet(owner.getId(),saved.getId());return saved;
+    }
+
+    private Voucher fixedVoucher(String code, String value) {
+        return vouchers.saveAndFlush(Voucher.builder().code(code.toUpperCase(java.util.Locale.ROOT)).title("Giảm tiền hàng")
+                .discountType(DiscountType.FIXED).discountValue(new BigDecimal(value)).minOrderAmount(BigDecimal.ZERO)
+                .startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(1))
+                .totalUsageLimit(20).perCustomerLimit(1).status(VoucherStatus.ACTIVE).build());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"299999,50000,30000,279999", "300000,50000,0,250000",
+            "300001,50000,0,250001", "40000,40000,30000,30000"})
+    void shippingThresholdAndVoucherCapMatchInCartQuoteAndPlacedOrder(int subtotal, int discount, int fee, int total) throws Exception {
+        first.setPrice(BigDecimal.valueOf(subtotal));
+        variants.saveAndFlush(first);
+        carts.updateItemQuantity(customer.getId(), firstItem, 1);
+        var voucher = fixedVoucher("PRICE-" + UUID.randomUUID(), "50000");
+        var cart = carts.getCartForUser(customer.getId());
+        assertThat(cart.getSubtotal()).isEqualByComparingTo(BigDecimal.valueOf(subtotal));
+        assertThat(cart.getShippingFee()).isEqualByComparingTo(BigDecimal.valueOf(fee));
+        mvc.perform(post("/checkout/quote").with(user(principal)).with(csrf()).param("code", voucher.getCode()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.subtotal").value(subtotal))
+                .andExpect(jsonPath("$.shippingFee").value(fee)).andExpect(jsonPath("$.discountAmount").value(discount))
+                .andExpect(jsonPath("$.totalAmount").value(total));
+        mvc.perform(post("/checkout/apply-voucher").with(user(principal)).with(csrf()).param("code", voucher.getCode()))
+                .andExpect(jsonPath("$.finalTotal").value(subtotal - discount))
+                .andExpect(jsonPath("$.shippingFee").value(fee)).andExpect(jsonPath("$.totalAmount").value(total));
+        mvc.perform(validOrderPost().param("voucherCode", voucher.getCode()).with(user(principal)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("/checkout/success/*"));
+        var placed = orders.findByCustomerIdOrderByCreatedAtDesc(customer.getId(), org.springframework.data.domain.PageRequest.of(0, 1))
+                .getContent().get(0);
+        assertThat(placed.getDiscountAmount()).isEqualByComparingTo(BigDecimal.valueOf(discount));
+        assertThat(placed.getShippingFee()).isEqualByComparingTo(BigDecimal.valueOf(fee));
+        assertThat(placed.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(total));
+    }
+
+    @Test
+    void freeShippingAppliesWithoutAVoucherAndOnlyToSelectedItems() throws Exception {
+        assertThat(carts.getCartForUser(customer.getId()).getShippingFee()).isEqualByComparingTo("30000");
+        carts.updateItemQuantity(customer.getId(), firstItem, 3);
+        var html = mvc.perform(get("/checkout").with(user(principal))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("300.000 đ tiền hàng trước voucher", "id=\"quote-shipping\">Miễn phí");
+        mvc.perform(validOrderPost().with(user(principal)).with(csrf()))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("/checkout/success/*"));
+        var placed = orders.findByCustomerIdOrderByCreatedAtDesc(customer.getId(), org.springframework.data.domain.PageRequest.of(0, 1))
+                .getContent().get(0);
+        assertThat(placed.getVoucher()).isNull();
+        assertThat(placed.getDiscountAmount()).isEqualByComparingTo("0");
+        assertThat(placed.getShippingFee()).isEqualByComparingTo("0");
+        assertThat(placed.getTotalAmount()).isEqualByComparingTo("300000");
+    }
+
+    @Test
+    void legacyFreeShippingCannotBeListedAppliedReservedOrRestoredEvenOnAnUnmigratedDatabase() throws Exception {
+        var legacy = fixedVoucher(Voucher.RETIRED_SHIPPING_CODE, "30000");
+        assertThat(vouchers.findAvailablePublicVouchers(LocalDateTime.now())).noneMatch(v -> v.getId().equals(legacy.getId()));
+        mvc.perform(post("/checkout/quote").with(user(principal)).with(csrf()).param("code", " freeship30k "))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.checkoutAllowed").value(false))
+                .andExpect(jsonPath("$.discountAmount").value(0)).andExpect(jsonPath("$.shippingFee").value(30000));
+        assertThat(vouchers.reserveVoucherAtomic(legacy.getId(), LocalDateTime.now())).isZero();
+        voucherService.softDeleteVoucher(legacy.getId());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> voucherService.restoreDeletedVoucher(legacy.getId()))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("đã ngừng áp dụng");
+    }
+
+    @Test
+    void freeShippingChangesTheSignedGatewayAmountAndZeroTotalCanUseCod() throws Exception {
+        carts.updateItemQuantity(customer.getId(), firstItem, 3);
+        var partial = fixedVoucher("VNP-" + UUID.randomUUID(), "50000");
+        var full = fixedVoucher("FULL-" + UUID.randomUUID(), "300000");
+        String oldCode = vnPayProperties.getTmnCode(), oldSecret = vnPayProperties.getHashSecret(), oldReturn = vnPayProperties.getReturnUrl();
+        try {
+            vnPayProperties.setTmnCode("TESTONLY");
+            vnPayProperties.setHashSecret("synthetic-test-key");
+            vnPayProperties.setReturnUrl("https://example.test/payment/vnpay-return");
+            long before = orders.count();
+            mvc.perform(validOrderPost(PaymentMethod.VNPAY).param("voucherCode", full.getCode()).with(user(principal)).with(csrf()))
+                    .andExpect(status().isOk()).andExpect(model().attributeExists("checkoutError"));
+            assertThat(orders.count()).isEqualTo(before);
+            assertThat(vouchers.findById(full.getId()).orElseThrow().getUsedCount()).isZero();
+            var result = mvc.perform(validOrderPost(PaymentMethod.VNPAY)
+                    .param("voucherCode", partial.getCode()).with(user(principal)).with(csrf()))
+                    .andExpect(status().is3xxRedirection()).andReturn().getResponse();
+            assertThat(result.getRedirectedUrl()).contains("vnp_Amount=25000000&");
+            carts.addItemToCart(customer.getId(), first.getId(), 3);
+            mvc.perform(validOrderPost(PaymentMethod.COD).param("voucherCode", full.getCode()).with(user(principal)).with(csrf()))
+                    .andExpect(status().is3xxRedirection()).andExpect(redirectedUrlPattern("/checkout/success/*"));
+            assertThat(orders.findByCustomerIdOrderByCreatedAtDesc(customer.getId(), org.springframework.data.domain.PageRequest.of(0, 2))
+                    .getContent()).anySatisfy(o -> {
+                        assertThat(o.getPaymentMethod()).isEqualTo(PaymentMethod.COD);
+                        assertThat(o.getTotalAmount()).isEqualByComparingTo("0");
+                        assertThat(o.getShippingFee()).isEqualByComparingTo("0");
+                    });
+        } finally {
+            vnPayProperties.setTmnCode(oldCode);
+            vnPayProperties.setHashSecret(oldSecret);
+            vnPayProperties.setReturnUrl(oldReturn);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"inactive", "future", "expired"})
+    void voucherChangedAfterPreviewCannotBeUsedToPlaceAnOrder(String state) throws Exception {
+        var voucher = fixedVoucher("RECHECK-" + UUID.randomUUID(), "50000");
+        mvc.perform(post("/checkout/quote").with(user(principal)).with(csrf()).param("code", voucher.getCode()))
+                .andExpect(jsonPath("$.discountAmount").value(50000));
+        switch (state) {
+            case "inactive" -> voucher.setStatus(VoucherStatus.INACTIVE);
+            case "future" -> {
+                voucher.setStartDate(LocalDateTime.now().plusDays(1));
+                voucher.setEndDate(LocalDateTime.now().plusDays(2));
+            }
+            case "expired" -> voucher.setEndDate(LocalDateTime.now().minusHours(1));
+            default -> throw new IllegalStateException(state);
+        }
+        vouchers.saveAndFlush(voucher);
+        mvc.perform(post("/checkout/quote").with(user(principal)).with(csrf()).param("code", voucher.getCode()))
+                .andExpect(jsonPath("$.checkoutAllowed").value(false)).andExpect(jsonPath("$.discountAmount").value(0))
+                .andExpect(jsonPath("$.totalAmount").value(230000));
+        long before = orders.count();
+        mvc.perform(validOrderPost().param("voucherCode", voucher.getCode()).with(user(principal)).with(csrf()))
+                .andExpect(status().isOk()).andExpect(model().attributeExists("checkoutError"));
+        assertThat(orders.count()).isEqualTo(before);
+        assertThat(vouchers.findById(voucher.getId()).orElseThrow().getUsedCount()).isZero();
     }
 
     @Test

@@ -15,5 +15,8 @@ public class VoucherApplyResultDto {
     private Long voucherId;
     private String voucherCode;
     private BigDecimal discountAmount;
+    /** Merchandise after discount, before any delivery fee. */
     private BigDecimal finalTotal;
+    private BigDecimal shippingFee;
+    private BigDecimal totalAmount;
 }

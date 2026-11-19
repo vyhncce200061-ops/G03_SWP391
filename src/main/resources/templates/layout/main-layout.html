@@ -23,8 +23,6 @@
                 </form>
                 <ul class="navbar-nav ms-xl-3 align-items-center gap-1">
                     <li class="nav-item"><a class="nav-link" th:href="@{/products}" data-store-nav="all">Sản phẩm</a></li>
-                    <li class="nav-item"><a class="nav-link" th:href="@{/products(petType='DOG')}" data-store-nav="DOG">Cho chó</a></li>
-                    <li class="nav-item"><a class="nav-link" th:href="@{/products(petType='CAT')}" data-store-nav="CAT">Cho mèo</a></li>
                     <li class="nav-item mx-xl-2" sec:authorize="!hasAnyRole('STAFF','ADMIN')">
                         <a class="nav-link position-relative px-2 d-inline-block" th:href="@{/cart}" title="Giỏ hàng" aria-label="Giỏ hàng"><i class="bi bi-bag fs-5" aria-hidden="true"></i><span class="badge bg-danger rounded-pill cart-badge" th:text="${session.cartCount != null ? session.cartCount : 0}">0</span></a>
                     </li>

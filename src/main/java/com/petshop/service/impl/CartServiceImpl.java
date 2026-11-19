@@ -15,6 +15,7 @@ import com.petshop.repository.ProductImageRepository;
 import com.petshop.repository.ProductVariantRepository;
 import com.petshop.repository.UserRepository;
 import com.petshop.service.CartService;
+import com.petshop.service.CategoryManageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 
 @Service
@@ -53,6 +55,24 @@ public class CartServiceImpl implements CartService {
     public CartDto addItemToCart(Long userId, Long variantId, int quantity) {
         requirePositiveQuantity(quantity);
         Cart cart = getOrCreateCartForUpdate(userId);
+        addItem(cart, variantId, quantity);
+        return mapToDto(cart);
+    }
+
+    @Override
+    @Transactional
+    public Optional<String> addItemForReorder(Long userId, Long variantId) {
+        Cart cart = getOrCreateCartForUpdate(userId);
+        try {
+            addItem(cart, variantId, 1);
+            return Optional.empty();
+        } catch (IllegalArgumentException unavailable) {
+            // Expected item rejection may coexist with successful additions in the same order.
+            return Optional.of(unavailable.getMessage());
+        }
+    }
+
+    private void addItem(Cart cart, Long variantId, int quantity) {
         ProductVariant variant = variantRepository.findById(variantId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy biến thể sản phẩm."));
         requireAvailable(variant);
@@ -71,7 +91,6 @@ public class CartServiceImpl implements CartService {
             item.setQuantity((int) newQuantity);
         }
         cartItemRepository.save(item);
-        return mapToDto(cart);
     }
 
     @Override
@@ -170,7 +189,8 @@ public class CartServiceImpl implements CartService {
             return "Giá sản phẩm chưa hợp lệ. Vui lòng liên hệ cửa hàng.";
         }
         if (variant.getStatus() != ProductVariantStatus.ACTIVE
-                || variant.getProduct().getStatus() != ProductStatus.ACTIVE) {
+                || variant.getProduct().getStatus() != ProductStatus.ACTIVE
+                || !CategoryManageService.isActiveInHierarchy(variant.getProduct().getCategory())) {
             return "Sản phẩm hiện đang tạm dừng bán.";
         }
         if (variant.getStockQuantity() <= 0) {
@@ -229,7 +249,10 @@ public class CartServiceImpl implements CartService {
                     .availabilityMessage(availabilityMessage)
                     .build());
         }
-        BigDecimal shippingFee = selectedItemCount == 0 ? BigDecimal.ZERO : shippingFeeConfig.getShippingFee();
+        BigDecimal shippingFee = selectedItemCount == 0 ? BigDecimal.ZERO : shippingFeeConfig.calculateShippingFee(subtotal);
+        if (shippingFee == null) {
+            shippingFee = shippingFeeConfig.getShippingFee() != null ? shippingFeeConfig.getShippingFee() : BigDecimal.ZERO;
+        }
         return CartDto.builder()
                 .id(cart.getId())
                 .userId(cart.getUser().getId())

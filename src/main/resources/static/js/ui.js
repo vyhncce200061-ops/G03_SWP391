@@ -91,13 +91,10 @@
             if (logo.complete && !logo.naturalWidth) hideBrokenLogo();
         }
         if (date) date.textContent = new Intl.DateTimeFormat('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',timeZone:'Asia/Ho_Chi_Minh'}).format(new Date());
-        const pet = (new URLSearchParams(window.location.search).get('petType') || '').trim().toUpperCase();
-        for (const link of document.querySelectorAll('[data-store-nav]')) {
-            if (path === '/products' || path.startsWith('/products/')) {
-                const active = link.dataset.storeNav === (pet === 'DOG' || pet === 'CAT' ? pet : 'all');
-                link.classList.toggle('active', active);
-                if (active) link.setAttribute('aria-current', 'page');
-            }
+        const productsLink = document.querySelector('[data-store-nav="all"]');
+        if (productsLink && (path === '/products' || path.startsWith('/products/'))) {
+            productsLink.classList.add('active');
+            productsLink.setAttribute('aria-current', 'page');
         }
         const top = document.getElementById('backToTop');
         if (top) {

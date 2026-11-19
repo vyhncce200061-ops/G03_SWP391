@@ -66,7 +66,12 @@ public class CheckoutController {
             return VoucherApplyResultDto.builder().valid(false)
                     .message("Vui lòng kiểm tra mã giảm giá và chọn sản phẩm hợp lệ trong giỏ.").build();
         }
-        return voucherService.validateAndCalculateDiscount(code, user.getId(), cart.getSubtotal());
+        VoucherApplyResultDto result = voucherService.validateAndCalculateDiscount(code, user.getId(), cart.getSubtotal());
+        if (result.isValid()) {
+            result.setShippingFee(cart.getShippingFee());
+            result.setTotalAmount(result.getFinalTotal().add(cart.getShippingFee()));
+        }
+        return result;
     }
 
     @PostMapping("/quote")
@@ -127,7 +132,8 @@ public class CheckoutController {
         model.addAttribute("quote", quote);
         model.addAttribute("addresses", userService.getCustomerAddresses(customerId));
         model.addAttribute("vnPayAvailable", vnPayService.isConfigured());
-        model.addAttribute("walletVouchers", voucherService.getCustomerWalletVouchers(customerId));
+        model.addAttribute("walletVouchers", voucherService.getCustomerWalletVouchers(customerId).stream()
+                .filter(entry -> !entry.getVoucher().isRetiredShippingVoucher()).toList());
         return quote;
     }
 }

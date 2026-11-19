@@ -83,6 +83,13 @@ public class Order {
     @Column(name = "OrderStatus", nullable = false, length = 30)
     private OrderStatus orderStatus;
 
+    @Column(name = "DeliveryAttempts", nullable = false)
+    @Builder.Default
+    private Integer deliveryAttempts = 0;
+
+    @Column(name = "FailedDeliveryReason", length = 1000)
+    private String failedDeliveryReason;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "PaymentMethod", nullable = false, length = 30)
     private PaymentMethod paymentMethod;
@@ -145,6 +152,9 @@ public class Order {
         }
         if (this.paymentStatus == null) {
             this.paymentStatus = PaymentStatus.UNPAID;
+        }
+        if (this.deliveryAttempts == null) {
+            this.deliveryAttempts = 0;
         }
     }
 

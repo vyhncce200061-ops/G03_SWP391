@@ -5,6 +5,7 @@ import com.petshop.dto.voucher.VoucherApplyResultDto;
 import com.petshop.entity.*;
 import com.petshop.entity.enums.*;
 import com.petshop.repository.*;
+import com.petshop.service.CategoryManageService;
 import com.petshop.service.OrderService;
 import com.petshop.service.VoucherService;
 import com.petshop.service.OrderLocks;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -50,6 +50,7 @@ public class OrderServiceImpl implements OrderService {
     private final RetryingTransactions transactions;
     private final jakarta.persistence.EntityManager entityManager;
     private final com.petshop.config.ShippingFeeConfig shippingFeeConfig;
+    private final com.petshop.service.CartService cartService;
 
     @Override
     public Order checkoutOrder(Long customerId, CheckoutSubmitDto request) {
@@ -105,7 +106,8 @@ public class OrderServiceImpl implements OrderService {
                     .orElseThrow(() -> new IllegalArgumentException("Sản phẩm trong giỏ hàng không còn tồn tại."));
             entityManager.refresh(variant, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             if (variant.getStatus() != ProductVariantStatus.ACTIVE
-                    || variant.getProduct().getStatus() != ProductStatus.ACTIVE) {
+                    || variant.getProduct().getStatus() != ProductStatus.ACTIVE
+                    || !CategoryManageService.isActiveInHierarchy(variant.getProduct().getCategory())) {
                 throw new IllegalStateException("Sản phẩm '" + variant.getProduct().getName()
                         + " - " + variant.getVariantName() + "' hiện không còn kinh doanh.");
             }
@@ -131,12 +133,14 @@ public class OrderServiceImpl implements OrderService {
             if (!voucher.getId().equals(requestedVoucherId)) {
                 throw new IllegalStateException("Mã giảm giá đã thay đổi. Vui lòng kiểm tra lại.");
             }
-            VoucherApplyResultDto result = voucherService.validateAndCalculateDiscount(requestedVoucherCode, null, subtotal);
+            VoucherApplyResultDto result = voucherService.validateAndCalculateDiscount(requestedVoucherCode, null,
+                    subtotal);
             if (!result.isValid()) {
                 throw new IllegalArgumentException("Mã voucher không hợp lệ: " + result.getMessage());
             }
             int perCustomerLimit = voucher.getPerCustomerLimit() != null && voucher.getPerCustomerLimit() > 0
-                    ? voucher.getPerCustomerLimit() : 1;
+                    ? voucher.getPerCustomerLimit()
+                    : 1;
             if (customerVoucherUsage >= perCustomerLimit) {
                 throw new IllegalArgumentException("Bạn đã sử dụng hết số lần cho phép với mã này.");
             }
@@ -145,22 +149,33 @@ public class OrderServiceImpl implements OrderService {
                 throw new IllegalStateException("Giá trị giảm giá không hợp lệ.");
             }
             voucherCode = voucher.getCode();
-            voucherService.reserveVoucher(voucher.getId());
         }
-        BigDecimal shippingFee = shippingFeeConfig.getShippingFee();
+        BigDecimal shippingFee = shippingFeeConfig.calculateShippingFee(subtotal);
+        if (shippingFee == null) {
+            shippingFee = shippingFeeConfig.getShippingFee() != null ? shippingFeeConfig.getShippingFee()
+                    : BigDecimal.ZERO;
+        }
         BigDecimal total = subtotal.subtract(discount).add(shippingFee);
         validateAmount(total, "Giá trị thanh toán vượt giới hạn cho phép.");
         boolean reserveStock = request.getPaymentMethod() == PaymentMethod.VNPAY;
+        if (reserveStock && total.signum() == 0) {
+            throw new IllegalArgumentException("Đơn hàng 0 đ không cần thanh toán VNPay. Vui lòng chọn COD.");
+        }
+        if (voucher != null) {
+            voucherService.reserveVoucher(voucher.getId());
+        }
         if (reserveStock) {
             for (int i = 0; i < selectedItems.size(); i++) {
-                if (variantRepository.deductStockAtomic(variants.get(i).getId(), selectedItems.get(i).getQuantity()) != 1) {
+                if (variantRepository.deductStockAtomic(variants.get(i).getId(),
+                        selectedItems.get(i).getQuantity()) != 1) {
                     throw new IllegalStateException("Không đủ tồn kho để giữ hàng thanh toán VNPay.");
                 }
                 entityManager.refresh(variants.get(i));
             }
         }
         OrderStatus initialStatus = request.getPaymentMethod() == PaymentMethod.VNPAY
-                ? OrderStatus.PENDING_PAYMENT : OrderStatus.PENDING_CONFIRMATION;
+                ? OrderStatus.PENDING_PAYMENT
+                : OrderStatus.PENDING_CONFIRMATION;
         Order order = Order.builder()
                 .orderCode("ORD-" + UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT))
                 .customer(customer).voucher(voucher).voucherCodeSnapshot(voucherCode)
@@ -175,7 +190,8 @@ public class OrderServiceImpl implements OrderService {
                 .orderStatus(initialStatus).paymentMethod(request.getPaymentMethod())
                 .paymentStatus(PaymentStatus.UNPAID).stockDeducted(reserveStock).build();
         Order savedOrder = orderRepository.save(order);
-        if (voucher != null) voucherService.markCustomerVoucherUsed(customerId, voucher.getId());
+        if (voucher != null)
+            voucherService.markCustomerVoucherUsed(customerId, voucher.getId());
 
         List<Long> purchasedVariantIds = new ArrayList<>();
         for (int i = 0; i < selectedItems.size(); i++) {
@@ -216,7 +232,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public Page<Order> getCustomerOrders(Long customerId, OrderStatus status,
-                                         LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+            LocalDate fromDate, LocalDate toDate, Pageable pageable) {
         if ((fromDate != null && (fromDate.getYear() < 1 || fromDate.getYear() > 9999))
                 || (toDate != null && (toDate.getYear() < 1 || toDate.getYear() > 9999))) {
             throw new IllegalArgumentException("Ngày lọc phải nằm trong khoảng năm 1 đến 9999.");
@@ -229,14 +245,17 @@ public class OrderServiceImpl implements OrderService {
             filters = filters.and((root, query, cb) -> cb.equal(root.get("orderStatus"), status));
         }
         if (fromDate != null) {
-            filters = filters.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate.atStartOfDay()));
+            filters = filters
+                    .and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate.atStartOfDay()));
         }
         if (toDate != null && !toDate.equals(LocalDate.of(9999, 12, 31))) {
             LocalDateTime exclusiveEnd = toDate.plusDays(1).atStartOfDay();
             filters = filters.and((root, query, cb) -> cb.lessThan(root.get("createdAt"), exclusiveEnd));
         }
-        Pageable sorted = pageable.isUnpaged() || pageable.getSort().isSorted() ? pageable : PageRequest.of(
-                pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+        Pageable sorted = pageable.isUnpaged() || pageable.getSort().isSorted() ? pageable
+                : PageRequest.of(
+                        pageable.getPageNumber(), pageable.getPageSize(),
+                        Sort.by(Sort.Direction.DESC, "createdAt", "id"));
         Page<Order> page = orderRepository.findAll(filters, sorted);
         if (!page.isEmpty()) {
             orderRepository.findWithItemsByIdIn(page.getContent().stream().map(Order::getId).toList());
@@ -285,7 +304,8 @@ public class OrderServiceImpl implements OrderService {
                 && transactions.stream().anyMatch(tx -> tx.getPaymentMethod() == PaymentMethod.VNPAY
                         && tx.getTransactionStatus() == TransactionStatus.PENDING);
         if ((!unpaidCod && !pendingVnpay) || hasSuccessfulPayment(transactions)) {
-            throw new IllegalStateException("Đơn hàng đã thanh toán, đã được xử lý hoặc không còn chờ thanh toán, không thể tự hủy.");
+            throw new IllegalStateException(
+                    "Đơn hàng đã thanh toán, đã được xử lý hoặc không còn chờ thanh toán, không thể tự hủy.");
         }
         performOrderCancellation(order, CancelType.CUSTOMER_CANCEL,
                 cancellationReason(reason, "Khách hàng yêu cầu hủy đơn"), order.getCustomer(), transactions);
@@ -326,7 +346,8 @@ public class OrderServiceImpl implements OrderService {
         if (!Boolean.TRUE.equals(order.getStockDeducted())) {
             List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
             items.sort(Comparator.comparing(item -> item.getVariant().getId()));
-            if (items.isEmpty()) throw new IllegalStateException("Đơn hàng không có sản phẩm.");
+            if (items.isEmpty())
+                throw new IllegalStateException("Đơn hàng không có sản phẩm.");
             for (OrderItem item : items) {
                 ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId())
                         .orElseThrow(() -> new IllegalStateException("Sản phẩm không còn tồn tại."));
@@ -385,19 +406,23 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private boolean allocateVnpayStock(Order order) {
-        if (Boolean.TRUE.equals(order.getStockDeducted())) return true;
+        if (Boolean.TRUE.equals(order.getStockDeducted()))
+            return true;
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
         items.sort(Comparator.comparing(item -> item.getVariant().getId()));
-        if (items.isEmpty()) throw new IllegalStateException("Đơn hàng không có sản phẩm.");
+        if (items.isEmpty())
+            throw new IllegalStateException("Đơn hàng không có sản phẩm.");
         // Lock and validate every SKU before writing any deduction. A paid order
         // with insufficient stock is kept for staff resolution, never marked unpaid.
         for (OrderItem item : items) {
             ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId()).orElse(null);
-            if (variant != null) entityManager.refresh(variant, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            if (variant != null)
+                entityManager.refresh(variant, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             if (variant == null || item.getQuantity() == null || item.getQuantity() <= 0
                     || variant.getStatus() != ProductVariantStatus.ACTIVE
                     || variant.getProduct().getStatus() != ProductStatus.ACTIVE
-                    || variant.getStockQuantity() == null || variant.getStockQuantity() < item.getQuantity()) return false;
+                    || variant.getStockQuantity() == null || variant.getStockQuantity() < item.getQuantity())
+                return false;
         }
         for (OrderItem item : items) {
             if (variantRepository.deductStockAtomic(item.getVariant().getId(), item.getQuantity()) != 1) {
@@ -408,6 +433,8 @@ public class OrderServiceImpl implements OrderService {
         return true;
     }
 
+    public static final int MAX_DELIVERY_ATTEMPTS = 3;
+
     @Override
     public void markShipping(Long orderId, Long staffId) {
         transactions.run(() -> shipInTransaction(orderId, staffId));
@@ -415,9 +442,117 @@ public class OrderServiceImpl implements OrderService {
 
     private void shipInTransaction(Long orderId, Long staffId) {
         Order order = lockOrder(orderId);
-        requireStatus(order, OrderStatus.PREPARING);
+        if (order.getOrderStatus() != OrderStatus.PREPARING && order.getOrderStatus() != OrderStatus.DELIVERY_FAILED) {
+            throw new IllegalStateException(
+                    "Đơn hàng phải ở trạng thái Đang chuẩn bị hoặc Giao thất bại để giao hàng.");
+        }
         requirePaymentForFulfilment(order);
-        transitionStatus(order, OrderStatus.SHIPPING, "Đã giao cho đơn vị vận chuyển", requireUser(staffId));
+        String message = order.getOrderStatus() == OrderStatus.DELIVERY_FAILED
+                ? "Giao lại đơn hàng (Lần " + (order.getDeliveryAttempts() + 1) + ")"
+                : "Đã giao cho đơn vị vận chuyển";
+        transitionStatus(order, OrderStatus.SHIPPING, message, requireUser(staffId));
+    }
+
+    @Override
+    public void recordDeliveryFailure(Long orderId, Long staffId, String reason) {
+        transactions.run(() -> deliveryFailureInTransaction(orderId, staffId, reason));
+    }
+
+    private void deliveryFailureInTransaction(Long orderId, Long staffId, String reason) {
+        requireText(reason, 1000, "Lý do giao hàng không thành công");
+        Order order = lockOrder(orderId);
+        requireStatus(order, OrderStatus.SHIPPING);
+        User staff = requireUser(staffId);
+
+        int attempts = (order.getDeliveryAttempts() != null ? order.getDeliveryAttempts() : 0) + 1;
+        order.setDeliveryAttempts(attempts);
+        order.setFailedDeliveryReason(reason.trim());
+
+        if (attempts < MAX_DELIVERY_ATTEMPTS) {
+            transitionStatus(order, OrderStatus.DELIVERY_FAILED,
+                    "Giao hàng thất bại (Lần " + attempts + "/" + MAX_DELIVERY_ATTEMPTS + "): " + reason.trim(), staff);
+        } else {
+            performReturnOrder(order, staff,
+                    "Giao thất bại " + attempts + " lần: " + reason.trim() + ". Tự động chuyển hoàn hàng.");
+        }
+    }
+
+    @Override
+    public void confirmReturn(Long orderId, Long staffId) {
+        transactions.run(() -> confirmReturnInTransaction(orderId, staffId));
+    }
+
+    private void confirmReturnInTransaction(Long orderId, Long staffId) {
+        Order order = lockOrder(orderId);
+        if (order.getOrderStatus() != OrderStatus.DELIVERY_FAILED && order.getOrderStatus() != OrderStatus.SHIPPING) {
+            throw new IllegalStateException("Chỉ được hoàn hàng cho đơn đang giao hoặc giao thất bại.");
+        }
+        User staff = requireUser(staffId);
+        performReturnOrder(order, staff, "Xác nhận hoàn hàng về kho");
+    }
+
+    private void performReturnOrder(Order order, User actor, String reason) {
+        if (Boolean.TRUE.equals(order.getStockDeducted())) {
+            var items = order.getItems().stream().sorted(Comparator.comparing(item -> item.getVariant().getId())).toList();
+            for (OrderItem item : items) {
+                if (item.getQuantity() == null || item.getQuantity() <= 0
+                        || variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity()) != 1) {
+                    throw new IllegalStateException("Không thể hoàn tồn kho cho đơn hàng này.");
+                }
+                entityManager.refresh(item.getVariant());
+            }
+            order.setStockDeducted(false);
+        }
+        transitionStatus(order, OrderStatus.RETURNED, reason, actor);
+        if (order.getVoucher() != null) {
+            voucherService.releaseVoucher(order.getVoucher().getId());
+            voucherService.restoreCustomerVoucher(order.getCustomer().getId(), order.getVoucher().getId());
+        }
+    }
+
+    @Override
+    public com.petshop.dto.order.BuyAgainResultDto buyAgain(Long orderId, Long customerId) {
+        return transactions.execute(() -> buyAgainInTransaction(orderId, customerId));
+    }
+
+    private com.petshop.dto.order.BuyAgainResultDto buyAgainInTransaction(Long orderId, Long customerId) {
+        Order order = lockOrder(orderId);
+        requireOwner(order, customerId);
+
+        int addedCount = 0;
+        List<String> unavailable = new ArrayList<>();
+
+        for (OrderItem item : order.getItems()) {
+            ProductVariant variant = item.getVariant();
+            String itemName = item.getProductNameSnapshot() + " (" + item.getVariantNameSnapshot() + ")";
+            if (variant == null) {
+                unavailable.add(itemName + " - Không còn tồn tại");
+                continue;
+            }
+            var rejection = cartService.addItemForReorder(customerId, variant.getId());
+            if (rejection.isEmpty()) {
+                addedCount++;
+            } else {
+                unavailable.add(itemName + " - " + rejection.get());
+            }
+        }
+
+        String message;
+        if (addedCount == 0) {
+            message = "Không thể thêm sản phẩm nào vào giỏ hàng do hết hàng hoặc ngừng kinh doanh.";
+        } else if (unavailable.isEmpty()) {
+            message = "Đã thêm " + addedCount + " sản phẩm vào giỏ hàng thành công với số lượng mặc định là 1!";
+        } else {
+            message = "Đã thêm " + addedCount + " sản phẩm vào giỏ hàng. Một số sản phẩm không thể thêm: "
+                    + String.join("; ", unavailable);
+        }
+
+        return com.petshop.dto.order.BuyAgainResultDto.builder()
+                .addedCount(addedCount)
+                .totalRequested(order.getItems().size())
+                .unavailableItems(unavailable)
+                .message(message)
+                .build();
     }
 
     @Override
@@ -561,7 +696,8 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException("Đơn hàng chưa được cấp đủ tồn kho.");
         }
         if ((order.getPaymentMethod() == PaymentMethod.COD && order.getPaymentStatus() != PaymentStatus.UNPAID)
-                || (order.getPaymentMethod() == PaymentMethod.VNPAY && order.getPaymentStatus() != PaymentStatus.PAID)) {
+                || (order.getPaymentMethod() == PaymentMethod.VNPAY
+                        && order.getPaymentStatus() != PaymentStatus.PAID)) {
             throw new IllegalStateException("Trạng thái thanh toán không phù hợp để xử lý đơn hàng.");
         }
     }
@@ -587,20 +723,25 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void saveHistory(Order order, OrderStatus oldStatus, OrderStatus newStatus, String reason, User actor) {
+        if (reason != null && reason.length() > 1000) {
+            int end = Character.isHighSurrogate(reason.charAt(999)) ? 999 : 1000;
+            reason = reason.substring(0, end);
+        }
         OrderStatusHistory history = OrderStatusHistory.builder().order(order).oldStatus(oldStatus)
                 .newStatus(newStatus).reason(reason).changedBy(actor).build();
         statusHistoryRepository.save(history);
     }
 
     private void performOrderCancellation(Order order, CancelType cancelType, String reason,
-                                          User actor, List<PaymentTransaction> transactions) {
+            User actor, List<PaymentTransaction> transactions) {
         // 1. Chỉ cho phép hủy khi đơn đang Chờ xác nhận hoặc Chờ thanh toán
         if (order.getOrderStatus() != OrderStatus.PENDING_CONFIRMATION
                 && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new IllegalStateException("Đơn hàng đã được xử lý, không thể hủy lại.");
         }
 
-        // 2. CHẶN TUYỆT ĐỐI: Không cho phép hủy đơn nếu đã thanh toán (áp dụng cho cả VNPay và COD)
+        // 2. CHẶN TUYỆT ĐỐI: Không cho phép hủy đơn nếu đã thanh toán (áp dụng cho cả
+        // VNPay và COD)
         if (order.getPaymentStatus() == PaymentStatus.PAID) {
             throw new IllegalStateException("Đơn hàng đã thanh toán, không thể hủy.");
         }
@@ -612,14 +753,17 @@ public class OrderServiceImpl implements OrderService {
         order.setCancelledAt(LocalDateTime.now());
         order.setCancelledBy(actor);
 
-        // Cập nhật trạng thái thanh toán (đoạn này giờ chỉ áp dụng cho đơn chưa thanh toán)
-        order.setPaymentStatus(cancelType == CancelType.PAYMENT_FAILED ? PaymentStatus.FAILED : PaymentStatus.CANCELLED);
+        // Cập nhật trạng thái thanh toán (đoạn này giờ chỉ áp dụng cho đơn chưa thanh
+        // toán)
+        order.setPaymentStatus(
+                cancelType == CancelType.PAYMENT_FAILED ? PaymentStatus.FAILED : PaymentStatus.CANCELLED);
         orderRepository.save(order);
 
         for (PaymentTransaction transaction : transactions) {
             if (transaction.getTransactionStatus() == TransactionStatus.PENDING) {
                 transaction.setTransactionStatus(cancelType == CancelType.PAYMENT_EXPIRED
-                        ? TransactionStatus.EXPIRED : TransactionStatus.CANCELLED);
+                        ? TransactionStatus.EXPIRED
+                        : TransactionStatus.CANCELLED);
                 paymentTransactionRepository.save(transaction);
             }
         }

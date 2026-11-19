@@ -71,6 +71,16 @@ class PortalLayoutTests {
     }
 
     @Test
+    void storefrontHeaderKeepsTheCatalogLinkAndOmitsPetTypeLinks() throws Exception {
+        String html = mvc.perform(get("/products").param("petType", "DOG"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String header = html.substring(html.indexOf("<header"), html.indexOf("</header>"));
+        assertThat(header).contains("href=\"/products\"", "Sản phẩm", "action=\"/products\"")
+                .doesNotContain("Cho chó", "Cho mèo", "petType=");
+        assertThat(html).contains("name=\"petType\"");
+    }
+
+    @Test
     void localStylesScriptsFontsAndHeroArePublicAssets() throws Exception {
         for (String path : List.of("/css/ui.css", "/css/vendor/bootstrap.min.css", "/css/vendor/bootstrap-icons.min.css",
                 "/css/vendor/fonts/bootstrap-icons.woff2", "/js/ui.js", "/js/vendor/bootstrap.bundle.min.js",

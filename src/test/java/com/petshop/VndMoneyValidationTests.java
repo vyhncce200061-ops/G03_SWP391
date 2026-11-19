@@ -29,9 +29,14 @@ class VndMoneyValidationTests {
     }
 
     @Test void shippingConfigurationRejectsFractionalAndNegativeFees() {
-        assertThat(new ShippingFeeConfig(new BigDecimal("30000.00")).getShippingFee()).isEqualByComparingTo("30000");
-        assertThatThrownBy(() -> new ShippingFeeConfig(new BigDecimal("30000.50"))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new ShippingFeeConfig(new BigDecimal("-1"))).isInstanceOf(IllegalArgumentException.class);
+        BigDecimal threshold = new BigDecimal("300000");
+        assertThat(new ShippingFeeConfig(new BigDecimal("30000.00"), threshold).getShippingFee()).isEqualByComparingTo("30000");
+        assertThatThrownBy(() -> new ShippingFeeConfig(new BigDecimal("30000.50"), threshold)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ShippingFeeConfig(new BigDecimal("-1"), threshold)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ShippingFeeConfig(new BigDecimal("30000"), new BigDecimal("300000.50")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(new ShippingFeeConfig(new BigDecimal("30000"), BigDecimal.ZERO)
+                .calculateShippingFee(new BigDecimal("600000"))).isEqualByComparingTo("30000");
     }
 
     @ParameterizedTest @CsvSource({"3.33,18000,599", "3.35,18000,603", "5,19999,1000", "0.01,1,0", "100,18000,18000"})

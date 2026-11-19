@@ -16,7 +16,6 @@ BEGIN TRANSACTION;
 DECLARE @NewOrders TABLE (Id BIGINT PRIMARY KEY);
 DECLARE @CustomerId BIGINT = (SELECT TOP 1 Id FROM dbo.Users WITH (UPDLOCK, HOLDLOCK) WHERE Email = N'customer@petshop.vn');
 DECLARE @VoucherWelcomeId BIGINT = (SELECT TOP 1 Id FROM dbo.Vouchers WHERE Code = 'PETWELCOME10');
-DECLARE @VoucherFreeshipId BIGINT = (SELECT TOP 1 Id FROM dbo.Vouchers WHERE Code = 'FREESHIP30K');
 
 -- Lấy các VariantId mẫu
 DECLARE @VarPoodle500g BIGINT = (SELECT TOP 1 Id FROM dbo.ProductVariants WHERE SkuCode = 'RC-POODLE-500G');
@@ -26,7 +25,7 @@ DECLARE @VarCatLitter8L BIGINT = (SELECT TOP 1 Id FROM dbo.ProductVariants WHERE
 DECLARE @VarBallS BIGINT = (SELECT TOP 1 Id FROM dbo.ProductVariants WHERE SkuCode = 'BALL-RUBBER-S');
 DECLARE @VarLeashM BIGINT = (SELECT TOP 1 Id FROM dbo.ProductVariants WHERE SkuCode = 'LEASH-SET-M');
 
-IF @CustomerId IS NULL OR @VoucherWelcomeId IS NULL OR @VoucherFreeshipId IS NULL
+IF @CustomerId IS NULL OR @VoucherWelcomeId IS NULL
 OR @VarPoodle500g IS NULL OR @VarPoodle1500g IS NULL OR @VarPate85g IS NULL OR @VarCatLitter8L IS NULL OR @VarBallS IS NULL OR @VarLeashM IS NULL
     THROW 50001, N'Chưa có dữ liệu nền; seed demo không được thực hiện.', 1;
 
@@ -63,7 +62,7 @@ BEGIN
     ) VALUES (
         'ORD-20261002-002', @CustomerId, @VoucherWelcomeId, 'PETWELCOME10',
         N'Nguyễn Văn Khách', '0912345678', N'Hà Nội', N'Cầu Giấy', N'Dịch Vọng Hậu', N'123 Đường Cầu Giấy',
-        N'Để ở bàn lễ tân', 585000, 50000, 30000, 565000,
+        N'Để ở bàn lễ tân', 585000, 50000, 0, 535000,
         'COMPLETED', 'VNPAY', 'PAID',
         DATEADD(DAY, -5, SYSDATETIME()), DATEADD(DAY, -5, SYSDATETIME()), DATEADD(DAY, -5, SYSDATETIME())
     );
@@ -109,9 +108,9 @@ BEGIN
         CustomerNote, SubtotalAmount, DiscountAmount, ShippingFee, TotalAmount,
         OrderStatus, PaymentMethod, PaymentStatus, CompletedAt, CreatedAt, UpdatedAt
     ) VALUES (
-        'ORD-20261004-004', @CustomerId, @VoucherFreeshipId, 'FREESHIP30K',
+        'ORD-20261004-004', @CustomerId, NULL, NULL,
         N'Nguyễn Văn Khách', '0912345678', N'Hà Nội', N'Cầu Giấy', N'Dịch Vọng Hậu', N'123 Đường Cầu Giấy',
-        N'Giao trước 5h chiều', 537000, 30000, 30000, 537000,
+        N'Giao trước 5h chiều', 537000, 0, 0, 537000,
         'COMPLETED', 'VNPAY', 'PAID',
         DATEADD(DAY, -2, SYSDATETIME()), DATEADD(DAY, -2, SYSDATETIME()), DATEADD(DAY, -2, SYSDATETIME())
     );

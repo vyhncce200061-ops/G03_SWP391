@@ -142,23 +142,14 @@ public class ProductCatalogController {
         model.addAttribute("selectedCategory",
                 categoryCode != null ? categoryCode : "");
 
-        // Xác định danh mục đang được chọn
-        Integer selectedId = categoryId;
-
-        if (selectedId == null && categoryCode != null) {
-            selectedId = categories
-                    .stream()
-                    .filter(c -> categoryCode.equals(c.getCode()))
-                    .map(Category::getId)
-                    .findFirst()
-                    .orElse(null);
-        }
-
-        model.addAttribute("selectedCategoryId", selectedId);
-        Integer chosenId = selectedId;
-        model.addAttribute("selectedParentCategoryId", categories.stream()
-                .filter(c -> c.getId().equals(chosenId) && c.getParentCategory() != null)
-                .map(c -> c.getParentCategory().getId()).findFirst().orElse(null));
+        var selectedCategory = categories.stream()
+                .filter(c -> categoryId != null ? categoryId.equals(c.getId()) : c.getCode().equals(categoryCode))
+                .findFirst();
+        model.addAttribute("selectedCategoryId", selectedCategory.map(Category::getId).orElse(categoryId));
+        model.addAttribute("selectedParentCategoryId",
+                selectedCategory.map(Category::getParentCategory).map(Category::getId).orElse(null));
+        boolean categoryFilterRequested = categoryId != null || (categoryCode != null && !categoryCode.isBlank());
+        model.addAttribute("categoryUnavailable", categoryFilterRequested && selectedCategory.isEmpty());
 
         // Giữ lại các lựa chọn bộ lọc
         model.addAttribute("selectedPetType",
