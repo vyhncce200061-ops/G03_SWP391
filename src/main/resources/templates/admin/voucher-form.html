@@ -56,8 +56,8 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Loại Chiết Khấu <span class="text-danger">*</span></label>
                             <select th:field="*{discountType}" class="form-select" th:classappend="${#fields.hasErrors('discountType')} ? 'is-invalid'">
-                                <option value="PERCENT">Giảm Theo Phần Trăm (%)</option>
-                                <option value="FIXED">Giảm Số Tiền Cố Định (VNĐ)</option>
+                                <option value="PERCENT">Giảm tiền hàng theo phần trăm (%)</option>
+                                <option value="FIXED">Giảm tiền hàng theo số tiền (VNĐ)</option>
                             </select>
                             <div class="invalid-feedback" th:errors="*{discountType}"></div>
                         </div>

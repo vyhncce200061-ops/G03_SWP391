@@ -720,9 +720,7 @@ INSERT INTO dbo.Vouchers (Code, Title, Description, DiscountType, DiscountValue,
  ('PETVIP50K',    N'Giảm 50.000đ',             N'Đơn từ 500.000đ',           'FIXED',   50000,  500000,  NULL,
    SYSDATETIME(), DATEADD(YEAR, 1, SYSDATETIME()), 500, 2),
  ('MEGASAVE100K', N'Siêu tiết kiệm 100.000đ',  N'Đơn từ 1.000.000đ',         'FIXED',   100000, 1000000, NULL,
-   SYSDATETIME(), DATEADD(YEAR, 1, SYSDATETIME()), 200, 1),
- ('FREESHIP30K',  N'Miễn phí vận chuyển',      N'Giảm 30.000đ phí ship, đơn từ 300.000đ', 'FIXED', 30000, 300000, NULL,
-   SYSDATETIME(), DATEADD(YEAR, 1, SYSDATETIME()), 1000, 3);
+   SYSDATETIME(), DATEADD(YEAR, 1, SYSDATETIME()), 200, 1);
 
 -- Ví voucher mẫu cho khách hàng (customer@petshop.vn)
 INSERT INTO dbo.CustomerVouchers (CustomerId, VoucherId, SavedAt, IsUsed, UsedAt)
@@ -730,12 +728,6 @@ SELECT u.Id, v.Id, DATEADD(DAY, -2, SYSDATETIME()), 0, NULL
 FROM dbo.Users u
 CROSS JOIN dbo.Vouchers v
 WHERE u.Email = N'customer@petshop.vn' AND v.Code = 'PETWELCOME10';
-
-INSERT INTO dbo.CustomerVouchers (CustomerId, VoucherId, SavedAt, IsUsed, UsedAt)
-SELECT u.Id, v.Id, DATEADD(DAY, -1, SYSDATETIME()), 0, NULL
-FROM dbo.Users u
-CROSS JOIN dbo.Vouchers v
-WHERE u.Email = N'customer@petshop.vn' AND v.Code = 'FREESHIP30K';
 
 -- Phiếu nhập kho ban đầu (vừa là dữ liệu mẫu, vừa nạp tồn kho)
 INSERT INTO dbo.StockImports (ImportCode, SupplierName, Note, CreatedByUserId)

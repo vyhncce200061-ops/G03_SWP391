@@ -12,6 +12,10 @@ Kết quả kiểm tra hiện tại và phạm vi các luồng đã đối chi�
 
 **Bản dev hiện tại:** xem [các chức năng đã gộp và quy tắc đơn hàng](docs/DEV_UPDATE.md). Trước khi Run, cập nhật [StockDeducted và đối soát kho](database/sync_order_stock/README.md), kể cả máy đã có sáu cột Staff/voucher/Feedback của đợt trước. Không chạy bootstrap/reset để đồng bộ database có dữ liệu.
 
+**Biến thể và giao hàng:** Với database đã có dữ liệu, áp dụng [migration biến thể và trạng thái giao hàng](database/migrations/V20261119__variant_attributes_and_order_delivery.sql) trước khi chạy bản mới. Script thêm màu, trọng lượng, số lần giao thất bại, lý do và hai trạng thái giao hàng.
+
+**Voucher và giao hàng:** Voucher giảm trên tiền hàng đã chọn. Từ 500.000 đ tiền hàng trước voucher, hệ thống tự miễn phí giao hàng. Mức phí thông thường và ngưỡng có thể cấu hình bằng `SHIPPING_FEE` và `FREE_SHIPPING_THRESHOLD`. Với database đã có mã Free Ship cũ, chạy [script ngừng phát hành FREESHIP30K](database/migrations/V20261119__retire_shipping_voucher.sql) trên đúng database PetShop sau khi đã có cập nhật xóa mềm voucher. Script giữ các đơn, ví và số lượt cũ.
+
 ---
 
 ## 📋 Mục lục / Table of Contents

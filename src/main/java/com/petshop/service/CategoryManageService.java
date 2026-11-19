@@ -58,7 +58,7 @@ public class CategoryManageService {
     }
 
     public static boolean isActiveInHierarchy(Category category) {
-        return Boolean.TRUE.equals(category.getIsActive()) && allowsActiveChild(category.getParentCategory());
+        return category != null && Boolean.TRUE.equals(category.getIsActive()) && allowsActiveChild(category.getParentCategory());
     }
 
     private static boolean allowsActiveChild(Category parent) {

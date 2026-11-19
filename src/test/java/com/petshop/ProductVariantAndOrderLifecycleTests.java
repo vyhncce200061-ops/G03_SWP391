@@ -37,6 +37,10 @@ class ProductVariantAndOrderLifecycleTests {
     @Autowired private RoleRepository roles;
     @Autowired private OrderRepository orders;
     @Autowired private OrderItemRepository orderItems;
+    @Autowired private VoucherRepository vouchers;
+    @Autowired private CustomerVoucherRepository wallet;
+    @Autowired private com.petshop.service.VoucherService voucherService;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
     @Autowired private OrderService orderService;
     @Autowired private CartService cartService;
 
@@ -202,5 +206,73 @@ class ProductVariantAndOrderLifecycleTests {
         assertThat(cart.getItems()).hasSize(1);
         assertThat(cart.getItems().get(0).getVariantId()).isEqualTo(variant.getId());
         assertThat(cart.getItems().get(0).getQuantity()).isEqualTo(1); // Mặc định là 1 chứ không phải 5
+    }
+
+    @Test
+    void reorderKeepsValidItemsWhenAnotherItemAlreadyExceedsAvailableCartQuantity() {
+        var second = variants.saveAndFlush(ProductVariant.builder().product(product)
+                .skuCode(variant.getSkuCode() + "-NEXT").variantName("Vị cá").price(variant.getPrice())
+                .stockQuantity(4).build());
+        var order = createOrder(OrderStatus.COMPLETED, PaymentStatus.PAID, null);
+        addOrderItem(order, variant);
+        addOrderItem(order, second);
+        cartService.addItemToCart(customer.getId(), variant.getId(), variant.getStockQuantity());
+        var result = orderService.buyAgain(order.getId(), customer.getId());
+        assertThat(result.getAddedCount()).isEqualTo(1);
+        assertThat(result.getUnavailableItems()).singleElement().asString().contains("Chỉ còn");
+        var cart = cartService.getCartForUser(customer.getId());
+        assertThat(cart.getItems()).anySatisfy(item -> {
+            assertThat(item.getVariantId()).isEqualTo(second.getId());
+            assertThat(item.getQuantity()).isEqualTo(1);
+        });
+        assertThat(cart.getItems()).anySatisfy(item -> {
+            assertThat(item.getVariantId()).isEqualTo(variant.getId());
+            assertThat(item.getQuantity()).isEqualTo(variant.getStockQuantity());
+        });
+    }
+
+    @Test
+    void returningAnOrderRestoresStockAndAllowsTheSameCustomerToReuseTheirVoucher() {
+        var now = java.time.LocalDateTime.now();
+        var voucher = vouchers.saveAndFlush(Voucher.builder().code(("BACK-" + UUID.randomUUID()).toUpperCase(java.util.Locale.ROOT))
+                .title("Test").discountType(DiscountType.FIXED).discountValue(BigDecimal.valueOf(10000))
+                .minOrderAmount(BigDecimal.ZERO).startDate(now.minusDays(1)).endDate(now.plusDays(1))
+                .totalUsageLimit(10).perCustomerLimit(1).usedCount(1).build());
+        var order = createOrder(OrderStatus.SHIPPING, PaymentStatus.UNPAID, voucher);
+        addOrderItem(order, variant);
+        wallet.saveAndFlush(CustomerVoucher.builder().customer(customer).voucher(voucher).isUsed(true).usedAt(now).build());
+        assertThat(voucherService.validateAndCalculateDiscount(voucher.getCode(),
+                customer.getId(), variant.getPrice()).isValid()).isFalse();
+        orderService.recordDeliveryFailure(order.getId(), staff.getId(), "x".repeat(1000));
+        assertThat(orders.findById(order.getId()).orElseThrow().getFailedDeliveryReason()).hasSize(1000);
+        orderService.confirmReturn(order.getId(), staff.getId());
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(orders.findById(order.getId()).orElseThrow().getOrderStatus()).isEqualTo(OrderStatus.RETURNED);
+        assertThat(orders.countVoucherUsageByCustomer(customer.getId(), voucher.getId())).isZero();
+        assertThat(voucherService.validateAndCalculateDiscount(voucher.getCode(), customer.getId(), variant.getPrice()).isValid()).isTrue();
+        assertThat(vouchers.findById(voucher.getId()).orElseThrow().getUsedCount()).isZero();
+        assertThat(wallet.findByCustomerIdAndVoucherId(customer.getId(), voucher.getId()).orElseThrow().getIsUsed()).isFalse();
+        assertThat(variants.findById(variant.getId()).orElseThrow().getStockQuantity()).isEqualTo(11);
+        assertThrows(IllegalStateException.class, () -> orderService.confirmReturn(order.getId(), staff.getId()));
+        assertThat(variants.findById(variant.getId()).orElseThrow().getStockQuantity()).isEqualTo(11);
+    }
+
+    private Order createOrder(OrderStatus status, PaymentStatus payment, Voucher voucher) {
+        BigDecimal subtotal = variant.getPrice();
+        BigDecimal discount = voucher == null ? BigDecimal.ZERO : voucher.getDiscountValue();
+        return orders.saveAndFlush(Order.builder().orderCode("ORD-" + UUID.randomUUID())
+                .customer(customer).voucher(voucher).voucherCodeSnapshot(voucher == null ? null : voucher.getCode())
+                .recipientName("Người nhận").recipientPhone("0901234567")
+                .shippingProvince("Hà Nội").shippingDistrict("Cầu Giấy").shippingWard("Dịch Vọng")
+                .shippingAddressLine("Địa chỉ thử").subtotalAmount(subtotal).discountAmount(discount)
+                .shippingFee(BigDecimal.ZERO).totalAmount(subtotal.subtract(discount))
+                .orderStatus(status).paymentMethod(PaymentMethod.COD).paymentStatus(payment).stockDeducted(true).build());
+    }
+
+    private void addOrderItem(Order order, ProductVariant itemVariant) {
+        order.getItems().add(orderItems.saveAndFlush(OrderItem.builder().order(order).variant(itemVariant)
+                .productNameSnapshot(product.getName()).skuCodeSnapshot(itemVariant.getSkuCode())
+                .variantNameSnapshot(itemVariant.getVariantName()).unitPrice(itemVariant.getPrice()).quantity(1).build()));
     }
 }

@@ -100,7 +100,8 @@
         });
         document.getElementById('cart-no-selection').hidden = cart.selectedItemCount > 0;
         document.getElementById('cart-subtotal').textContent = formatMoney(cart.subtotal);
-        document.getElementById('cart-shipping').textContent = (Number(cart.shippingFee) === 0 && cart.selectedItemCount > 0) ? 'Miễn phí' : formatMoney(cart.shippingFee);
+        document.getElementById('cart-shipping').textContent =
+            cart.selectedItemCount > 0 && Number(cart.shippingFee) === 0 ? 'Miễn phí' : formatMoney(cart.shippingFee);
         document.getElementById('cart-total').textContent = formatMoney(cart.totalAmount);
         document.getElementById('cart-items').hidden = cart.items.length === 0;
         document.getElementById('cart-empty').hidden = cart.items.length !== 0;

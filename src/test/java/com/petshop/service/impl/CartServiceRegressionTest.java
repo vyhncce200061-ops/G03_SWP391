@@ -55,7 +55,8 @@ class CartServiceRegressionTest {
         lenient().when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         cart = Cart.builder().id(10L).user(user).build();
         variant = ProductVariant.builder().id(20L)
-                .product(Product.builder().id(30L).name("Pet food").status(ProductStatus.ACTIVE).build())
+                .product(Product.builder().id(30L).name("Pet food").status(ProductStatus.ACTIVE)
+                        .category(com.petshop.entity.Category.builder().isActive(true).build()).build())
                 .status(ProductVariantStatus.ACTIVE).price(new BigDecimal("15000"))
                 .stockQuantity(10).build();
         item = CartItem.builder().id(40L).cart(cart).variant(variant).quantity(2).isSelected(true).build();

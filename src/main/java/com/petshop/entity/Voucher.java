@@ -20,6 +20,15 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class Voucher {
+    public static final String RETIRED_SHIPPING_CODE = "FREESHIP30K";
+
+    public static boolean isRetiredShippingCode(String code) {
+        return code != null && RETIRED_SHIPPING_CODE.equalsIgnoreCase(code.trim());
+    }
+
+    public boolean isRetiredShippingVoucher() {
+        return isRetiredShippingCode(code);
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

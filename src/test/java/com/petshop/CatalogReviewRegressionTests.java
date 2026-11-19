@@ -186,7 +186,7 @@ class CatalogReviewRegressionTests {
     }
 
     @Test
-    void concurrentParentShutdownAndProductActivationCannotBothSucceed() throws Exception {
+    void concurrentParentShutdownAndProductActivationNeverLeaveAProductVisibleInTheClosedBranch() throws Exception {
         Category root = category("Root with product", null);
         Category child = category("Child with product", root);
         Role role = roles.findByCode("CUSTOMER").orElseGet(() -> roles.save(Role.builder()
@@ -205,9 +205,9 @@ class CatalogReviewRegressionTests {
             start.countDown();
             boolean deactivated = shutdown.get(12, TimeUnit.SECONDS);
             boolean selling = activation.get(12, TimeUnit.SECONDS);
-            assertNotEquals(deactivated, selling);
-            assertEquals(selling, categoryService.editForm(root.getId()).getIsActive());
-            assertEquals(selling, categoryService.editForm(child.getId()).getIsActive());
+            assertTrue(deactivated);
+            assertFalse(categoryService.editForm(root.getId()).getIsActive());
+            assertFalse(categoryService.editForm(child.getId()).getIsActive());
             assertEquals(selling ? ProductStatus.ACTIVE : ProductStatus.HIDDEN, products.findById(product.getId()).orElseThrow().getStatus());
         } finally {
             pool.shutdownNow();

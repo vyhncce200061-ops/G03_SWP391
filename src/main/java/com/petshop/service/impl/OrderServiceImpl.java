@@ -106,7 +106,8 @@ public class OrderServiceImpl implements OrderService {
                     .orElseThrow(() -> new IllegalArgumentException("Sản phẩm trong giỏ hàng không còn tồn tại."));
             entityManager.refresh(variant, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             if (variant.getStatus() != ProductVariantStatus.ACTIVE
-                    || variant.getProduct().getStatus() != ProductStatus.ACTIVE) {
+                    || variant.getProduct().getStatus() != ProductStatus.ACTIVE
+                    || !CategoryManageService.isActiveInHierarchy(variant.getProduct().getCategory())) {
                 throw new IllegalStateException("Sản phẩm '" + variant.getProduct().getName()
                         + " - " + variant.getVariantName() + "' hiện không còn kinh doanh.");
             }
@@ -148,7 +149,6 @@ public class OrderServiceImpl implements OrderService {
                 throw new IllegalStateException("Giá trị giảm giá không hợp lệ.");
             }
             voucherCode = voucher.getCode();
-            voucherService.reserveVoucher(voucher.getId());
         }
         BigDecimal shippingFee = shippingFeeConfig.calculateShippingFee(subtotal);
         if (shippingFee == null) {
@@ -158,6 +158,12 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal total = subtotal.subtract(discount).add(shippingFee);
         validateAmount(total, "Giá trị thanh toán vượt giới hạn cho phép.");
         boolean reserveStock = request.getPaymentMethod() == PaymentMethod.VNPAY;
+        if (reserveStock && total.signum() == 0) {
+            throw new IllegalArgumentException("Đơn hàng 0 đ không cần thanh toán VNPay. Vui lòng chọn COD.");
+        }
+        if (voucher != null) {
+            voucherService.reserveVoucher(voucher.getId());
+        }
         if (reserveStock) {
             for (int i = 0; i < selectedItems.size(); i++) {
                 if (variantRepository.deductStockAtomic(variants.get(i).getId(),
@@ -453,9 +459,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void deliveryFailureInTransaction(Long orderId, Long staffId, String reason) {
-        if (reason == null || reason.isBlank()) {
-            throw new IllegalArgumentException("Vui lòng nhập lý do giao hàng không thành công.");
-        }
+        requireText(reason, 1000, "Lý do giao hàng không thành công");
         Order order = lockOrder(orderId);
         requireStatus(order, OrderStatus.SHIPPING);
         User staff = requireUser(staffId);
@@ -489,17 +493,21 @@ public class OrderServiceImpl implements OrderService {
 
     private void performReturnOrder(Order order, User actor, String reason) {
         if (Boolean.TRUE.equals(order.getStockDeducted())) {
-            for (OrderItem item : order.getItems()) {
-                variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity());
+            var items = order.getItems().stream().sorted(Comparator.comparing(item -> item.getVariant().getId())).toList();
+            for (OrderItem item : items) {
+                if (item.getQuantity() == null || item.getQuantity() <= 0
+                        || variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity()) != 1) {
+                    throw new IllegalStateException("Không thể hoàn tồn kho cho đơn hàng này.");
+                }
                 entityManager.refresh(item.getVariant());
             }
             order.setStockDeducted(false);
         }
+        transitionStatus(order, OrderStatus.RETURNED, reason, actor);
         if (order.getVoucher() != null) {
             voucherService.releaseVoucher(order.getVoucher().getId());
             voucherService.restoreCustomerVoucher(order.getCustomer().getId(), order.getVoucher().getId());
         }
-        transitionStatus(order, OrderStatus.RETURNED, reason, actor);
     }
 
     @Override
@@ -521,29 +529,11 @@ public class OrderServiceImpl implements OrderService {
                 unavailable.add(itemName + " - Không còn tồn tại");
                 continue;
             }
-            entityManager.refresh(variant);
-            Product product = variant.getProduct();
-            entityManager.refresh(product);
-
-            boolean activeInCatalog = product.getStatus() == ProductStatus.ACTIVE
-                    && variant.getStatus() == ProductVariantStatus.ACTIVE
-                    && CategoryManageService.isActiveInHierarchy(product.getCategory());
-
-            if (!activeInCatalog) {
-                unavailable.add(itemName + " - Đã ngừng kinh doanh");
-                continue;
-            }
-
-            if (variant.getStockQuantity() < 1) {
-                unavailable.add(itemName + " - Hết hàng");
-                continue;
-            }
-
-            try {
-                cartService.addItemToCart(customerId, variant.getId(), 1);
+            var rejection = cartService.addItemForReorder(customerId, variant.getId());
+            if (rejection.isEmpty()) {
                 addedCount++;
-            } catch (Exception ex) {
-                unavailable.add(itemName + " - " + ex.getMessage());
+            } else {
+                unavailable.add(itemName + " - " + rejection.get());
             }
         }
 
@@ -733,6 +723,10 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void saveHistory(Order order, OrderStatus oldStatus, OrderStatus newStatus, String reason, User actor) {
+        if (reason != null && reason.length() > 1000) {
+            int end = Character.isHighSurrogate(reason.charAt(999)) ? 999 : 1000;
+            reason = reason.substring(0, end);
+        }
         OrderStatusHistory history = OrderStatusHistory.builder().order(order).oldStatus(oldStatus)
                 .newStatus(newStatus).reason(reason).changedBy(actor).build();
         statusHistoryRepository.save(history);

@@ -28,6 +28,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class VoucherServiceImpl implements VoucherService {
+    private static final String RETIRED_SHIPPING_MESSAGE =
+            "Mã miễn phí giao hàng này đã ngừng áp dụng. Cửa hàng tự tính phí giao hàng theo tiền hàng.";
 
     private final VoucherRepository voucherRepository;
     private final OrderRepository orderRepository;
@@ -52,7 +54,10 @@ public class VoucherServiceImpl implements VoucherService {
                     .message("Giá trị đơn hàng phải là số nguyên đồng và không được âm.").build();
         }
 
-        Voucher voucher = voucherRepository.findByCode(voucherCode.trim().toUpperCase())
+        if (Voucher.isRetiredShippingCode(voucherCode)) {
+            return VoucherApplyResultDto.builder().valid(false).message(RETIRED_SHIPPING_MESSAGE).build();
+        }
+        Voucher voucher = voucherRepository.findByCode(voucherCode.trim().toUpperCase(java.util.Locale.ROOT))
                 .orElse(null);
 
         if (voucher == null) {
@@ -139,7 +144,7 @@ public class VoucherServiceImpl implements VoucherService {
             discountAmount = voucher.getDiscountValue();
         }
 
-        if (!com.petshop.util.VndMoney.isWhole(discountAmount)) {
+        if (!com.petshop.util.VndMoney.isWhole(discountAmount) || discountAmount.signum() < 0) {
             return VoucherApplyResultDto.builder().valid(false)
                     .message("Mức giảm bằng tiền phải là số nguyên đồng. Vui lòng liên hệ cửa hàng.").build();
         }
@@ -212,9 +217,8 @@ public class VoucherServiceImpl implements VoucherService {
     public Voucher createVoucher(VoucherRequestDto request) {
         validateVoucherLogic(request);
         String cleanCode = request.getCode().trim().toUpperCase(java.util.Locale.ROOT);
+        requireUsableCampaignCode(cleanCode);
         voucherRepository.findByCode(cleanCode).ifPresent(existing -> { throw duplicateCode(existing); });
-
-        validateVoucherLogic(request);
 
         Voucher voucher = Voucher.builder()
                 .code(cleanCode)
@@ -244,8 +248,10 @@ public class VoucherServiceImpl implements VoucherService {
         entityManager.refresh(voucher, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
 
         requireNotDeleted(voucher);
+        requireUsableCampaignCode(voucher.getCode());
 
         String cleanCode = request.getCode().trim().toUpperCase(java.util.Locale.ROOT);
+        requireUsableCampaignCode(cleanCode);
         if (!voucher.getCode().equalsIgnoreCase(cleanCode)) {
             voucherRepository.findByCode(cleanCode).ifPresent(existing -> {
                 if (!existing.getId().equals(id)) {
@@ -254,8 +260,6 @@ public class VoucherServiceImpl implements VoucherService {
             });
             voucher.setCode(cleanCode);
         }
-
-        validateVoucherLogic(request);
 
         if (request.getTotalUsageLimit() < voucher.getUsedCount()) {
             throw new IllegalArgumentException("Tổng lượt sử dụng không được nhỏ hơn số lượt đã dùng (" + voucher.getUsedCount() + ").");
@@ -284,6 +288,7 @@ public class VoucherServiceImpl implements VoucherService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mã giảm giá."));
         entityManager.refresh(voucher, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         requireNotDeleted(voucher);
+        requireUsableCampaignCode(voucher.getCode());
         voucher.setStatus(voucher.getStatus() == VoucherStatus.ACTIVE ? VoucherStatus.INACTIVE : VoucherStatus.ACTIVE);
         voucherRepository.save(voucher);
     }
@@ -309,6 +314,7 @@ public class VoucherServiceImpl implements VoucherService {
         Voucher voucher = voucherRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mã giảm giá."));
         entityManager.refresh(voucher, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        requireUsableCampaignCode(voucher.getCode());
         if (!Boolean.TRUE.equals(voucher.getIsDeleted())) return;
         // Restore the same campaign; preserve its dates, quotas, usage and history.
         voucher.setIsDeleted(false);
@@ -332,6 +338,7 @@ public class VoucherServiceImpl implements VoucherService {
         Voucher voucher = voucherRepository.findByIdForUpdate(voucherId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mã giảm giá."));
         entityManager.refresh(voucher, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        requireUsableCampaignCode(voucher.getCode());
         requireNotDeleted(voucher);
 
         if (voucher.getStatus() != VoucherStatus.ACTIVE) {
@@ -385,7 +392,7 @@ public class VoucherServiceImpl implements VoucherService {
             entry.setAvailable(false);
             LocalDateTime now = LocalDateTime.now();
             String label;
-            if (Boolean.TRUE.equals(v.getIsDeleted())) label = "Đã ngừng phát hành";
+            if (v.isRetiredShippingVoucher() || Boolean.TRUE.equals(v.getIsDeleted())) label = "Đã ngừng phát hành";
             else if (now.isAfter(v.getEndDate())) label = "Đã hết hạn";
             else if (v.getStatus() != VoucherStatus.ACTIVE) label = "Tạm ngưng áp dụng";
             else if (now.isBefore(v.getStartDate())) label = "Chưa đến thời gian áp dụng";
@@ -411,6 +418,12 @@ public class VoucherServiceImpl implements VoucherService {
     public void restoreCustomerVoucher(Long customerId, Long voucherId) {
         if (orderRepository.countVoucherUsageByCustomer(customerId, voucherId) == 0) {
             customerVoucherRepository.restoreUnused(customerId, voucherId);
+        }
+    }
+
+    private void requireUsableCampaignCode(String code) {
+        if (Voucher.isRetiredShippingCode(code)) {
+            throw new IllegalArgumentException(RETIRED_SHIPPING_MESSAGE);
         }
     }
 

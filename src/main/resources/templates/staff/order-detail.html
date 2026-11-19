@@ -112,7 +112,7 @@
                             <button type="submit" class="btn btn-success"><i class="bi bi-check2-all me-1"></i>Giao Thành Công</button>
                         </form>
                         <form th:action="@{/staff/orders/{id}/delivery-failed(id=${order.id})}" method="post" class="d-flex gap-2">
-                            <input type="text" name="reason" class="form-control form-control-sm" placeholder="Lý do không nhận/thất bại..." required style="width: 220px;">
+                            <input type="text" name="reason" class="form-control form-control-sm" placeholder="Lý do không nhận/thất bại..." required maxlength="1000" style="width: 220px;">
                             <button type="submit" class="btn btn-outline-warning text-dark text-nowrap"><i class="bi bi-exclamation-triangle me-1"></i>Báo Giao Thất Bại</button>
                         </form>
                     </th:block>
