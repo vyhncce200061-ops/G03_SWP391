@@ -48,6 +48,7 @@ class CatalogHierarchyTests {
     @Autowired UserRepository users;
     @Autowired RoleRepository roles;
     @Autowired ProductManageService productService;
+    @Autowired com.petshop.service.WishlistService wishlist;
     String key, keyword;
     Category root, otherRoot, child, sibling, inactiveChild;
     User author;
@@ -264,6 +265,9 @@ class CatalogHierarchyTests {
     }
 
     @Test void deactivatingCategoryHidesItsProductsFromSearchUntilReactivated() throws Exception {
+        wishlist.add(author.getId(), childProduct.getId());
+        var buyer = user(new com.petshop.config.security.CustomUserDetails(author));
+        String childUrl = "/products/" + childProduct.getSlug();
         // Initially, childProduct is findable via search
         var initialSearch = mvc.perform(get("/products").param("keyword", keyword)).andExpect(status().isOk()).andReturn();
         assertThat(ids(initialSearch, "productPage")).contains(childProduct.getId());
@@ -273,6 +277,15 @@ class CatalogHierarchyTests {
                 .andExpect(flash().attributeExists("successMessage"));
 
         assertFalse(categories.findById(child.getId()).orElseThrow().getIsActive());
+        assertEquals(ProductStatus.ACTIVE, products.findById(childProduct.getId()).orElseThrow().getStatus());
+        mvc.perform(get(childUrl)).andExpect(status().isNotFound());
+        var savedItems = mvc.perform(get("/customer/wishlist").with(buyer)).andExpect(status().isOk()).andReturn();
+        assertThat(savedItems.getResponse().getContentAsString()).contains("Sản phẩm tạm ẩn theo danh mục.", childProduct.getName())
+                .doesNotContain("href=\"" + childUrl + "\"");
+        assertThrows(IllegalArgumentException.class, () -> wishlist.add(author.getId(), childProduct.getId()));
+        var adminItems = mvc.perform(get("/admin/products").with(user("admin").roles("ADMIN"))
+                .param("categoryId", child.getId().toString())).andExpect(status().isOk()).andReturn();
+        assertThat(adminItems.getResponse().getContentAsString()).contains(childProduct.getName(), "Ẩn do danh mục");
 
         // Now childProduct is hidden from storefront search
         var hiddenSearch = mvc.perform(get("/products").param("keyword", keyword)).andExpect(status().isOk()).andReturn();
@@ -285,6 +298,8 @@ class CatalogHierarchyTests {
         assertTrue(categories.findById(child.getId()).orElseThrow().getIsActive());
         var restoredSearch = mvc.perform(get("/products").param("keyword", keyword)).andExpect(status().isOk()).andReturn();
         assertThat(ids(restoredSearch, "productPage")).contains(childProduct.getId());
+        var restoredWishlist = mvc.perform(get("/customer/wishlist").with(buyer)).andExpect(status().isOk()).andReturn();
+        assertThat(restoredWishlist.getResponse().getContentAsString()).contains("href=\"" + childUrl + "\"");
     }
 
     @Test void deactivationAfterMovingOrPausingProductsPreservesTheChosenSaleStates() throws Exception {

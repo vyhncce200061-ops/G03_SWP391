@@ -36,7 +36,7 @@ public class WishlistService {
         User customer = lockCustomer(customerId);
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm."));
-        if (product.getStatus() != ProductStatus.ACTIVE) {
+        if (product.getStatus() != ProductStatus.ACTIVE || !CategoryManageService.isActiveInHierarchy(product.getCategory())) {
             throw new IllegalArgumentException("Sản phẩm hiện không còn kinh doanh.");
         }
         WishlistItemId id = new WishlistItemId(customerId, productId);

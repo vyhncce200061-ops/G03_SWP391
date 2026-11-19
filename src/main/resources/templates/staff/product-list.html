@@ -110,10 +110,13 @@
                     </td>
 
                     <!-- Status Badges -->
-                    <td class="text-center">
-                        <span th:if="${p.status.name() == 'ACTIVE'}"
+                    <td class="text-center" th:with="categoryActive=${T(com.petshop.service.CategoryManageService).isActiveInHierarchy(p.category)}">
+                        <span th:if="${p.status.name() == 'ACTIVE' and categoryActive}"
                               class="badge status-badge bg-success">
                             Đang bán
+                        </span>
+                        <span th:if="${p.status.name() == 'ACTIVE' and !categoryActive}" class="badge status-badge bg-secondary">
+                            Ẩn do danh mục
                         </span>
                         <span th:if="${p.status.name() == 'HIDDEN'}"
                               class="badge status-badge bg-warning">

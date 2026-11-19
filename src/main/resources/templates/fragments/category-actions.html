@@ -2,11 +2,11 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="actions(cat)" class="category-actions">
-    <a th:href="@{/admin/products(categoryId=${cat.id},status='ACTIVE')}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-seam me-1" aria-hidden="true"></i>Sản phẩm đang bán</a>
+    <a th:href="@{/admin/products(categoryId=${cat.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-seam me-1" aria-hidden="true"></i>Xem sản phẩm</a>
     <a th:href="@{/admin/categories/edit/{id}(id=${cat.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Sửa</a>
     <form th:if="${cat.parentActive}"
           th:action="${cat.visible} ? @{/admin/categories/deactivate/{id}(id=${cat.id})} : @{/admin/categories/activate/{id}(id=${cat.id})}" method="post"
-          th:attr="onsubmit=${!cat.visible} ? 'return confirm(\'Kích hoạt danh mục này?\');' : (${cat.parentId == null} ? 'return confirm(\'Ngừng hoạt động danh mục cha và tất cả danh mục con?\');' : 'return confirm(\'Ngừng hoạt động danh mục này?\');')">
+          th:attr="onsubmit=${!cat.visible} ? (${cat.parentId == null} ? 'return confirm(\'Kích hoạt danh mục cha? Sản phẩm đang bật bán gắn trực tiếp với cha sẽ hiện lại. Danh mục con cần bật riêng.\');' : 'return confirm(\'Kích hoạt danh mục con? Sản phẩm đang bật bán trong danh mục sẽ hiện lại.\');') : (${cat.parentId == null} ? 'return confirm(\'Tắt danh mục cha và các danh mục con? Sản phẩm trong nhánh sẽ bị ẩn khỏi cửa hàng và khách không thể đặt thêm.\');' : 'return confirm(\'Tắt danh mục con? Sản phẩm trong danh mục này sẽ bị ẩn khỏi cửa hàng và khách không thể đặt thêm.\');')">
         <button type="submit" class="btn btn-sm" th:classappend="${cat.visible ? 'btn-outline-warning' : 'btn-outline-success'}" th:text="${cat.visible ? 'Ngừng hoạt động' : 'Kích hoạt'}"></button>
     </form>
     <form th:action="@{/admin/categories/delete/{id}(id=${cat.id})}" method="post"
