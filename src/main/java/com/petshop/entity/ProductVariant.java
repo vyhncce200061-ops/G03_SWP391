@@ -36,6 +36,12 @@ public class ProductVariant {
     @Column(name = "VariantName", nullable = false, length = 200)
     private String variantName;
 
+    @Column(name = "Color", length = 50)
+    private String color;
+
+    @Column(name = "WeightKg", precision = 10, scale = 2)
+    private BigDecimal weightKg;
+
     @Column(name = "Price", nullable = false, precision = 18, scale = 2)
     private BigDecimal price;
 

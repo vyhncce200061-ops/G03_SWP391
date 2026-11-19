@@ -139,6 +139,7 @@ petshop:
   browser:
     auto-open: ${AUTO_OPEN_BROWSER:true}
   shipping-fee: ${SHIPPING_FEE:30000}
+  free-shipping-threshold: ${FREE_SHIPPING_THRESHOLD:500000}
   public-base-url: ${PUBLIC_BASE_URL:${APP_BASE_URL:http://localhost:${server.port:8081}}}
   mail-from: ${SMTP_FROM:${SMTP_USERNAME:${MAIL_USERNAME:}}}
 

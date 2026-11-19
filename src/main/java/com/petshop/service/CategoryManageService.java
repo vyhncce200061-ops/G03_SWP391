@@ -168,16 +168,8 @@ public class CategoryManageService {
     }
 
     private void validateDeactivation(Category category, Category parent, boolean active) {
-        Integer newParentId = parent == null ? null : parent.getId();
-        // Keep repeated requests safe, including old records already inactive.
-        if (active || (!isActiveInHierarchy(category) && Objects.equals(parentId(category), newParentId))) {
-            return;
-        }
-        long activeProducts = products.countActiveProductsInBranch(category.getId());
-        if (activeProducts > 0) {
-            throw new IllegalArgumentException("Nhánh danh mục còn " + activeProducts
-                    + " sản phẩm đang bán. Hãy chuyển chúng sang danh mục đang hoạt động hoặc ngừng bán trước.");
-        }
+        // When a category is deactivated, products under this category branch are automatically
+        // hidden from storefront search and catalog queries until the category is reactivated.
     }
 
     private void requireActiveParent(Category parent, boolean active) {

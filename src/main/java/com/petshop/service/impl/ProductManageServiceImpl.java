@@ -216,6 +216,8 @@ public class ProductManageServiceImpl implements ProductManageService {
         ProductVariant variant = variantRepository.findByIdForUpdate(variantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy biến thể."));
         variant.setVariantName(updateData.getVariantName());
+        variant.setColor(updateData.getColor());
+        variant.setWeightKg(updateData.getWeightKg());
         variant.setPrice(updateData.getPrice());
         variant.setLowStockThreshold(updateData.getLowStockThreshold());
         variant.setStatus(updateData.getStatus());

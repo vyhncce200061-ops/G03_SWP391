@@ -50,6 +50,7 @@ class CartServiceRegressionTest {
     @BeforeEach
     void setUp() {
         lenient().when(shippingFeeConfig.getShippingFee()).thenReturn(new BigDecimal("30000"));
+        lenient().when(shippingFeeConfig.calculateShippingFee(any())).thenReturn(new BigDecimal("30000"));
         user = User.builder().id(1L).build();
         lenient().when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         cart = Cart.builder().id(10L).user(user).build();

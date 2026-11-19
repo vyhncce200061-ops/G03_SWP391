@@ -40,14 +40,26 @@
                         <select id="productVariant" class="form-select" name="variantId" required>
                             <option th:each="v : ${availableVariants}"
                                     th:value="${v.id}"
-                                    th:text="${v.variantName + ' - ' + #numbers.formatDecimal(v.price, 0, 'POINT', 0, 'COMMA') + ' đ (Kho: ' + v.stockQuantity + ')'}">
+                                    th:data-stock="${v.stockQuantity}"
+                                    th:data-price="${v.price}"
+                                    th:data-color="${v.color != null ? v.color : ''}"
+                                    th:data-weight="${v.weightKg != null ? v.weightKg : ''}"
+                                    th:text="${v.variantName + (v.color != null and !v.color.isBlank() ? ' - Màu: ' + v.color : '') + (v.weightKg != null ? ' - ' + v.weightKg + 'kg' : '') + ' - ' + #numbers.formatDecimal(v.price, 0, 'POINT', 0, 'COMMA') + ' đ (Kho: ' + v.stockQuantity + ')'}">
                             </option>
                         </select>
                     </div>
+
+                    <div id="variantDetails" class="mb-3 p-2 bg-light rounded text-muted small" style="display:none;">
+                        <span id="variantColorSpan" class="me-3"></span>
+                        <span id="variantWeightSpan" class="me-3"></span>
+                        <span id="variantStockSpan" class="text-primary fw-semibold"></span>
+                    </div>
+
                     <div class="mb-3">
                         <label for="productQuantity" class="form-label text-body">Số lượng:</label>
                         <input id="productQuantity" type="number" name="quantity" class="form-control" value="1" min="1" max="100"
                                style="width: 120px;">
+                        <div id="stockNotice" class="form-text text-muted"></div>
                     </div>
                     <button type="submit" class="btn btn-pet-primary btn-lg w-100">
                         <i class="bi bi-cart-plus me-2"></i>Thêm Vào Giỏ Hàng
@@ -73,6 +85,95 @@
 </div>
 <th:block layout:fragment="custom-js">
     <script th:src="@{/js/wishlist.js}" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const variantSelect = document.getElementById('productVariant');
+            const quantityInput = document.getElementById('productQuantity');
+            const detailsBox = document.getElementById('variantDetails');
+            const colorSpan = document.getElementById('variantColorSpan');
+            const weightSpan = document.getElementById('variantWeightSpan');
+            const stockSpan = document.getElementById('variantStockSpan');
+            const stockNotice = document.getElementById('stockNotice');
+            const submitBtn = document.querySelector('form[action*="/cart/add"] button[type="submit"]');
+
+            function updateVariant() {
+                if (!variantSelect) return;
+                const selected = variantSelect.options[variantSelect.selectedIndex];
+                if (!selected) return;
+
+                const stock = parseInt(selected.getAttribute('data-stock'), 10) || 0;
+                const color = selected.getAttribute('data-color') || '';
+                const weight = selected.getAttribute('data-weight') || '';
+
+                if (color) {
+                    colorSpan.textContent = 'Màu sắc: ' + color;
+                    colorSpan.style.display = 'inline';
+                } else {
+                    colorSpan.style.display = 'none';
+                }
+
+                if (weight) {
+                    weightSpan.textContent = 'Khối lượng: ' + weight + ' kg';
+                    weightSpan.style.display = 'inline';
+                } else {
+                    weightSpan.style.display = 'none';
+                }
+
+                stockSpan.textContent = 'Còn lại: ' + stock + ' sản phẩm trong kho';
+                if (detailsBox) detailsBox.style.display = 'block';
+
+                if (stock <= 0) {
+                    quantityInput.value = 0;
+                    quantityInput.min = 0;
+                    quantityInput.max = 0;
+                    quantityInput.disabled = true;
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Tạm Hết Hàng';
+                    }
+                    if (stockNotice) stockNotice.textContent = 'Biến thể này hiện đã hết hàng.';
+                } else {
+                    quantityInput.disabled = false;
+                    quantityInput.min = 1;
+                    quantityInput.max = stock;
+                    let currentVal = parseInt(quantityInput.value, 10);
+                    if (isNaN(currentVal) || currentVal < 1) {
+                        quantityInput.value = 1;
+                    } else if (currentVal > stock) {
+                        quantityInput.value = stock;
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-cart-plus me-2"></i>Thêm Vào Giỏ Hàng';
+                    }
+                    if (stockNotice) stockNotice.textContent = 'Tối đa có thể mua: ' + stock + ' sản phẩm';
+                }
+            }
+
+            if (variantSelect) {
+                variantSelect.addEventListener('change', updateVariant);
+                updateVariant();
+            }
+
+            if (quantityInput) {
+                const validateQty = () => {
+                    const max = parseInt(quantityInput.max, 10);
+                    const min = parseInt(quantityInput.min, 10) || 1;
+                    let val = parseInt(quantityInput.value, 10);
+                    if (isNaN(val) || val < min) {
+                        quantityInput.value = min;
+                    } else if (max > 0 && val > max) {
+                        quantityInput.value = max;
+                        if (stockNotice) {
+                            stockNotice.textContent = 'Đã tự động điều chỉnh về số lượng tối đa còn lại (' + max + ')';
+                        }
+                    }
+                };
+                quantityInput.addEventListener('input', validateQty);
+                quantityInput.addEventListener('change', validateQty);
+            }
+        });
+    </script>
 </th:block>
 </body>
 </html>

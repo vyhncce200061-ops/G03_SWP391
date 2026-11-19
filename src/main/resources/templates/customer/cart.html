@@ -116,7 +116,7 @@
                     <div class="d-flex justify-content-between mb-3 text-muted">
                         <span>Phí vận chuyển:</span>
                         <span id="cart-shipping"
-                              th:text="${#numbers.formatDecimal(cart.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
+                              th:text="${cart.shippingFee.compareTo(T(java.math.BigDecimal).ZERO) == 0 and cart.selectedItemCount > 0 ? 'Miễn phí' : #numbers.formatDecimal(cart.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}">0đ</span>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3 fw-bold">

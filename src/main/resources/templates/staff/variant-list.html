@@ -46,7 +46,11 @@
                 <!-- Loop through variants -->
                 <tr th:each="v : ${product.variants}">
                     <td class="fw-semibold" th:text="${v.skuCode}">SKU-001</td>
-                    <td th:text="${v.variantName}">Túi 500g</td>
+                    <td>
+                        <span th:text="${v.variantName}">Túi 500g</span>
+                        <small class="text-muted d-block" th:if="${v.color != null or v.weightKg != null}"
+                               th:text="${(v.color != null ? 'Màu: ' + v.color : '') + (v.color != null and v.weightKg != null ? ' | ' : '') + (v.weightKg != null ? v.weightKg + ' kg' : '')}"></small>
+                    </td>
                     <td th:text="${#numbers.formatDecimal(v.price, 0, 'POINT', 0, 'COMMA') + ' đ'}">100.000 đ</td>
                     <td class="text-center">
                         <!-- In Stock: Quantity > Low Stock Threshold -->

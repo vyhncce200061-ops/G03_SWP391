@@ -152,8 +152,8 @@
                             <span id="quote-subtotal" th:text="${#numbers.formatDecimal(quote.subtotal, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                         </div>
                         <div class="d-flex justify-content-between mb-2 text-muted">
-                            <span>Phí giao hàng cố định:</span>
-                            <span id="quote-shipping" th:text="${#numbers.formatDecimal(quote.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
+                            <span>Phí giao hàng:</span>
+                            <span id="quote-shipping" th:text="${quote.shippingFee.compareTo(T(java.math.BigDecimal).ZERO) == 0 ? 'Miễn phí' : #numbers.formatDecimal(quote.shippingFee, 0, 'POINT', 0, 'COMMA') + 'đ'}"></span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Giảm giá:</span>

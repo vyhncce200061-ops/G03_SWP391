@@ -78,8 +78,35 @@ public class OrderProcessController {
                                @PathVariable Long id,
                                RedirectAttributes redirectAttributes) {
         try {
-        orderService.markShipping(id, userDetails.getId());
-        redirectAttributes.addFlashAttribute("successMessage", "Đã bàn giao đơn hàng cho đơn vị vận chuyển!");
+            orderService.markShipping(id, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Đã bàn giao đơn hàng cho đơn vị vận chuyển!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/staff/orders/" + id;
+    }
+
+    @PostMapping("/{id}/delivery-failed")
+    public String recordDeliveryFailure(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                        @PathVariable Long id,
+                                        @RequestParam String reason,
+                                        RedirectAttributes redirectAttributes) {
+        try {
+            orderService.recordDeliveryFailure(id, userDetails.getId(), reason);
+            redirectAttributes.addFlashAttribute("successMessage", "Đã ghi nhận giao hàng không thành công!");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/staff/orders/" + id;
+    }
+
+    @PostMapping("/{id}/confirm-return")
+    public String confirmReturn(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                @PathVariable Long id,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            orderService.confirmReturn(id, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Đã xác nhận hoàn hàng về kho và cập nhật lại tồn kho!");
         } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }

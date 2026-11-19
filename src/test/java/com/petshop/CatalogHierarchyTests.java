@@ -263,24 +263,28 @@ class CatalogHierarchyTests {
         }
     }
 
-    @Test void activeProductsBlockDeactivationThroughTheButtonLegacyRouteAndEditForm() throws Exception {
-        for (String[] attempt : List.of(new String[]{"deactivate", "3", root.getId().toString()},
-                new String[]{"toggle-status", "3", root.getId().toString()},
-                new String[]{"deactivate", "1", child.getId().toString()})) {
-            mvc.perform(post("/admin/categories/" + attempt[0] + "/" + attempt[2]).with(user("admin").roles("ADMIN")).with(csrf()))
-                    .andExpect(flash().attribute("errorMessage", org.hamcrest.Matchers.containsString(attempt[1] + " sản phẩm đang bán")))
-                    .andExpect(flash().attribute("successMessage", org.hamcrest.Matchers.nullValue()));
-        }
-        mvc.perform(post("/admin/categories/update/" + root.getId()).with(user("admin").roles("ADMIN")).with(csrf())
-                        .param("code", root.getCode()).param("name", "Attempt to rename and disable").param("isActive", "false"))
-                .andExpect(model().attributeHasErrors("categoryForm"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("3 sản phẩm đang bán")));
-        assertEquals(root.getName(), categories.findById(root.getId()).orElseThrow().getName());
-        assertTrue(categories.findById(root.getId()).orElseThrow().getIsActive());
+    @Test void deactivatingCategoryHidesItsProductsFromSearchUntilReactivated() throws Exception {
+        // Initially, childProduct is findable via search
+        var initialSearch = mvc.perform(get("/products").param("keyword", keyword)).andExpect(status().isOk()).andReturn();
+        assertThat(ids(initialSearch, "productPage")).contains(childProduct.getId());
+
+        // Deactivating child category succeeds without blocking
+        mvc.perform(post("/admin/categories/deactivate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(flash().attributeExists("successMessage"));
+
+        assertFalse(categories.findById(child.getId()).orElseThrow().getIsActive());
+
+        // Now childProduct is hidden from storefront search
+        var hiddenSearch = mvc.perform(get("/products").param("keyword", keyword)).andExpect(status().isOk()).andReturn();
+        assertThat(ids(hiddenSearch, "productPage")).doesNotContain(childProduct.getId());
+
+        // Reactivating child category restores product visibility in search
+        mvc.perform(post("/admin/categories/activate/" + child.getId()).with(user("admin").roles("ADMIN")).with(csrf()))
+                .andExpect(flash().attributeExists("successMessage"));
+
         assertTrue(categories.findById(child.getId()).orElseThrow().getIsActive());
-        assertEquals(ProductStatus.ACTIVE, products.findById(childProduct.getId()).orElseThrow().getStatus());
-        String list = adminGet("/admin/categories").getResponse().getContentAsString();
-        assertThat(list).contains("/admin/products?categoryId=" + root.getId() + "&amp;status=ACTIVE");
+        var restoredSearch = mvc.perform(get("/products").param("keyword", keyword)).andExpect(status().isOk()).andReturn();
+        assertThat(ids(restoredSearch, "productPage")).contains(childProduct.getId());
     }
 
     @Test void deactivationAfterMovingOrPausingProductsPreservesTheChosenSaleStates() throws Exception {

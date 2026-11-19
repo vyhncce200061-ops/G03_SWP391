@@ -56,13 +56,17 @@ public class CatalogServiceImpl implements CatalogService {
             }
             if (filter.getPetType() != null) predicates.add(cb.equal(root.get("petType"), filter.getPetType()));
             if (filter.getBrandId() != null) predicates.add(cb.equal(root.get("brand").get("id"), filter.getBrandId()));
-            if (filter.getCategoryId() != null || (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank())) {
-                var category = root.<Product, Category>join("category");
-                var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
-                predicates.add(activeCategory(cb, category, parent));
-                if (filter.getCategoryId() != null) predicates.add(cb.or(cb.equal(category.get("id"), filter.getCategoryId()), cb.equal(parent.get("id"), filter.getCategoryId())));
-                if (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank())
-                    predicates.add(cb.or(cb.equal(category.get("code"), filter.getCategoryCode()), cb.equal(parent.get("code"), filter.getCategoryCode())));
+
+            // Always enforce active category in hierarchy so deactivating a category immediately hides its products
+            var category = root.<Product, Category>join("category");
+            var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
+            predicates.add(activeCategory(cb, category, parent));
+
+            if (filter.getCategoryId() != null) {
+                predicates.add(cb.or(cb.equal(category.get("id"), filter.getCategoryId()), cb.equal(parent.get("id"), filter.getCategoryId())));
+            }
+            if (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank()) {
+                predicates.add(cb.or(cb.equal(category.get("code"), filter.getCategoryCode()), cb.equal(parent.get("code"), filter.getCategoryCode())));
             }
             var priceQuery = query.subquery(BigDecimal.class);
             var variant = priceQuery.from(ProductVariant.class);
@@ -125,7 +129,7 @@ public class CatalogServiceImpl implements CatalogService {
     public List<ProductSummaryDto> getFeaturedProducts(int limit) {
         if (limit <= 0) return List.of();
         Pageable pageable = PageRequest.of(0, limit);
-        Page<Product> featured = productRepository.findByStatusAndIsFeaturedTrue(ProductStatus.ACTIVE, pageable);
+        Page<Product> featured = productRepository.findFeaturedActive(pageable);
         return featured.getContent().stream()
                 .map(this::mapToSummaryDto)
                 .collect(Collectors.toList());
@@ -182,11 +186,16 @@ public class CatalogServiceImpl implements CatalogService {
         return productRepository.findAll((root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             predicates.add(cb.equal(root.get("status"), ProductStatus.ACTIVE));
-            if (keyword != null && !keyword.isBlank()) predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
+
+            // Always enforce active category in hierarchy
+            var category = root.<Product, Category>join("category");
+            var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
+            predicates.add(activeCategory(cb, category, parent));
+
+            if (keyword != null && !keyword.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
+            }
             if (categoryId != null) {
-                var category = root.<Product, Category>join("category");
-                var parent = category.<Category, Category>join("parentCategory", JoinType.LEFT);
-                predicates.add(activeCategory(cb, category, parent));
                 predicates.add(cb.or(cb.equal(category.get("id"), categoryId), cb.equal(parent.get("id"), categoryId)));
             }
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));

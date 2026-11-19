@@ -50,6 +50,18 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     Page<Product> findByStatus(ProductStatus status, Pageable pageable);
     Page<Product> findByStatusAndIsFeaturedTrue(ProductStatus status, Pageable pageable);
+
+    @Query("""
+            SELECT p FROM Product p
+            JOIN p.category c
+            LEFT JOIN c.parentCategory parent
+            WHERE p.status = com.petshop.entity.enums.ProductStatus.ACTIVE
+              AND p.isFeatured = true
+              AND c.isActive = true
+              AND (parent.id IS NULL OR (parent.isActive = true AND parent.parentCategory IS NULL))
+            """)
+    Page<Product> findFeaturedActive(Pageable pageable);
+
     Page<Product> findByCategoryIdAndStatus(Integer categoryId, ProductStatus status, Pageable pageable);
     Page<Product> findByBrandIdAndStatus(Integer brandId, ProductStatus status, Pageable pageable);
     Page<Product> findByPetTypeAndStatus(PetType petType, ProductStatus status, Pageable pageable);
@@ -57,9 +69,11 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Query("SELECT p FROM Product p " +
            "LEFT JOIN FETCH p.images " +
            "LEFT JOIN FETCH p.variants v " +
-           "LEFT JOIN FETCH p.category " +
+           "JOIN FETCH p.category c " +
+           "LEFT JOIN FETCH c.parentCategory parent " +
            "LEFT JOIN FETCH p.brand " +
-           "WHERE p.slug = :slug AND p.status = com.petshop.entity.enums.ProductStatus.ACTIVE")
+           "WHERE p.slug = :slug AND p.status = com.petshop.entity.enums.ProductStatus.ACTIVE " +
+           "  AND c.isActive = true AND (parent.id IS NULL OR (parent.isActive = true AND parent.parentCategory IS NULL))")
     Optional<Product> findDetailedBySlug(@Param("slug") String slug);
 
     @Query(value = "SELECT p FROM Product p " +

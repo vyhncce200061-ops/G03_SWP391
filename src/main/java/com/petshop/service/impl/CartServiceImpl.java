@@ -229,7 +229,10 @@ public class CartServiceImpl implements CartService {
                     .availabilityMessage(availabilityMessage)
                     .build());
         }
-        BigDecimal shippingFee = selectedItemCount == 0 ? BigDecimal.ZERO : shippingFeeConfig.getShippingFee();
+        BigDecimal shippingFee = selectedItemCount == 0 ? BigDecimal.ZERO : shippingFeeConfig.calculateShippingFee(subtotal);
+        if (shippingFee == null) {
+            shippingFee = shippingFeeConfig.getShippingFee() != null ? shippingFeeConfig.getShippingFee() : BigDecimal.ZERO;
+        }
         return CartDto.builder()
                 .id(cart.getId())
                 .userId(cart.getUser().getId())
