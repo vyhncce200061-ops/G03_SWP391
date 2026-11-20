@@ -12,11 +12,14 @@ import java.util.List;
 
 @Repository
 public interface BannerRepository extends JpaRepository<Banner, Integer> {
-    List<Banner> findAllByOrderBySortOrderAscIdAsc();
+    List<Banner> findAllByIsDeletedFalseOrderBySortOrderAscIdAsc();
+
+    java.util.Optional<Banner> findByIdAndIsDeletedFalse(Integer id);
 
     @Query("""
             SELECT b FROM Banner b
-            WHERE b.isActive = true
+            WHERE b.isDeleted = false
+              AND b.isActive = true
               AND (b.startAt IS NULL OR b.startAt <= :now)
               AND (b.endAt IS NULL OR b.endAt > :now)
             ORDER BY b.sortOrder ASC, b.id ASC

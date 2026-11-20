@@ -773,6 +773,8 @@ BEGIN
         ButtonText  NVARCHAR(50)      NULL,
         SortOrder   INT               NOT NULL CONSTRAINT DF_Banners_SortOrder DEFAULT 0,
         IsActive    BIT               NOT NULL CONSTRAINT DF_Banners_IsActive DEFAULT 1,
+        IsDeleted   BIT               NOT NULL CONSTRAINT DF_Banners_IsDeleted DEFAULT 0,
+        DeletedAt   DATETIME2(0)      NULL,
         StartAt     DATETIME2(0)      NULL,
         EndAt       DATETIME2(0)      NULL,
         CreatedAt   DATETIME2(0)      NOT NULL CONSTRAINT DF_Banners_CreatedAt DEFAULT SYSDATETIME(),

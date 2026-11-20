@@ -45,6 +45,13 @@ public class Banner {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "IsDeleted", nullable = false)
+    @Builder.Default
+    private Boolean isDeleted = false;
+
+    @Column(name = "DeletedAt")
+    private LocalDateTime deletedAt;
+
     @Column(name = "StartAt")
     private LocalDateTime startAt;
 
@@ -60,7 +67,8 @@ public class Banner {
     /** True when the banner is switched on and inside its optional schedule window. */
     @Transient
     public boolean isDisplayableAt(LocalDateTime now) {
-        return Boolean.TRUE.equals(isActive)
+        return !Boolean.TRUE.equals(isDeleted)
+                && Boolean.TRUE.equals(isActive)
                 && (startAt == null || !startAt.isAfter(now))
                 && (endAt == null || endAt.isAfter(now));
     }
@@ -68,7 +76,7 @@ public class Banner {
     @Transient
     public State getDisplayState() {
         LocalDateTime now = LocalDateTime.now();
-        if (!Boolean.TRUE.equals(isActive)) return State.HIDDEN;
+        if (Boolean.TRUE.equals(isDeleted) || !Boolean.TRUE.equals(isActive)) return State.HIDDEN;
         if (startAt != null && startAt.isAfter(now)) return State.SCHEDULED;
         if (endAt != null && !endAt.isAfter(now)) return State.EXPIRED;
         return State.SHOWING;
@@ -80,6 +88,7 @@ public class Banner {
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
         if (isActive == null) isActive = true;
+        if (isDeleted == null) isDeleted = false;
         if (sortOrder == null) sortOrder = 0;
     }
 

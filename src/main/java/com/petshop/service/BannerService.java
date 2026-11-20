@@ -44,12 +44,12 @@ public class BannerService {
 
     @Transactional(readOnly = true)
     public List<Banner> listAll() {
-        return banners.findAllByOrderBySortOrderAscIdAsc();
+        return banners.findAllByIsDeletedFalseOrderBySortOrderAscIdAsc();
     }
 
     @Transactional(readOnly = true)
     public Banner get(Integer id) {
-        return banners.findById(id).orElseThrow(() -> new IllegalArgumentException("Banner không tồn tại."));
+        return banners.findByIdAndIsDeletedFalse(id).orElseThrow(() -> new IllegalArgumentException("Banner không tồn tại."));
     }
 
     /**
@@ -122,14 +122,14 @@ public class BannerService {
     @Transactional
     public void delete(Integer id) {
         Banner banner = get(id);
-        banners.delete(banner);
-        banners.flush();
-        removeAfterCommit(banner.getImageUrl());
+        banner.setIsDeleted(true);
+        banner.setDeletedAt(LocalDateTime.now());
+        banners.saveAndFlush(banner);
         resequenceAll();
     }
 
     private void resequenceAll() {
-        List<Banner> all = banners.findAllByOrderBySortOrderAscIdAsc();
+        List<Banner> all = banners.findAllByIsDeletedFalseOrderBySortOrderAscIdAsc();
         for (int i = 0; i < all.size(); i++) {
             all.get(i).setSortOrder(i + 1);
         }
@@ -137,7 +137,7 @@ public class BannerService {
     }
 
     private void resequenceBanners(Integer currentId, Integer requestedSort) {
-        List<Banner> all = banners.findAllByOrderBySortOrderAscIdAsc();
+        List<Banner> all = banners.findAllByIsDeletedFalseOrderBySortOrderAscIdAsc();
         Banner current = all.stream().filter(b -> b.getId().equals(currentId)).findFirst().orElse(null);
         if (current == null)
             return;

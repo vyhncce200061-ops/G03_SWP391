@@ -189,9 +189,16 @@ class BannerManagementTests {
         // Nút bấm mặc định luôn là "Khám phá"
         assertThat(found3.getButtonText()).isEqualTo("Khám phá");
 
-        // Xóa banner 1 -> các banner còn lại được chuẩn hóa thứ tự liên tục 1, 2
+        // Xóa banner 1 (xóa mềm) -> các banner còn lại được chuẩn hóa thứ tự liên tục 1, 2
         bannerService.delete(b1.getId());
         assertThat(bannerService.get(b3.getId()).getSortOrder()).isEqualTo(1);
         assertThat(bannerService.get(b2.getId()).getSortOrder()).isEqualTo(2);
+
+        // Kiểm tra xóa mềm: bản ghi vẫn còn trong database nhưng có cờ isDeleted = true, deletedAt != null
+        Banner rawB1 = bannerRepository.findById(b1.getId()).orElseThrow();
+        assertThat(rawB1.getIsDeleted()).isTrue();
+        assertThat(rawB1.getDeletedAt()).isNotNull();
+        assertThat(bannerService.listAll()).extracting(Banner::getId).doesNotContain(b1.getId());
+        assertThrows(IllegalArgumentException.class, () -> bannerService.get(b1.getId()));
     }
 }
