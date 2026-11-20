@@ -758,3 +758,29 @@ GO
 -- SELECT COUNT(*) AS TableCount FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';  -- = 21
 PRINT N'PetShopDB đã được tạo xong: 21 bảng, 4 view.';
 GO
+
+-- ============================================================
+-- 22. Quản lý Banner quảng cáo trang chủ (Banners)
+-- ============================================================
+IF OBJECT_ID('dbo.Banners', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Banners (
+        Id          INT IDENTITY(1,1) NOT NULL,
+        Title       NVARCHAR(150)     NOT NULL,
+        Subtitle    NVARCHAR(300)     NULL,
+        ImageUrl    NVARCHAR(1000)    NOT NULL,
+        LinkUrl     NVARCHAR(500)     NULL,
+        ButtonText  NVARCHAR(50)      NULL,
+        SortOrder   INT               NOT NULL CONSTRAINT DF_Banners_SortOrder DEFAULT 0,
+        IsActive    BIT               NOT NULL CONSTRAINT DF_Banners_IsActive DEFAULT 1,
+        StartAt     DATETIME2(0)      NULL,
+        EndAt       DATETIME2(0)      NULL,
+        CreatedAt   DATETIME2(0)      NOT NULL CONSTRAINT DF_Banners_CreatedAt DEFAULT SYSDATETIME(),
+        UpdatedAt   DATETIME2(0)      NOT NULL CONSTRAINT DF_Banners_UpdatedAt DEFAULT SYSDATETIME(),
+        CONSTRAINT PK_Banners PRIMARY KEY (Id),
+        CONSTRAINT CK_Banners_SortOrder CHECK (SortOrder >= 0 AND SortOrder <= 9999),
+        CONSTRAINT CK_Banners_Schedule CHECK (StartAt IS NULL OR EndAt IS NULL OR EndAt > StartAt)
+    );
+    CREATE INDEX IX_Banners_Active_Sort ON dbo.Banners(IsActive, SortOrder);
+END
+GO

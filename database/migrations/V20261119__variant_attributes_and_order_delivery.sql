@@ -1,6 +1,10 @@
 -- Migration: Add Color, WeightKg to ProductVariants and DeliveryAttempts to Orders
 -- Date: 2026-11-19
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 -- 1. ProductVariants: Add Color and WeightKg
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ProductVariants') AND name = 'Color')
 BEGIN

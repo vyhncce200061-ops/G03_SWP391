@@ -71,13 +71,15 @@ class HomeBrandTests {
         product(inactiveSku, ProductStatus.ACTIVE, ProductVariantStatus.INACTIVE);
         Brand unused = brand("Unused ", true, null);
 
-        String html = mvc.perform(get("/")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(html).contains("id=\"homeBrands\"", "src=\"/uploads/brands/logo.png\"",
-                "href=\"/products?brandId=" + visible.getId() + "\"", textOnly.getName());
-        assertThat(html.split("data-brand-id=\"" + visible.getId() + "\"", -1)).hasSize(2);
+        var storefrontBrands = brands.findStorefrontBrands(ProductStatus.ACTIVE, ProductVariantStatus.ACTIVE);
+        assertThat(storefrontBrands).extracting(Brand::getId).contains(visible.getId(), textOnly.getId());
         for (Brand hidden : java.util.List.of(inactive, discontinued, noSku, inactiveSku, unused)) {
-            assertThat(html).doesNotContain("data-brand-id=\"" + hidden.getId() + "\"");
+            assertThat(storefrontBrands).extracting(Brand::getId).doesNotContain(hidden.getId());
         }
+
+        String html = mvc.perform(get("/")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(html).doesNotContain("id=\"homeBrands\"");
+
         String filtered = mvc.perform(get("/products").param("brandId", textOnly.getId().toString()))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(filtered).contains(textOnly.getName()).doesNotContain("href=\"/products/" + first.getSlug() + "\"");

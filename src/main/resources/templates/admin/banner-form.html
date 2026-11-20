@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/admin-layout}">
+<head>
+    <title th:text="${bannerId == null} ? 'Thêm banner mới - PetShop' : 'Chỉnh sửa banner - PetShop'">Banner - PetShop</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div class="container-fluid" style="max-width: 900px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h4 mb-1" th:text="${bannerId == null} ? 'Thêm banner mới' : 'Chỉnh sửa banner'">Thêm banner</h1>
+                <p class="text-muted mb-0">Cấu hình hình ảnh, nội dung và liên kết trình chiếu ngoài trang chủ.</p>
+            </div>
+            <a th:href="@{/admin/banners}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-body p-4">
+                <div th:if="${errorMessage != null}" class="alert alert-danger" th:text="${errorMessage}"></div>
+
+                <form th:action="${bannerId == null} ? @{/admin/banners/new} : @{/admin/banners/{id}/edit(id=${bannerId})}"
+                      th:object="${form}" method="post" enctype="multipart/form-data" novalidate>
+
+                    <div class="row g-3">
+                        <!-- Tiêu đề -->
+                        <div class="col-12">
+                            <label for="title" class="form-label fw-semibold">Tiêu đề banner <span class="text-danger">*</span></label>
+                            <input type="text" id="title" th:field="*{title}" class="form-control" maxlength="150"
+                                   th:classappend="${#fields.hasErrors('title')} ? 'is-invalid'"
+                                   placeholder="VD: Siêu Sale Thức Ăn Thú Cưng Giảm 30%">
+                            <div class="invalid-feedback" th:errors="*{title}"></div>
+                        </div>
+
+                        <!-- Mô tả ngắn -->
+                        <div class="col-12">
+                            <label for="subtitle" class="form-label fw-semibold">Mô tả ngắn / Slogan phụ</label>
+                            <textarea id="subtitle" th:field="*{subtitle}" class="form-control" rows="2" maxlength="300"
+                                      th:classappend="${#fields.hasErrors('subtitle')} ? 'is-invalid'"
+                                      placeholder="VD: Hàng ngàn sản phẩm hạt, pate và phụ kiện đang có giá cực ưu đãi tuần này."></textarea>
+                            <div class="invalid-feedback" th:errors="*{subtitle}"></div>
+                        </div>
+
+                        <!-- Upload hình ảnh -->
+                        <div class="col-12">
+                            <label for="imageFile" class="form-label fw-semibold">
+                                Hình ảnh banner <span th:if="${bannerId == null}" class="text-danger">*</span>
+                            </label>
+
+                            <div th:if="${currentImage != null}" class="mb-3 p-3 bg-light rounded-3 border">
+                                <div class="small text-muted mb-2 fw-semibold">Ảnh hiện tại:</div>
+                                <img th:src="${currentImage}" alt="Ảnh banner" class="img-fluid rounded border shadow-sm"
+                                     style="max-height: 180px; width: 100%; object-fit: cover;">
+                            </div>
+
+                            <input type="file" id="imageFile" th:field="*{imageFile}" class="form-control"
+                                   accept="image/png,image/jpeg,image/gif"
+                                   th:classappend="${#fields.hasErrors('imageFile')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{imageFile}"></div>
+                            <div class="form-text">
+                                Định dạng JPG, PNG hoặc GIF. Dung lượng tối đa 5 MB. Khuyến nghị tỉ lệ 16:5 hoặc 16:9 (rộng tối thiểu 800px, lý tưởng 1600 × 500px).
+                                <span th:if="${bannerId != null}">Nếu không chọn ảnh mới, hệ thống sẽ giữ nguyên ảnh hiện tại.</span>
+                            </div>
+                        </div>
+
+                        <input type="hidden" th:field="*{buttonText}">
+
+                        <!-- Liên kết đích (Dropdown chọn các mục đặc trưng) -->
+                        <div class="col-md-6">
+                            <label for="linkUrl" class="form-label fw-semibold">Liên kết khi bấm vào banner</label>
+                            <select id="linkUrl" th:field="*{linkUrl}" class="form-select"
+                                    th:classappend="${#fields.hasErrors('linkUrl')} ? 'is-invalid'">
+                                <option th:each="opt : ${linkOptions}" th:value="${opt.value}" th:text="${opt.label}"></option>
+                            </select>
+                            <div class="invalid-feedback" th:errors="*{linkUrl}"></div>
+                            <div class="form-text">Chọn trang điều hướng (nút bấm sẽ hiển thị mặc định chữ <strong>"Khám phá"</strong>).</div>
+                        </div>
+
+                        <!-- Vị trí hiển thị (Dropdown thứ tự) -->
+                        <div class="col-md-6">
+                            <label for="sortOrder" class="form-label fw-semibold">Vị trí hiển thị <span class="text-danger">*</span></label>
+                            <select id="sortOrder" th:field="*{sortOrder}" class="form-select"
+                                    th:classappend="${#fields.hasErrors('sortOrder')} ? 'is-invalid'">
+                                <option th:each="pos : ${positionOptions}" th:value="${pos.value}" th:text="${pos.label}"></option>
+                            </select>
+                            <div class="invalid-feedback" th:errors="*{sortOrder}"></div>
+                            <div class="form-text">Chọn vị trí hiển thị slide: Dẫn đầu, các vị trí hiện có, hoặc Cuối cùng.</div>
+                        </div>
+
+                        <!-- Thời gian bắt đầu -->
+                        <div class="col-md-6">
+                            <label for="startAt" class="form-label fw-semibold">Bắt đầu hiển thị từ</label>
+                            <input type="datetime-local" id="startAt" th:field="*{startAt}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('startAt')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{startAt}"></div>
+                            <div class="form-text">Để trống để hiển thị ngay lập tức.</div>
+                        </div>
+
+                        <!-- Thời gian kết thúc -->
+                        <div class="col-md-6">
+                            <label for="endAt" class="form-label fw-semibold">Tự động kết thúc lúc</label>
+                            <input type="datetime-local" id="endAt" th:field="*{endAt}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('endAt')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:errors="*{endAt}"></div>
+                            <div class="form-text">Để trống nếu không có thời hạn kết thúc.</div>
+                        </div>
+
+                        <!-- Checkbox kích hoạt -->
+                        <div class="col-12 mt-4">
+                            <div class="form-check form-switch fs-5">
+                                <input class="form-check-input" type="checkbox" id="active" th:field="*{active}">
+                                <label class="form-check-label fs-6 fw-semibold" for="active">Kích hoạt hiển thị banner</label>
+                            </div>
+                            <div class="form-text ms-1">Nếu tắt, banner sẽ bị ẩn hoàn toàn khỏi trang chủ bất kể lịch trình.</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <a th:href="@{/admin/banners}" class="btn btn-outline-secondary px-4">Hủy</a>
+                        <button type="submit" class="btn btn-success px-4"
+                                th:text="${bannerId == null} ? 'Thêm banner' : 'Lưu thay đổi'">Lưu</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
