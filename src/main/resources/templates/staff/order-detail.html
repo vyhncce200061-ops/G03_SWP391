@@ -71,7 +71,7 @@
                     <span th:if="${order.orderStatus.name() == 'CONFIRMED'}" class="badge status-badge status-badge-lg bg-info-subtle text-info-emphasis border border-info-subtle">Đã xác nhận</span>
                     <span th:if="${order.orderStatus.name() == 'PREPARING'}" class="badge status-badge status-badge-lg bg-primary-subtle text-primary-emphasis border border-primary-subtle">Đang chuẩn bị</span>
                     <span th:if="${order.orderStatus.name() == 'SHIPPING'}" class="badge status-badge status-badge-lg badge-purple-subtle">Đang giao</span>
-                    <span th:if="${order.orderStatus.name() == 'DELIVERY_FAILED'}" class="badge status-badge status-badge-lg bg-warning text-dark border border-warning">Giao thất bại</span>
+                    <span th:if="${order.orderStatus.name() == 'DELIVERY_FAILED'}" class="badge status-badge status-badge-lg bg-danger-subtle text-danger-emphasis border border-danger-subtle">Giao hàng không thành công</span>
                     <span th:if="${order.orderStatus.name() == 'RETURNED'}" class="badge status-badge status-badge-lg bg-secondary text-white">Đã hoàn hàng</span>
                     <span th:if="${order.orderStatus.name() == 'COMPLETED'}" class="badge status-badge status-badge-lg bg-success-subtle text-success-emphasis border border-success-subtle">Hoàn thành</span>
                     <span th:if="${order.orderStatus.name() == 'CANCELLED'}" class="badge status-badge status-badge-lg bg-danger-subtle text-danger-emphasis border border-danger-subtle">Đã hủy</span>
@@ -113,13 +113,13 @@
                         </form>
                         <form th:action="@{/staff/orders/{id}/delivery-failed(id=${order.id})}" method="post" class="d-flex gap-2">
                             <input type="text" name="reason" class="form-control form-control-sm" placeholder="Lý do không nhận/thất bại..." required maxlength="1000" style="width: 220px;">
-                            <button type="submit" class="btn btn-outline-warning text-dark text-nowrap"><i class="bi bi-exclamation-triangle me-1"></i>Báo Giao Thất Bại</button>
+                            <button type="submit" class="btn btn-outline-danger text-nowrap"><i class="bi bi-exclamation-triangle me-1"></i>Báo Giao Hàng Không Thành Công</button>
                         </form>
                     </th:block>
 
                     <!-- Delivery Failed -> Retry Shipping or Confirm Return -->
                     <th:block th:if="${order.orderStatus.name() == 'DELIVERY_FAILED'}">
-                        <div class="w-100 alert alert-warning mb-2 py-2">
+                        <div class="w-100 alert alert-danger mb-2 py-2">
                             <strong>Đã thử giao:</strong> <span th:text="${order.deliveryAttempts}">1</span> lần.
                             <span th:if="${order.failedDeliveryReason != null}"> - <strong>Lý do:</strong> <span th:text="${order.failedDeliveryReason}"></span></span>
                         </div>
@@ -128,7 +128,7 @@
                             <button type="submit" class="btn text-white" style="background-color: #8b5cf6;"><i class="bi bi-arrow-repeat me-1"></i>Giao Lại</button>
                         </form>
                         <form th:action="@{/staff/orders/{id}/confirm-return(id=${order.id})}" method="post">
-                            <button type="submit" class="btn btn-danger"><i class="bi bi-box-arrow-in-left me-1"></i>Xác Nhận Hoàn Hàng Về Kho</button>
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-box-arrow-in-left me-1"></i>Xác Nhận Hoàn Hàng Về Kho</button>
                         </form>
                     </th:block>
 

@@ -89,7 +89,11 @@
 
                     <td class="text-center" th:text="${p.id}">1</td>
                     <td>
-                        <div class="fw-semibold" th:text="${p.name}">Tên SP</div>
+                        <div class="fw-semibold">
+                            <!-- Star icon for featured products -->
+                            <i th:if="${p.isFeatured}" class="bi bi-star-fill text-warning me-1" title="Sản phẩm nổi bật"></i>
+                            <span th:text="${p.name}">Tên SP</span>
+                        </div>
                         <div class="small text-muted" th:text="${p.slug}">slug</div>
                     </td>
                     <td>
@@ -168,9 +172,9 @@
 
     <!-- Pagination -->
     <div th:replace="~{fragments/pagination :: pagination(
-        page=${products},
-        url=@{${productBasePath}(keyword=${keyword}, categoryId=${selectedCategoryId}, status=${selectedStatus})},
-        itemName='sản phẩm')}">
+    page=${products},
+    url='/staff/products?keyword=' + (${keyword} ?: '') + '&categoryId=' + (${selectedCategoryId} ?: '') + '&status=' + (${selectedStatus} ?: ''),
+    itemName='sản phẩm')}">
     </div>
 </div>
 </body>

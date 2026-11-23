@@ -22,6 +22,8 @@
                 <option value="CONFIRMED" th:selected="${currentStatus == 'CONFIRMED'}">Đã xác nhận</option>
                 <option value="PREPARING" th:selected="${currentStatus == 'PREPARING'}">Đang chuẩn bị</option>
                 <option value="SHIPPING" th:selected="${currentStatus == 'SHIPPING'}">Đang giao hàng</option>
+                <option value="DELIVERY_FAILED" th:selected="${currentStatus == 'DELIVERY_FAILED'}">Giao hàng thất bại</option>
+                <option value="RETURNED" th:selected="${currentStatus == 'RETURNED'}">Đã hoàn hàng</option>
                 <option value="COMPLETED" th:selected="${currentStatus == 'COMPLETED'}">Hoàn thành</option>
                 <option value="CANCELLED" th:selected="${currentStatus == 'CANCELLED'}">Đã hủy</option>
             </select>
@@ -64,10 +66,12 @@
                     <td>
                         <div class="fw-semibold" th:text="${o.paymentMethod.name() == 'COD' ? 'COD' : 'VNPay'}">COD</div>
                         <div class="mt-1">
-                            <span th:if="${o.paymentStatus.name() == 'PAID'}" class="small text-success fw-semibold">
+                            <span th:if="${o.paymentStatus.name() == 'PAID' and o.orderStatus.name() != 'RETURNED' and o.orderStatus.name() != 'CANCELLED'}"
+                                  class="small text-success fw-semibold">
                                 <i class="bi bi-check-circle-fill"></i> Đã thanh toán
                             </span>
-                            <span th:if="${o.paymentStatus.name() == 'UNPAID'}" class="small text-warning fw-semibold">
+                            <span th:if="${o.paymentStatus.name() == 'UNPAID' and o.orderStatus.name() != 'RETURNED' and o.orderStatus.name() != 'CANCELLED'}"
+                                  class="small text-warning fw-semibold">
                                 <i class="bi bi-clock-fill"></i> Chưa thanh toán
                             </span>
                         </div>
@@ -92,6 +96,14 @@
                         <span th:if="${o.orderStatus.name() == 'SHIPPING'}"
                               class="badge status-badge badge-purple-subtle">
                             Đang giao
+                        </span>
+                        <span th:if="${o.orderStatus.name() == 'DELIVERY_FAILED'}"
+                              class="badge status-badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
+                            Giao thất bại
+                        </span>
+                        <span th:if="${o.orderStatus.name() == 'RETURNED'}"
+                              class="badge status-badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle">
+                            Đã hoàn hàng
                         </span>
                         <span th:if="${o.orderStatus.name() == 'COMPLETED'}"
                               class="badge status-badge bg-success-subtle text-success-emphasis border border-success-subtle">
