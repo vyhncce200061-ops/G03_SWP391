@@ -15,17 +15,18 @@
 
         <!-- Filter Form inline -->
         <form th:action="@{/staff/orders}" method="get" class="d-flex gap-2 align-items-center">
-            <select class="form-select form-select-sm" name="status" style="min-width: 200px;">
+            <select class="form-select form-select-sm" name="status" style="min-width: 200px;"
+                    th:with="statusName=${currentStatus?.name()}">
                 <option value="">-- Tất cả trạng thái --</option>
-                <option value="PENDING_CONFIRMATION" th:selected="${currentStatus == 'PENDING_CONFIRMATION'}">Chờ xác nhận</option>
-                <option value="PENDING_PAYMENT" th:selected="${currentStatus == 'PENDING_PAYMENT'}">Chờ thanh toán</option>
-                <option value="CONFIRMED" th:selected="${currentStatus == 'CONFIRMED'}">Đã xác nhận</option>
-                <option value="PREPARING" th:selected="${currentStatus == 'PREPARING'}">Đang chuẩn bị</option>
-                <option value="SHIPPING" th:selected="${currentStatus == 'SHIPPING'}">Đang giao hàng</option>
-                <option value="DELIVERY_FAILED" th:selected="${currentStatus == 'DELIVERY_FAILED'}">Giao hàng thất bại</option>
-                <option value="RETURNED" th:selected="${currentStatus == 'RETURNED'}">Đã hoàn hàng</option>
-                <option value="COMPLETED" th:selected="${currentStatus == 'COMPLETED'}">Hoàn thành</option>
-                <option value="CANCELLED" th:selected="${currentStatus == 'CANCELLED'}">Đã hủy</option>
+                <option value="PENDING_CONFIRMATION" th:selected="${statusName == 'PENDING_CONFIRMATION'}">Chờ xác nhận</option>
+                <option value="PENDING_PAYMENT" th:selected="${statusName == 'PENDING_PAYMENT'}">Chờ thanh toán</option>
+                <option value="CONFIRMED" th:selected="${statusName == 'CONFIRMED'}">Đã xác nhận</option>
+                <option value="PREPARING" th:selected="${statusName == 'PREPARING'}">Đang chuẩn bị</option>
+                <option value="SHIPPING" th:selected="${statusName == 'SHIPPING'}">Đang giao hàng</option>
+                <option value="DELIVERY_FAILED" th:selected="${statusName == 'DELIVERY_FAILED'}">Giao hàng thất bại</option>
+                <option value="RETURNED" th:selected="${statusName == 'RETURNED'}">Đã hoàn hàng</option>
+                <option value="COMPLETED" th:selected="${statusName == 'COMPLETED'}">Hoàn thành</option>
+                <option value="CANCELLED" th:selected="${statusName == 'CANCELLED'}">Đã hủy</option>
             </select>
             <button type="submit" class="btn btn-sm btn-pet-outline px-2.5" title="Lọc">
                 <i class="bi bi-funnel"></i>

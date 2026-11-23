@@ -181,6 +181,33 @@ class StaffProductWorkflowTests {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"/admin/products,ADMIN", "/staff/products,STAFF"})
+    void nextProductPageKeepsActorRouteAndEscapesFilters(String path, String role) throws Exception {
+        User actor = role.equals("ADMIN") ? adminActor() : staff;
+        String keyword = "Dog & Cat + " + UUID.randomUUID();
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+            for (int index = 0; index < 2; index++) {
+                products.save(Product.builder().name(keyword + " " + index).slug(UUID.randomUUID().toString())
+                        .category(product.getCategory()).createdBy(staff).status(ProductStatus.ACTIVE).build());
+            }
+        });
+        String categoryId = product.getCategory().getId().toString();
+        String html = mvc.perform(get(path).param("size", "1").param("keyword", keyword)
+                        .param("categoryId", categoryId).param("status", "ACTIVE")
+                        .with(user(new CustomUserDetails(actor))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var links = java.util.regex.Pattern.compile("href=\"(" + java.util.regex.Pattern.quote(path)
+                + "\\?[^\"]*\\bpage=1(?:&[^\"]*)?)\"").matcher(html);
+        assertThat(links.find()).isTrue();
+        var nextPage = java.net.URI.create(links.group(1).replace("&amp;", "&"));
+        mvc.perform(get(nextPage).with(user(new CustomUserDetails(actor))))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("keyword", keyword))
+                .andExpect(model().attribute("selectedStatus", ProductStatus.ACTIVE))
+                .andExpect(model().attribute("selectedCategoryId", product.getCategory().getId()));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "/admin/products/9223372036854775807/edit,ADMIN",
             "/staff/products/9223372036854775807/edit,STAFF",

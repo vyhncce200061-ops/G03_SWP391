@@ -172,9 +172,9 @@
 
     <!-- Pagination -->
     <div th:replace="~{fragments/pagination :: pagination(
-    page=${products},
-    url='/staff/products?keyword=' + (${keyword} ?: '') + '&categoryId=' + (${selectedCategoryId} ?: '') + '&status=' + (${selectedStatus} ?: ''),
-    itemName='sản phẩm')}">
+        page=${products},
+        url=@{${productBasePath}(keyword=${keyword}, categoryId=${selectedCategoryId}, status=${selectedStatus})},
+        itemName='sản phẩm')}">
     </div>
 </div>
 </body>
