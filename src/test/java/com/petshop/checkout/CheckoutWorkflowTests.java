@@ -3,10 +3,13 @@ package com.petshop.checkout;
 import com.petshop.config.security.CustomUserDetails;
 import com.petshop.dto.cart.CartDto;
 import com.petshop.dto.order.CheckoutQuoteDto;
+import com.petshop.dto.order.CheckoutSubmitDto;
 import com.petshop.entity.*;
 import com.petshop.entity.enums.*;
 import com.petshop.repository.*;
 import com.petshop.service.CartService;
+import com.petshop.service.CategoryManageService;
+import com.petshop.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -43,6 +47,8 @@ class CheckoutWorkflowTests {
     @Autowired MockMvc mvc;
     @Autowired com.petshop.config.VnPayProperties vnPayProperties;
     @Autowired CartService carts;
+    @Autowired CategoryManageService categoryManagement;
+    @Autowired OrderService orderService;
     @Autowired UserRepository users;
     @Autowired RoleRepository roles;
     @Autowired CategoryRepository categories;
@@ -81,6 +87,29 @@ class CheckoutWorkflowTests {
         firstItem = cart.getItems().stream().filter(i -> i.getVariantId().equals(first.getId())).findFirst().orElseThrow().getId();
         secondItem = cart.getItems().stream().filter(i -> i.getVariantId().equals(second.getId())).findFirst().orElseThrow().getId();
         carts.updateItemSelection(customer.getId(), secondItem, false);
+    }
+
+    @Test
+    void categoryShutdownBlocksPurchasesFromAnExistingCart() throws Exception {
+        Category leaf = first.getProduct().getCategory();
+        Category root = categories.saveAndFlush(Category.builder().code("P-" + leaf.getCode()).name("Nhóm cha").build());
+        leaf.setParentCategory(root);
+        categories.saveAndFlush(leaf);
+        long ordersBefore = orders.count();
+
+        categoryManagement.setActive(root.getId(), false);
+
+        mvc.perform(post("/checkout/quote").with(user(principal)).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.checkoutAllowed").value(false));
+        assertThatThrownBy(() -> carts.addItemToCart(customer.getId(), first.getId(), 1))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("tạm dừng bán");
+        CheckoutSubmitDto request = CheckoutSubmitDto.builder().recipientName("Người nhận").recipientPhone("0901234567")
+                .shippingProvince("Cần Thơ").shippingDistrict("Ninh Kiều").shippingWard("Tân An")
+                .shippingAddressLine("12 Đường A").paymentMethod(PaymentMethod.COD).build();
+        assertThatThrownBy(() -> orderService.checkoutOrder(customer.getId(), request))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("không còn kinh doanh");
+        assertThat(orders.count()).isEqualTo(ordersBefore);
+        assertThat(variants.findById(first.getId()).orElseThrow().getStockQuantity()).isEqualTo(10);
     }
 
     @Test

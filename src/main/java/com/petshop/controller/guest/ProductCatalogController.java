@@ -303,7 +303,6 @@ public class ProductCatalogController {
         model.addAttribute("availableVariants", product.getVariants().stream()
                 .filter(v -> v.getStatus() == com.petshop.entity.enums.ProductVariantStatus.ACTIVE && v.getStockQuantity() > 0)
                 .toList());
-        model.addAttribute("relatedProducts", catalogService.getFeaturedProducts(4));
 
         return "guest/product-detail";
     }

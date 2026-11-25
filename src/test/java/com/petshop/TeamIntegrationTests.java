@@ -668,6 +668,7 @@ class TeamIntegrationTests {
         assertNotNull(success);assertTrue(success.startsWith("/checkout/success/"));
         var order=orderService.getOrderByCodeForCustomer(success.substring(success.lastIndexOf('/')+1),customer.getId());
         assertEquals(0,new BigDecimal("380000").compareTo(order.getTotalAmount()));
+        assertEquals(0,new BigDecimal("30000").compareTo(order.getShippingFee()));
         assertFalse(order.getStockDeducted());assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
         assertEquals(0,carts.getCartForUser(customer.getId()).getTotalQuantity());
         mvc.perform(get(success).with(buyer)).andExpect(status().isOk());
