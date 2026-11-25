@@ -14,6 +14,8 @@ Kết quả kiểm tra hiện tại và phạm vi các luồng đã đối chi�
 
 **Biến thể và giao hàng:** Với database đã có dữ liệu, áp dụng [migration biến thể và trạng thái giao hàng](database/migrations/V20261119__variant_attributes_and_order_delivery.sql) trước khi chạy bản mới. Script thêm màu, trọng lượng, số lần giao thất bại, lý do và hai trạng thái giao hàng.
 
+**Banner trang chủ** cần migration trên database PetShop hiện có. Script tạo bảng `Banners` khi chưa có và bổ sung các cột xóa mềm cho bảng Banner của bản trước. [Migration Banner](database/migrations/V20261120__banners.sql)
+
 **Voucher và giao hàng:** Voucher giảm trên tiền hàng đã chọn. Từ 500.000 đ tiền hàng trước voucher, hệ thống tự miễn phí giao hàng. Mức phí thông thường và ngưỡng có thể cấu hình bằng `SHIPPING_FEE` và `FREE_SHIPPING_THRESHOLD`. Với database đã có mã Free Ship cũ, chạy [script ngừng phát hành FREESHIP30K](database/migrations/V20261119__retire_shipping_voucher.sql) trên đúng database PetShop sau khi đã có cập nhật xóa mềm voucher. Script giữ các đơn, ví và số lượt cũ.
 
 ---
